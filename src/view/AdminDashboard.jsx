@@ -16,20 +16,19 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import {
-  getAllSlots,
-  getSlotsByStatus,
   updateSlotStatus,
   deleteSlot,
-  getSlotStatistics,
   slotsSnapshotToUI,
   getLeaves,
   addLeave as addLeaveToFirestore,
   deleteLeave as deleteLeaveFromFirestore,
   formatDateDDMMYYYY,
 } from '../firebase/slotsService';
+import { parseISOToDate } from '../calendar';
 import WeekCalendar from '../Components/WeekCalendar';
 
-const normaliseRoundLabelAdmin = (raw) => {
+// Normalise legacy round labels to new naming
+function normaliseRoundLabelAdmin(raw) {
   const r = String(raw || '').trim();
   if (!r) return '';
   const lower = r.toLowerCase();
@@ -37,10 +36,11 @@ const normaliseRoundLabelAdmin = (raw) => {
   if (lower === 'round 2') return 'Technical Round 2';
   if (lower === 'round 3') return 'Technical Round 3';
   if (lower === 'manager round' || lower === 'managerial round') return 'Manageral Round';
-  if (lower === 'technical discussion round') return 'HR Round';
-  if (lower === 'last technical round') return 'Task Assesment';
+  // Map legacy labels to the new detailed rounds
+  if (lower === 'technical discussion round') return 'Technical Round 2';
+  if (lower === 'last technical round') return 'Technical Round 3';
   return r;
-};
+}
 
 // Reusable pagination bar: left = count label, right = « < pages > » + per-page selector
 function PaginationBar({
@@ -436,9 +436,10 @@ function AdminCandidatesTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const totalItems = candidates.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
   const startIdx = (currentPage - 1) * itemsPerPage;
   const paginatedCandidates = candidates.slice(startIdx, startIdx + itemsPerPage);
+  const [confirmDeleteCandidateId, setConfirmDeleteCandidateId] = useState(null);
+  const [confirmDeleteCandidateName, setConfirmDeleteCandidateName] = useState('');
 
   const getScheduledCount = (candidateName) => {
     return slots.filter(
@@ -584,7 +585,7 @@ function AdminCandidatesTable({
                 Technologies
               </th>
               <th className="px-3 py-2 text-center font-semibold border-b border-r border-slate-200">
-                Total Scheduled
+                Total Slots
               </th>
               <th className="px-3 py-2 text-center font-semibold border-b border-r border-slate-200">
                 Last Interview
@@ -638,8 +639,12 @@ function AdminCandidatesTable({
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">{c.mobile}</td>
-                <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">{c.experience || '0'}</td>
+                <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">
+                  {c.mobile}
+                </td>
+                <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">
+                  {(c.experience && String(c.experience).trim()) || '0'} yrs
+                </td>
                 <td className="px-3 py-2 text-center border-r border-slate-200">
                   <div className="inline-flex flex-wrap gap-1 justify-center">
                     {c.technologies.map((t) => (
@@ -698,7 +703,11 @@ function AdminCandidatesTable({
                       <i className="fa-solid fa-pen" aria-hidden="true" />
                     </button>
                     <button
-                      onClick={() => onDeleteCandidate(c.id)}
+                      type="button"
+                      onClick={() => {
+                        setConfirmDeleteCandidateId(c.id);
+                        setConfirmDeleteCandidateName(c.name || '');
+                      }}
                       className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
                     >
                       <i className="fa-solid fa-trash" aria-hidden="true" />
@@ -721,6 +730,47 @@ function AdminCandidatesTable({
         }}
         label="Candidates"
       />
+      {/* Delete candidate confirmation modal */}
+      {confirmDeleteCandidateId != null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5">
+            <h3 className="text-sm font-semibold text-slate-900 mb-2">
+              Are you sure you want to delete this candidate?
+            </h3>
+            <p className="text-xs text-slate-600 mb-4">
+              Candidate:{' '}
+              <span className="font-semibold">
+                {confirmDeleteCandidateName || 'Unnamed'}
+              </span>
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDeleteCandidateId(null);
+                  setConfirmDeleteCandidateName('');
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteCandidate && confirmDeleteCandidateId != null) {
+                    onDeleteCandidate(confirmDeleteCandidateId);
+                  }
+                  setConfirmDeleteCandidateId(null);
+                  setConfirmDeleteCandidateName('');
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1766,6 +1816,8 @@ function AdminSlotsTable({
   const [technologySearch, setTechnologySearch] = useState('');
   const [roundSearch, setRoundSearch] = useState('');
   const [hrSearch, setHrSearch] = useState('');
+  const [confirmDeleteSlotId, setConfirmDeleteSlotId] = useState(null);
+  const [confirmDeleteSlotName, setConfirmDeleteSlotName] = useState('');
 
   const companyOptions = useMemo(() => {
     const set = new Set();
@@ -1872,7 +1924,7 @@ function AdminSlotsTable({
     return slots.filter((slot) => {
       const company = String(slot.company || slot.companyName || '').trim();
       const tech = String(slot.technology || '').trim();
-      const round = String(slot.round || '').trim();
+      const round = normaliseRoundLabelAdmin(slot.round);
       const hrName = String(slot.hrName || '').trim();
 
       if (timeRange === 'thisWeek' || timeRange === 'lastWeek') {
@@ -2595,14 +2647,14 @@ function AdminSlotsTable({
                         <div className="flex gap-2">
                           <button
                             onClick={() => onApproveSlot(slotId)}
-                            className="inline-flex items-center gap-2 rounded bg-emerald-500 px-4 py-2 text-[11px] font-semibold text-white hover:bg-emerald-600"
+                            className="inline-flex items-center gap-2 rounded bg-emerald-500 px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-emerald-600"
                           >
                             <i className="fa-solid fa-check" aria-hidden="true" />
                             Approve
                           </button>
                           <button
                             onClick={() => onRejectSlot(slotId)}
-                            className="inline-flex items-center gap-2 rounded bg-red-500 px-4 py-2 text-[11px] font-semibold text-white hover:bg-red-600"
+                            className="inline-flex items-center gap-2 rounded bg-red-500 px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-red-600"
                           >
                             <i className="fa-solid fa-xmark" aria-hidden="true" />
                             Reject
@@ -2610,7 +2662,10 @@ function AdminSlotsTable({
                           <button
                             type="button"
                             className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
-                            onClick={() => onDeleteSlot && onDeleteSlot(slotId)}
+                            onClick={() => {
+                              setConfirmDeleteSlotId(slotId);
+                              setConfirmDeleteSlotName(slot.candidateName || slot.company || '');
+                            }}
                             aria-label="Delete"
                           >
                             <i className="fa-solid fa-trash" aria-hidden="true" />
@@ -2621,7 +2676,10 @@ function AdminSlotsTable({
                           <button
                             type="button"
                             className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
-                            onClick={() => onDeleteSlot && onDeleteSlot(slotId)}
+                            onClick={() => {
+                              setConfirmDeleteSlotId(slotId);
+                              setConfirmDeleteSlotName(slot.candidateName || slot.company || '');
+                            }}
                             aria-label="Delete"
                           >
                             <i className="fa-solid fa-trash" aria-hidden="true" />
@@ -2648,6 +2706,47 @@ function AdminSlotsTable({
           }}
           label="Slots"
         />
+      )}
+      {/* Delete slot confirmation modal */}
+      {confirmDeleteSlotId != null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5">
+            <h3 className="text-sm font-semibold text-slate-900 mb-2">
+              Are you sure you want to delete this slot?
+            </h3>
+            <p className="text-xs text-slate-600 mb-4">
+              Slot for:{' '}
+              <span className="font-semibold">
+                {confirmDeleteSlotName || 'Candidate / Company'}
+              </span>
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDeleteSlotId(null);
+                  setConfirmDeleteSlotName('');
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteSlot && confirmDeleteSlotId != null) {
+                    onDeleteSlot(confirmDeleteSlotId);
+                  }
+                  setConfirmDeleteSlotId(null);
+                  setConfirmDeleteSlotName('');
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -3460,10 +3559,28 @@ function AdminCandidateSlotsView({ data, onBack }) {
   const referredBy = candidate?.referredBy || 'Viraj Kadam Sir';
   const totalCount = slots.length || 0;
   const isSelectedCandidate = !!candidate?.selected;
-  const selectedDate = candidate?.selectedDate || '-';
-  const joiningDate = candidate?.joiningDate || '-';
+  const formatCandidateDateDisplay = (raw) => {
+    if (!raw || raw === '-') return '-';
+    const formatted = formatDateDDMMYYYY(raw);
+    return formatted || String(raw);
+  };
+  const selectedDate = formatCandidateDateDisplay(candidate?.selectedDate || '-');
+  const joiningDate = formatCandidateDateDisplay(candidate?.joiningDate || '-');
   const selectedCompany = candidate?.selectedCompany || '-';
   const selectedPackage = candidate?.package || '-';
+
+const normaliseRoundLabelAdmin = (raw) => {
+  const r = String(raw || '').trim();
+  if (!r) return '';
+  const lower = r.toLowerCase();
+  if (lower === 'round 1') return 'Technical Round 1';
+  if (lower === 'round 2') return 'Technical Round 2';
+  if (lower === 'round 3') return 'Technical Round 3';
+  if (lower === 'manager round' || lower === 'managerial round') return 'Manageral Round';
+  if (lower === 'technical discussion round') return 'Technical Round 2';
+  if (lower === 'last technical round') return 'Technical Round 3';
+  return r;
+};
 
   const roundCounts = useMemo(() => {
     const counts = {};
@@ -3507,10 +3624,12 @@ function AdminCandidateSlotsView({ data, onBack }) {
         </div>
       </div>
 
-      {/* Summary: all in one row, each with value centered above label */}
-      <div className="mb-4 flex flex-row flex-wrap items-stretch gap-4 sm:gap-6 text-slate-700">
+      {/* Summary row 1: core stats + company/package */}
+      <div className="mb-2 flex flex-row flex-wrap items-stretch gap-4 sm:gap-6 text-slate-700">
         <div className="flex flex-col items-center text-center min-w-[120px]">
-          <span className="text-sm font-semibold text-slate-800">{experience}</span>
+          <span className="text-sm font-semibold text-slate-800">
+            {experience} yrs
+          </span>
           <span className="text-[11px] text-slate-500">Experience</span>
         </div>
         <div className="flex flex-col items-center text-center min-w-[140px]">
@@ -3553,35 +3672,38 @@ function AdminCandidateSlotsView({ data, onBack }) {
           </span>
           <span className="text-[11px] text-slate-500">Task Assesment</span>
         </div>
-        {isSelectedCandidate && (
-          <>
-            <div className="flex flex-col items-center text-center min-w-[140px]">
-              <span className="text-sm font-semibold text-slate-800">
-                {selectedDate}
-              </span>
-              <span className="text-[11px] text-slate-500">Selected Date</span>
-            </div>
-            <div className="flex flex-col items-center text-center min-w-[140px]">
-              <span className="text-sm font-semibold text-slate-800">
-                {joiningDate}
-              </span>
-              <span className="text-[11px] text-slate-500">Joining Date</span>
-            </div>
-            <div className="flex flex-col items-center text-center min-w-[140px]">
-              <span className="text-sm font-semibold text-slate-800">
-                {selectedCompany}
-              </span>
-              <span className="text-[11px] text-slate-500">Selected Company</span>
-            </div>
-            <div className="flex flex-col items-center text-center min-w-[140px]">
-              <span className="text-sm font-semibold text-slate-800">
-                {selectedPackage}
-              </span>
-              <span className="text-[11px] text-slate-500">Package</span>
-            </div>
-          </>
-        )}
+        {/* Selected candidate details moved to row 2 */}
       </div>
+
+      {/* Summary row 2: selected/joining dates (only for selected candidates) */}
+      {isSelectedCandidate && (
+        <div className="mb-4 flex flex-row flex-wrap items-stretch gap-4 sm:gap-6 text-slate-700">
+          <div className="flex flex-col items-center text-center min-w-[140px]">
+            <span className="text-sm font-semibold text-slate-800">
+              {selectedDate}
+            </span>
+            <span className="text-[11px] text-slate-500">Selected Date</span>
+          </div>
+          <div className="flex flex-col items-center text-center min-w-[140px]">
+            <span className="text-sm font-semibold text-slate-800">
+              {joiningDate}
+            </span>
+            <span className="text-[11px] text-slate-500">Joining Date</span>
+          </div>
+          <div className="flex flex-col items-center text-center min-w-[140px]">
+            <span className="text-sm font-semibold text-slate-800">
+              {selectedCompany}
+            </span>
+            <span className="text-[11px] text-slate-500">Selected Company</span>
+          </div>
+          <div className="flex flex-col items-center text-center min-w-[140px]">
+            <span className="text-sm font-semibold text-slate-800">
+              {selectedPackage} LPA
+            </span>
+            <span className="text-[11px] text-slate-500">Package</span>
+          </div>
+        </div>
+      )}
 
       {/* Slots cards: 4-column grid on large screens */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -3624,11 +3746,26 @@ function AdminCandidateSlotsView({ data, onBack }) {
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-500">Status</div>
-                  <div className="text-slate-800 mt-1">
-                    {slot.dateExactLabel || slot.dateLabel}
+                  <div className="mt-1">
+                    <div className="text-slate-800">
+                      {slot.dateExactLabel || slot.dateLabel}
+                    </div>
+                    <div className="text-[11px] text-slate-500">Date</div>
                   </div>
-                  <div className="text-slate-800">{timeLabelPlain}</div>
-                  <div className="text-[11px] text-slate-500">Date & Time</div>
+                  <div className="mt-1">
+                    <div className="text-slate-800">{timeLabelPlain}</div>
+                    <div className="text-[11px] text-slate-500">Time</div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 pt-2 border-t border-slate-100 text-left">
+                <div className="flex flex-col">
+                  <span className="text-slate-800 text-xs sm:text-sm break-words">
+                    {String(slot.feedback || '').trim() || '-'}
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Feedback
+                  </span>
                 </div>
               </div>
             </div>
@@ -3644,6 +3781,8 @@ function AdminLeavesTable({ onBackToHome }) {
   const [leaveDate, setLeaveDate] = useState('');
   const [leaves, setLeaves] = useState([]);
   const leaveDateInputRef = useRef(null);
+  const [confirmDeleteLeaveId, setConfirmDeleteLeaveId] = useState(null);
+  const [confirmDeleteLeaveLabel, setConfirmDeleteLeaveLabel] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -3771,7 +3910,10 @@ function AdminLeavesTable({ onBackToHome }) {
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
-                      onClick={() => handleDeleteLeave(leave.id)}
+                      onClick={() => {
+                        setConfirmDeleteLeaveId(leave.id);
+                        setConfirmDeleteLeaveLabel(leave.dateLabel || leave.date || '');
+                      }}
                       className="inline-flex h-8 w-8 items-center justify-center rounded bg-red-500 text-white text-xs hover:bg-red-600"
                       aria-label="Delete leave"
                     >
@@ -3796,6 +3938,48 @@ function AdminLeavesTable({ onBackToHome }) {
         }}
         label="Leaves"
       />
+      {/* Delete leave confirmation modal */}
+      {confirmDeleteLeaveId != null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5">
+            <h3 className="text-sm font-semibold text-slate-900 mb-2">
+              Are you sure you want to delete this leave?
+            </h3>
+            <p className="text-xs text-slate-600 mb-4">
+              Date:{' '}
+              <span className="font-semibold">
+                {confirmDeleteLeaveLabel || '-'}
+              </span>
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDeleteLeaveId(null);
+                  setConfirmDeleteLeaveLabel('');
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const id = confirmDeleteLeaveId;
+                  setConfirmDeleteLeaveId(null);
+                  setConfirmDeleteLeaveLabel('');
+                  if (id) {
+                    await handleDeleteLeave(id);
+                  }
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Add Leave modal */}
       {showAddLeave && (
         <div
@@ -4018,6 +4202,7 @@ function AdminStatisticsChart({ slots = [], onReload }) {
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('home');
+  const [hrBackTab, setHrBackTab] = useState('home');
   const [showAddForm, setShowAddForm] = useState(false);
   // Default to showing Unselected candidates, matching your other project
   const [candidateFilter, setCandidateFilter] = useState('unselected');
@@ -4027,6 +4212,7 @@ export default function AdminDashboard() {
   const hrByIdCacheRef = useRef(new Map());
   const [showHrSuccessToast, setShowHrSuccessToast] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
+  const [calendarSelectedEvent, setCalendarSelectedEvent] = useState(null);
   const adminTodayLabel = new Date().toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -4653,10 +4839,24 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AdminHeader activeTab={activeTab} onChangeTab={setActiveTab} />
+      <AdminHeader
+        activeTab={activeTab}
+        onChangeTab={(tab) => {
+          setActiveTab(tab);
+          // When user navigates via main tabs, default HR back to home
+          if (tab === 'hrs') {
+            setHrBackTab('home');
+          }
+        }}
+      />
       <AdminTopNav
         activeTab={activeTab}
-        onChange={setActiveTab}
+        onChange={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'hrs') {
+            setHrBackTab('home');
+          }
+        }}
         pendingApprovals={pendingApprovals}
       />
       <main className="p-2 sm:p-4 md:p-8">
@@ -4696,7 +4896,7 @@ export default function AdminDashboard() {
                     <button
                       type="button"
                       onClick={() => handleApproveSlot(slotId)}
-                      className="inline-flex items-center gap-1 rounded bg-emerald-500 px-2 py-1 text-[10px] font-semibold text-white hover:bg-emerald-600 flex-1 justify-center"
+                      className="inline-flex items-center gap-2 rounded bg-emerald-500 px-3 py-2 text-[14px] font-semibold text-white hover:bg-emerald-600 flex-1 justify-center"
                     >
                       <i className="fa-solid fa-check" aria-hidden="true" />
                       Approve
@@ -4704,7 +4904,7 @@ export default function AdminDashboard() {
                     <button
                       type="button"
                       onClick={() => handleRejectSlot(slotId)}
-                      className="inline-flex items-center gap-1 rounded bg-red-500 px-2 py-1 text-[10px] font-semibold text-white hover:bg-red-600 flex-1 justify-center"
+                      className="inline-flex items-center gap-2 rounded bg-red-500 px-3 py-2 text-[14px] font-semibold text-white hover:bg-red-600 flex-1 justify-center"
                     >
                       <i className="fa-solid fa-xmark" aria-hidden="true" />
                       Reject
@@ -4833,6 +5033,7 @@ export default function AdminDashboard() {
                 });
               }}
               onOpenHRView={(value) => {
+                setHrBackTab('slots');
                 setActiveTab('hrs');
                 setHrSearch(value || '');
               }}
@@ -4849,7 +5050,7 @@ export default function AdminDashboard() {
               hrs={filteredHRs}
               totalCount={hrs.length}
               search={hrSearch}
-              onBackToHome={() => setActiveTab('home')}
+              onBackToHome={() => setActiveTab(hrBackTab)}
               onChangeSearch={setHrSearch}
               onDeleteHR={handleDeleteHR}
               candidateNames={candidates.map((c) => (c.name || '').trim().toLowerCase()).filter(Boolean)}
@@ -5051,13 +5252,167 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <WeekCalendar key={calendarRefreshKey} />
+                <WeekCalendar
+                  key={calendarRefreshKey}
+                  onEventClick={(event) => {
+                    setCalendarSelectedEvent(event);
+                  }}
+                />
               </div>
             </div>
           </>
         )}
+      {/* Calendar slot details popup (admin calendar) */}
+      {calendarSelectedEvent && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
+          <div className="relative w-full max-w-md rounded-xl bg-white shadow-lg px-5 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-800">
+                Slot Details
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCalendarSelectedEvent(null)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+              </button>
+            </div>
+            {(() => {
+              const ev = calendarSelectedEvent;
+              const start =
+                ev?.__startDate instanceof Date ? ev.__startDate : parseISOToDate(ev.start);
+              const end =
+                ev?.__endDate instanceof Date ? ev.__endDate : parseISOToDate(ev.end);
+              const dateStr =
+                start && !Number.isNaN(start.getTime())
+                  ? formatDateDDMMYYYY(start)
+                  : '';
+              const timeStr =
+                start &&
+                end &&
+                !Number.isNaN(start.getTime()) &&
+                !Number.isNaN(end.getTime())
+                  ? `${start.toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true,
+                    })} - ${end.toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true,
+                    })}`
+                  : '';
+              const company = ev.extendedProps?.company || ev.company || '';
+              const technology =
+                ev.extendedProps?.technology || ev.technology || '';
+              const candidateName =
+                ev.candidateName || ev.extendedProps?.candidateName || '';
+              const round =
+                ev.extendedProps?.interviewRound ||
+                ev.extendedProps?.round ||
+                ev.round ||
+                '';
+              const hrName =
+                ev.extendedProps?.hrName || ev.hrName || '';
+              const hrEmail =
+                ev.extendedProps?.hrEmail || ev.hrEmail || '';
+              const hrMobile =
+                ev.extendedProps?.hrMobile || ev.hrMobile || '';
+
+              return (
+                <div className="flex flex-col sm:flex-row gap-4 text-xs sm:text-sm text-slate-800">
+                  <div className="flex-1 space-y-2">
+                    {candidateName && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Candidate</div>
+                        <div className="font-semibold">{candidateName}</div>
+                      </div>
+                    )}
+                    {company && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Company</div>
+                        <div className="font-semibold">{company}</div>
+                      </div>
+                    )}
+                    {technology && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Technology</div>
+                        <div className="font-semibold">{technology}</div>
+                      </div>
+                    )}
+                    {(hrName || hrEmail || hrMobile) && (
+                      <div className="pt-2 border-t border-slate-100 mt-2">
+                        <div className="text-[11px] text-slate-500 mb-1">
+                          HR Details
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          {hrName && (
+                            <div className="flex flex-col min-w-[120px]">
+                              <span className="text-[14px] font-semibold">
+                                {hrName}
+                              </span>
+                              <span className="text-[11px] text-slate-500">
+                                Name
+                              </span>
+                            </div>
+                          )}
+                          {hrEmail && (
+                            <div className="flex flex-col min-w-[140px]">
+                              <span className="text-[14px] font-semibold break-all">
+                                {hrEmail}
+                              </span>
+                              <span className="text-[11px] text-slate-500">
+                                Email
+                              </span>
+                            </div>
+                          )}
+                          {hrMobile && (
+                            <div className="flex flex-col min-w-[120px]">
+                              <span className="text-[14px] font-semibold">
+                                {hrMobile}
+                              </span>
+                              <span className="text-[11px] text-slate-500">
+                                Mobile
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-full sm:w-40 space-y-2 text-right sm:text-left">
+                    {round && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Round</div>
+                        <div className="font-semibold">
+                          {normaliseRoundLabelAdmin(round)}
+                        </div>
+                      </div>
+                    )}
+                    {dateStr && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Date</div>
+                        <div className="font-semibold">{dateStr}</div>
+                      </div>
+                    )}
+                    {timeStr && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Time</div>
+                        <div className="font-semibold">{timeStr}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
       </main>
-      
+
       {/* HR Success Toast Notification */}
       {showHrSuccessToast && (
         <div className="fixed top-4 right-4 z-50 transition-opacity duration-300">

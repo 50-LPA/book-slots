@@ -18,7 +18,15 @@ function dayToYYYYMMDD(d) {
   return `${y}-${m}-${day}`;
 }
 
-function SlotCalendar({ today: todayProp, weekStart, events, leaveDates = [], colorByReferrer = true, candidateIds = [] }) {
+function SlotCalendar({
+  today: todayProp,
+  weekStart,
+  events,
+  leaveDates = [],
+  colorByReferrer = true,
+  candidateIds = [],
+  onEventClick,
+}) {
   const today = todayProp ?? new Date();
   const todayString = today.toDateString();
   const days = useMemo(() => getWeekDays(weekStart, 6), [weekStart]);
@@ -264,6 +272,11 @@ function SlotCalendar({ today: todayProp, weekStart, events, leaveDates = [], co
                             <div
                               key={`${event.title}-${idx}`}
                               className={`absolute inset-x-1 rounded-lg border border-amber-200 ${colorClass} px-2 py-1.5 sm:px-3 sm:py-2 text-[14px] text-white shadow-sm w-auto max-w-full break-words overflow-hidden`}
+                              onClick={() => {
+                                if (onEventClick) {
+                                  onEventClick(event);
+                                }
+                              }}
                               style={{ top: `${topPct}%`, height: `${heightPct}%` }}
                             >
                               <div className="text-[14px] font-semibold">

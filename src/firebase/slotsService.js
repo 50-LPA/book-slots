@@ -47,6 +47,9 @@ export function slotToCalendarEvent(slot) {
     status: slot.status || '',
     interviewRound: slot.round || slot.interviewRound || '',
     referredBy: slot.referredBy || slot.refereedBy || '',
+    hrName: slot.hrName || '',
+    hrEmail: slot.hrEmail || '',
+    hrMobile: slot.hrMobile || '',
   };
 
   // Prefer explicit start/end ISO timestamps when present (events schema).
@@ -90,6 +93,8 @@ export function subscribeToApprovedSlots(callback) {
   // Cache of candidateId -> { name, referredBy } so calendar can show
   // candidate name and color slots by referrer, even for legacy events.
   let candidatesCache = null;
+  // Cache of hrId -> { name, email, mobile } for enriching HR details
+  let hrCache = null;
 
   const ensureCandidatesCache = async () => {
     if (candidatesCache) return candidatesCache;
@@ -110,6 +115,19 @@ export function subscribeToApprovedSlots(callback) {
   const processSnapshot = async (snapshot) => {
     try {
       await ensureCandidatesCache();
+      if (!hrCache) {
+        const snap = await getDocs(collection(db, 'hrs'));
+        const map = {};
+        snap.forEach((d) => {
+          const data = d.data() || {};
+          map[d.id] = {
+            name: (data.name || '').trim(),
+            email: (data.email || '').trim(),
+            mobile: (data.mobile || '').trim(),
+          };
+        });
+        hrCache = map;
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('Error loading candidates for calendar:', err);
@@ -119,9 +137,14 @@ export function subscribeToApprovedSlots(callback) {
       const slot = slotDocToUI(d);
       const id = (slot.candidateId || '').trim();
       const cacheEntry = id && candidatesCache ? candidatesCache[id] : null;
+      const hrId = (slot.hrId || '').trim();
+      const hrEntry = hrId && hrCache ? hrCache[hrId] : null;
 
       let candidateName = (slot.candidateName || slot.name || '').trim();
       let referredBy = (slot.referredBy || slot.refereedBy || '').trim();
+      let hrName = (slot.hrName || '').trim();
+      let hrEmail = (slot.hrEmail || '').trim();
+      let hrMobile = (slot.hrMobile || '').trim();
 
       if (!candidateName && cacheEntry?.name) {
         candidateName = cacheEntry.name;
@@ -129,11 +152,19 @@ export function subscribeToApprovedSlots(callback) {
       if (!referredBy && cacheEntry?.referredBy) {
         referredBy = cacheEntry.referredBy;
       }
+      if (hrEntry) {
+        if (!hrName && hrEntry.name) hrName = hrEntry.name;
+        if (!hrEmail && hrEntry.email) hrEmail = hrEntry.email;
+        if (!hrMobile && hrEntry.mobile) hrMobile = hrEntry.mobile;
+      }
 
       return {
         ...slot,
         candidateName,
         referredBy,
+        hrName,
+        hrEmail,
+        hrMobile,
       };
     });
 
@@ -400,6 +431,7 @@ function slotDocToUI(docSnapshot) {
     startHour,
     startMinute,
     duration: finalDuration,
+    feedback: data.feedback || '',
     status: data.status || 'Pending',
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,

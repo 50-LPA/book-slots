@@ -411,6 +411,25 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
       }
     });
 
+    // Disallow booking within 5 minutes of current time (only for today)
+    if (form.date && form.hour && form.minute) {
+      const hh = String(form.hour).padStart(2, '0');
+      const mm = String(form.minute).padStart(2, '0');
+      const startDateTime = new Date(`${form.date}T${hh}:${mm}:00`);
+
+      const now = new Date();
+      const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+        now.getDate(),
+      ).padStart(2, '0')}`;
+
+      if (form.date === todayLocal) {
+        const minAllowed = Date.now() + 5 * 60 * 1000;
+        if (!Number.isNaN(startDateTime.getTime()) && startDateTime.getTime() < minAllowed) {
+          e.time = 'You cannot book a slot within 5 minutes of the current time.';
+        }
+      }
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   }

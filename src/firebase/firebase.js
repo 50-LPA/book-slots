@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp } from 'firebase/app';
 
 import {
   getFirestore,
@@ -11,15 +11,17 @@ import {
   query,
   getDoc,
   where,
-} from "firebase/firestore";
+} from 'firebase/firestore';
 
 import {
   getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInAnonymously,
-} from "firebase/auth";
+} from 'firebase/auth';
 
+// Firebase config is now read from environment variables (.env)
+// Make sure these are defined in your .env file.
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
