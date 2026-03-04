@@ -540,8 +540,8 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
     if (lower === 'round 2') return 'Technical Round 2';
     if (lower === 'round 3') return 'Technical Round 3';
     if (lower === 'manager round' || lower === 'managerial round') return 'Manageral Round';
-    if (lower === 'technical discussion round') return 'HR Round';
-    if (lower === 'last technical round') return 'Task Assesment';
+    if (lower === 'technical discussion round') return 'Technical Round 2';
+    if (lower === 'last technical round') return 'Technical Round 3';
     return r;
   };
 
@@ -642,6 +642,9 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
     if (!endTime) return false;
     return endTime.getTime() <= Date.now();
   };
+
+  const [confirmDeleteSlotId, setConfirmDeleteSlotId] = useState(null);
+  const [confirmDeleteSlotLabel, setConfirmDeleteSlotLabel] = useState('');
 
   const handleDeleteSlot = async (id) => {
     try {
@@ -905,7 +908,12 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
                     <td className="px-3 py-2 text-slate-700 text-center">
                       <button
                         type="button"
-                        onClick={() => handleDeleteSlot(slot.id)}
+                        onClick={() => {
+                          setConfirmDeleteSlotId(slot.id);
+                          setConfirmDeleteSlotLabel(
+                            `${slot.company || slot.companyName || 'Slot'} - ${slot.dateLabel || ''}`,
+                          );
+                        }}
                         className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
                         aria-label="Delete"
                       >
@@ -917,6 +925,58 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+      {/* Delete slot confirmation modal */}
+      {confirmDeleteSlotId && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
+          <div className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-5 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-800">
+                Are you sure you want to delete this slot?
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDeleteSlotId(null);
+                  setConfirmDeleteSlotLabel('');
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 mb-4">
+              {confirmDeleteSlotLabel}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDeleteSlotId(null);
+                  setConfirmDeleteSlotLabel('');
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const id = confirmDeleteSlotId;
+                  setConfirmDeleteSlotId(null);
+                  setConfirmDeleteSlotLabel('');
+                  if (id) {
+                    await handleDeleteSlot(id);
+                  }
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
       {/* Feedback modal */}
