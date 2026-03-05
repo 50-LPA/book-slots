@@ -10,7 +10,7 @@ import { subscribeToApprovedSlots, getLeaves } from '../firebase/slotsService';
 import { toSafeDate, isSameDay } from '../utils/dateUtils';
 
 const Calender = () => {
-  const [currentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [todayEventCount, setTodayEventCount] = useState(0);
@@ -189,14 +189,9 @@ const Calender = () => {
                   <div className="flex items-center justify-end" style={{ width: '33%' }}>
                     <div className="flex items-center me-3">
                       <i className="fa-solid fa-calendar-check text-2xl text-emerald-600 me-2" aria-hidden="true" />
-                      <div className="flex flex-col items-start">
-                        <h5 className="text-base font-semibold mb-0">
-                          Today&apos;s Slots: <span className="text-emerald-600">{todayEventCount}</span>
-                        </h5>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Last refreshed: {formatDate(lastRefreshed)}
-                        </p>
-                      </div>
+                      <h5 className="text-base font-semibold mb-0">
+                        Today&apos;s Slots: <span className="text-emerald-600">{todayEventCount}</span>
+                      </h5>
                     </div>
                   </div>
                 </div>
@@ -251,6 +246,7 @@ const Calender = () => {
                       eventColor="#3788d8"
                       eventTextColor="#ffffff"
                       eventDidMount={(info) => {
+                        const { company, technology, candidateName } = info.event.extendedProps;
                         const eventEl = info.el;
                         const titleEl = eventEl.querySelector('.fc-event-title');
                         const startTime = new Date(info.event.start);

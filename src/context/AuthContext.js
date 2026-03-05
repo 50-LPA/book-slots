@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [role, setRole] = useState(null);
   const [initializing, setInitializing] = useState(true);
-  const [actionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // Derive auth state from localStorage-backed session (shared with bookmyslot).

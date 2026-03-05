@@ -27,7 +27,7 @@ export default function Navbar({ onOpenAddHR, onNavChange, activeNav: activeNavP
   return (
     <>
       {/* Desktop Navigation */}
-      <div className="hidden md:flex bg-white px-6 md:px-10 py-3 gap-3 items-center shadow-sm">
+      <div className="hidden md:flex bg-white px-3 sm:px-6 py-2 items-center gap-2 shadow-sm border-b border-purple-100">
         {navItems.map((item) => (
             <button
               key={item.id}
@@ -37,14 +37,14 @@ export default function Navbar({ onOpenAddHR, onNavChange, activeNav: activeNavP
                   onOpenAddHR();
                 }
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all ${
                 active === item.id
                   ? 'bg-purple-100 text-purple-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
-              <i className={`${item.icon} w-5 h-5`} style={{ width: '1.25rem', height: '1.25rem' }} aria-hidden="true" />
-              <span className="font-medium text-sm md:text-base">{item.label}</span>
+              <i className={`${item.icon} w-4 h-4`} aria-hidden="true" />
+              <span className="font-medium text-xs sm:text-sm">{item.label}</span>
             </button>
           ))}
       </div>

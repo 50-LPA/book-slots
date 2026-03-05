@@ -514,10 +514,10 @@ function AdminCandidatesTable({
         {/* Right: filters grouped and right-aligned */}
         <div className="flex items-center justify-end gap-3 w-full sm:w-auto">
           {/* Selected / Unselected pill */}
-          <div className="flex rounded-full border border-purple-400 overflow-hidden text-[11px] sm:text-xs">
+          <div className="flex rounded-full border border-purple-400 overflow-hidden text-[11px] sm:text-xs h-8">
             <button
               onClick={() => onChangeFilter('selected')}
-              className={`px-3 py-1 font-semibold ${
+              className={`px-3 font-semibold flex items-center h-full ${
                 filter === 'selected'
                   ? 'bg-purple-600 text-white'
                   : 'bg-white text-purple-600'
@@ -527,7 +527,7 @@ function AdminCandidatesTable({
             </button>
             <button
               onClick={() => onChangeFilter('unselected')}
-              className={`px-3 py-1 font-semibold ${
+              className={`px-3 font-semibold flex items-center h-full ${
                 filter === 'unselected'
                   ? 'bg-purple-600 text-white'
                   : 'bg-white text-purple-600'
@@ -541,7 +541,7 @@ function AdminCandidatesTable({
           <select
             value={filter}
             onChange={(e) => onChangeFilter(e.target.value)}
-            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] sm:text-xs text-slate-700"
+            className="h-8 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700"
           >
             <option value="all">All</option>
             <option value="anil_sir">Anil sir</option>
@@ -2955,7 +2955,7 @@ function AdminHRsTable({
                 setShowJobTypeDropdown(false);
                 setShowAddedByDropdown(false);
               }}
-              className="flex items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-[11px] sm:text-xs text-slate-700 min-w-[90px] justify-between"
+              className="flex items-center h-8 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 min-w-[90px] justify-between"
             >
               <span className="truncate">
                 {companyFilter ? toTitleCase(companyFilter) : 'Company'}
@@ -3018,7 +3018,7 @@ function AdminHRsTable({
                 setShowJobTypeDropdown(false);
                 setShowAddedByDropdown(false);
               }}
-              className="flex items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-[11px] sm:text-xs text-slate-700 min-w-[110px] justify-between"
+              className="flex items-center h-8 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 min-w-[110px] justify-between"
             >
               <span className="truncate">
                 {techFilter ? toTitleCase(techFilter) : 'Technology'}
@@ -3535,7 +3535,7 @@ function AdminHRsTable({
               </button>
               <button
                 type="submit"
-                className={`bg-green-600 hover:bg-green-700 text-white px-4 sm:px-5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap inline-flex items-center gap-2`}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-5 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap"
               >
                 <i className={`fa-solid ${modalMode === 'edit' ? 'fa-pen' : 'fa-plus'} text-xs`} aria-hidden="true" />
                 {modalMode === 'edit' ? 'Update HR' : 'Add New HR'}
@@ -5347,9 +5347,9 @@ export default function AdminDashboard() {
                         <div className="text-[11px] text-slate-500 mb-1">
                           HR Details
                         </div>
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex items-start justify-between gap-3">
                           {hrName && (
-                            <div className="flex flex-col min-w-[120px]">
+                            <div className="flex flex-col">
                               <span className="text-[14px] font-semibold">
                                 {hrName}
                               </span>
@@ -5358,27 +5358,17 @@ export default function AdminDashboard() {
                               </span>
                             </div>
                           )}
-                          {hrEmail && (
-                            <div className="flex flex-col min-w-[140px]">
-                              <span className="text-[14px] font-semibold break-all">
-                                {hrEmail}
-                              </span>
-                              <span className="text-[11px] text-slate-500">
-                                Email
-                              </span>
-                            </div>
-                          )}
-                          {hrMobile && (
-                            <div className="flex flex-col min-w-[120px]">
-                              <span className="text-[14px] font-semibold">
-                                {hrMobile}
-                              </span>
-                              <span className="text-[11px] text-slate-500">
-                                Mobile
-                              </span>
-                            </div>
-                          )}
                         </div>
+                        {hrEmail && (
+                          <div className="mt-1">
+                            <span className="text-[14px] font-semibold break-all">
+                              {hrEmail}
+                            </span>
+                            <div className="text-[11px] text-slate-500">
+                              Email
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -5401,6 +5391,12 @@ export default function AdminDashboard() {
                       <div>
                         <div className="text-[11px] text-slate-500">Time</div>
                         <div className="font-semibold">{timeStr}</div>
+                      </div>
+                    )}
+                    {hrMobile && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Mobile</div>
+                        <div className="text-[14px] font-semibold">{hrMobile}</div>
                       </div>
                     )}
                   </div>

@@ -18,10 +18,34 @@ import BookSlot from './BookSlot';
 import WeekCalendar from '../Components/WeekCalendar';
 import { db } from '../firebase/firebase';
 import { formatDateDDMMYYYY } from '../firebase/slotsService';
+import { parseISOToDate } from '../calendar';
 // import { formatDayHeader } from '../calendar';
 import { useAuth } from '../context/AuthContext';
 
 // const MOCK_EVENTS = [];
+
+// Normalise legacy round labels for candidate views (calendar + lists)
+const ROUND_LABELS = [
+  'Technical Round 1',
+  'Technical Round 2',
+  'Technical Round 3',
+  'Manageral Round',
+  'HR Round',
+  'Task Assesment',
+];
+
+function normaliseRoundLabel(raw) {
+  const r = String(raw || '').trim();
+  if (!r) return '';
+  const lower = r.toLowerCase();
+  if (lower === 'round 1') return 'Technical Round 1';
+  if (lower === 'round 2') return 'Technical Round 2';
+  if (lower === 'round 3') return 'Technical Round 3';
+  if (lower === 'manager round' || lower === 'managerial round') return 'Manageral Round';
+  if (lower === 'technical discussion round') return 'Technical Round 2';
+  if (lower === 'last technical round') return 'Technical Round 3';
+  return r;
+}
 
 // Reusable pagination bar: left = count label, right = « < pages > » + per-page selector
 function PaginationBar({
@@ -264,6 +288,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
   const headerDate = new Date();
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [disableBookNewSlot, setDisableBookNewSlot] = useState(false);
+  const [calendarSelectedEvent, setCalendarSelectedEvent] = useState(null);
 
   // Track last slot feedback status so we can disable Book New Slot
   useEffect(() => {
@@ -441,8 +466,168 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
           </div>
         </div>
 
-        <WeekCalendar key={calendarRefreshKey} candidateIds={candidateIds} />
+        <WeekCalendar
+          key={calendarRefreshKey}
+          candidateIds={candidateIds}
+          onEventClick={(event) => {
+            if (
+              event.candidateId &&
+              Array.isArray(candidateIds) &&
+              candidateIds.includes(event.candidateId)
+            ) {
+              setCalendarSelectedEvent(event);
+            }
+          }}
+        />
       </div>
+      {/* Calendar slot details popup (candidate calendar, only own slots) */}
+      {calendarSelectedEvent && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
+          <div className="relative w-full max-w-md rounded-xl bg-white shadow-lg px-5 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-800">
+                Slot Details
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCalendarSelectedEvent(null)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+              </button>
+            </div>
+            {(() => {
+              const ev = calendarSelectedEvent;
+              const start =
+                ev?.__startDate instanceof Date ? ev.__startDate : parseISOToDate(ev.start);
+              const end =
+                ev?.__endDate instanceof Date ? ev.__endDate : parseISOToDate(ev.end);
+              const dateStr =
+                start && !Number.isNaN(start.getTime())
+                  ? formatDateDDMMYYYY(start)
+                  : '';
+              const timeStr =
+                start &&
+                end &&
+                !Number.isNaN(start.getTime()) &&
+                !Number.isNaN(end.getTime())
+                  ? `${start.toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true,
+                    })} - ${end.toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true,
+                    })}`
+                  : '';
+              const company = ev.extendedProps?.company || ev.company || '';
+              const technology =
+                ev.extendedProps?.technology || ev.technology || '';
+              const candidateName =
+                ev.candidateName || ev.extendedProps?.candidateName || '';
+              const round =
+                ev.extendedProps?.interviewRound ||
+                ev.extendedProps?.round ||
+                ev.round ||
+                '';
+              const hrName =
+                ev.extendedProps?.hrName || ev.hrName || '';
+              const hrEmail =
+                ev.extendedProps?.hrEmail || ev.hrEmail || '';
+              const hrMobile =
+                ev.extendedProps?.hrMobile || ev.hrMobile || '';
+
+              return (
+                <div className="flex flex-col sm:flex-row gap-4 text-xs sm:text-sm text-slate-800">
+                  <div className="flex-1 space-y-2">
+                    {candidateName && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Candidate</div>
+                        <div className="font-semibold">{candidateName}</div>
+                      </div>
+                    )}
+                    {company && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Company</div>
+                        <div className="font-semibold">{company}</div>
+                      </div>
+                    )}
+                    {technology && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Technology</div>
+                        <div className="font-semibold">{technology}</div>
+                      </div>
+                    )}
+                    {(hrName || hrEmail || hrMobile) && (
+                      <div className="pt-2 border-t border-slate-100 mt-2">
+                        <div className="text-[11px] text-slate-500 mb-1">
+                          HR Details
+                        </div>
+                        <div className="flex items-start justify-between gap-3">
+                          {hrName && (
+                            <div className="flex flex-col">
+                              <span className="text-[14px] font-semibold">
+                                {hrName}
+                              </span>
+                              <span className="text-[11px] text-slate-500">
+                                Name
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {hrEmail && (
+                          <div className="mt-1">
+                            <span className="text-[14px] font-semibold break-all">
+                              {hrEmail}
+                            </span>
+                            <div className="text-[11px] text-slate-500">
+                              Email
+                            </div>
+                          </div>
+                        )}
+                        {hrMobile && (
+                          <div className="mt-1">
+                            <span className="text-[14px] font-semibold">
+                              {hrMobile}
+                            </span>
+                            <div className="text-[11px] text-slate-500">
+                              Mobile
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-full sm:w-40 space-y-2 text-right sm:text-left">
+                    {round && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Round</div>
+                        <div className="font-semibold">
+                          {normaliseRoundLabel(round)}
+                        </div>
+                      </div>
+                    )}
+                    {dateStr && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Date</div>
+                        <div className="font-semibold">{dateStr}</div>
+                      </div>
+                    )}
+                    {timeStr && (
+                      <div>
+                        <div className="text-[11px] text-slate-500">Time</div>
+                        <div className="font-semibold">{timeStr}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -522,28 +707,6 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
   const totalSlots = slots.length;
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-
-  const ROUND_LABELS = [
-    'Technical Round 1',
-    'Technical Round 2',
-    'Technical Round 3',
-    'Manageral Round',
-    'HR Round',
-    'Task Assesment',
-  ];
-
-  const normaliseRoundLabel = (raw) => {
-    const r = String(raw || '').trim();
-    if (!r) return '';
-    const lower = r.toLowerCase();
-    if (lower === 'round 1') return 'Technical Round 1';
-    if (lower === 'round 2') return 'Technical Round 2';
-    if (lower === 'round 3') return 'Technical Round 3';
-    if (lower === 'manager round' || lower === 'managerial round') return 'Manageral Round';
-    if (lower === 'technical discussion round') return 'Technical Round 2';
-    if (lower === 'last technical round') return 'Technical Round 3';
-    return r;
-  };
 
   const roundCounts = useMemo(() => {
     const counts = {};
@@ -1280,14 +1443,6 @@ export default function CandidateDashboard() {
         onNavChange={handleNavClick}
         activeNav={activeNav}
       />
-
-      {hrsLoading && (
-        <div className="px-4 pt-2 text-sm text-slate-500">Loading HR list…</div>
-      )}
-      {hrsError && (
-        <div className="px-4 pt-2 text-sm text-red-600">{hrsError}</div>
-      )}
-
       <main className="p-2 sm:p-4 md:p-8">
         {showBookSlot ? (
           <BookSlot
