@@ -1457,7 +1457,10 @@ export default function CandidateDashboard() {
               setActiveNav('hrs');
               setShowAddHR(true);
             }}
-            onOpenBookSlot={() => setShowBookSlot(true)}
+            onOpenBookSlot={() => {
+              setShowBookSlot(true);
+              setActiveNav('slots');
+            }}
           />
         )}
       </main>

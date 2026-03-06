@@ -272,7 +272,7 @@ function SlotCalendar({
                           return (
                             <div
                               key={`${event.title}-${idx}`}
-                              className={`absolute inset-x-0.5 sm:inset-x-1 rounded-lg border border-amber-200 ${colorClass} px-1 py-1 sm:px-3 sm:py-2 text-[10px] sm:text-[14px] text-white shadow-sm w-auto max-w-full break-words overflow-hidden`}
+                              className={`absolute inset-x-0.5 sm:inset-x-1 ${colorClass} px-1 py-1 sm:px-3 sm:py-2 text-[10px] sm:text-[14px] text-white shadow-sm w-auto max-w-full break-words overflow-hidden`}
                               onClick={() => {
                                 if (onEventClick) {
                                   onEventClick(event);
