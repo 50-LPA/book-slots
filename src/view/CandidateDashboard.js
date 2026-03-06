@@ -224,24 +224,32 @@ function Header({ userName, onLogout, activeNav, onChangeNav }) {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-10 w-40 rounded-xl bg-white shadow-lg border border-slate-100 z-50 overflow-hidden">
-              <div className="px-4 py-3">
-                <p className="text-sm font-semibold text-slate-900">
-                  {userName || 'Candidate'}
-                </p>
-                <p className="text-[11px] text-slate-500">Candidate</p>
-              </div>
+            <>
               <button
                 type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onLogout?.();
-                }}
-                className="w-full bg-red-500 hover:bg-red-600 text-white text-sm font-semibold py-2"
-              >
-                Log Out
-              </button>
-            </div>
+                className="fixed inset-0 z-40 bg-transparent"
+                onClick={() => setMenuOpen(false)}
+                aria-label="Close profile menu"
+              />
+              <div className="absolute right-0 top-10 w-40 rounded-xl bg-white shadow-lg border border-slate-100 z-50 overflow-hidden">
+                <div className="px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {userName || 'Candidate'}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Candidate</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onLogout?.();
+                  }}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white text-sm font-semibold py-2"
+                >
+                  Log Out
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -427,8 +435,14 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
       </div>
       {/* Calendar slot details popup (candidate calendar, only own slots) */}
       {calendarSelectedEvent && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
-          <div className="relative w-full max-w-md rounded-xl bg-white shadow-lg px-5 py-4">
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          onClick={() => setCalendarSelectedEvent(null)}
+        >
+          <div
+            className="relative w-full max-w-md rounded-xl bg-white shadow-lg px-5 py-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-slate-800">
                 Slot Details
@@ -489,27 +503,25 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                   <div className="flex-1 space-y-2">
                     {candidateName && (
                       <div>
-                        <div className="text-[11px] text-slate-500">Candidate</div>
                         <div className="font-semibold">{candidateName}</div>
+                        <div className="text-[11px] text-slate-500">Candidate</div>
                       </div>
                     )}
                     {company && (
                       <div>
-                        <div className="text-[11px] text-slate-500">Company</div>
                         <div className="font-semibold">{company}</div>
+                        <div className="text-[11px] text-slate-500">Company</div>
                       </div>
                     )}
                     {technology && (
                       <div>
-                        <div className="text-[11px] text-slate-500">Technology</div>
                         <div className="font-semibold">{technology}</div>
+                        <div className="text-[11px] text-slate-500">Technology</div>
                       </div>
                     )}
                     {(hrName || hrEmail || hrMobile) && (
                       <div className="pt-2 border-t border-slate-100 mt-2">
-                        <div className="text-[11px] text-slate-500 mb-1">
-                          HR Details
-                        </div>
+                        <div className="text-[11px] text-slate-500 mb-1">HR Details</div>
                         <div className="flex items-start justify-between gap-3">
                           {hrName && (
                             <div className="flex flex-col">
@@ -532,38 +544,34 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                             </div>
                           </div>
                         )}
-                        {hrMobile && (
-                          <div className="mt-1">
-                            <span className="text-[14px] font-semibold">
-                              {hrMobile}
-                            </span>
-                            <div className="text-[11px] text-slate-500">
-                              Mobile
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
                   <div className="w-full sm:w-40 space-y-2 text-right sm:text-left">
                     {round && (
                       <div>
-                        <div className="text-[11px] text-slate-500">Round</div>
                         <div className="font-semibold">
                           {normaliseRoundLabel(round)}
                         </div>
+                        <div className="text-[11px] text-slate-500">Round</div>
                       </div>
                     )}
                     {dateStr && (
                       <div>
-                        <div className="text-[11px] text-slate-500">Date</div>
                         <div className="font-semibold">{dateStr}</div>
+                        <div className="text-[11px] text-slate-500">Date</div>
                       </div>
                     )}
                     {timeStr && (
                       <div>
-                        <div className="text-[11px] text-slate-500">Time</div>
                         <div className="font-semibold">{timeStr}</div>
+                        <div className="text-[11px] text-slate-500">Time</div>
+                      </div>
+                    )}
+                    {hrMobile && (
+                      <div>
+                        <div className="text-[14px] font-semibold">{hrMobile}</div>
+                        <div className="text-[11px] text-slate-500">Mobile</div>
                       </div>
                     )}
                   </div>
@@ -972,10 +980,13 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">
-                      {(() => {
+                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
+                      {slot.feedback ? (
+                        <span className="block max-w-[260px] whitespace-pre-wrap break-words">
+                          {String(slot.feedback)}
+                        </span>
+                      ) : (() => {
                         const past = isSlotPast(slot);
-                        const label = slot.feedback ? 'View Feedback' : 'Add Feedback';
                         if (!past) {
                           return (
                             <button
@@ -984,35 +995,41 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
                               className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-400 bg-slate-50 cursor-not-allowed"
                             >
                               <i className="fa-solid fa-lock text-[10px]" aria-hidden="true" />
-                              {label}
+                              Add Feedback
                             </button>
                           );
                         }
                         return (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFeedbackSlot(slot);
-                          setFeedbackText(slot.feedback || '');
-                        }}
-                        className="inline-flex items-center gap-1 rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold text-slate-700 bg-white hover:bg-slate-50"
-                      >
-                        <i className="fa-solid fa-comment-dots text-xs" aria-hidden="true" />
-                        {label}
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFeedbackSlot(slot);
+                              setFeedbackText('');
+                            }}
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold text-slate-700 bg-white hover:bg-slate-50"
+                          >
+                            <i className="fa-solid fa-comment-dots text-xs" aria-hidden="true" />
+                            Add Feedback
+                          </button>
                         );
                       })()}
                     </td>
                     <td className="px-3 py-2 text-slate-700 text-center">
                       <button
                         type="button"
+                        disabled={isSlotPast(slot)}
                         onClick={() => {
+                          if (isSlotPast(slot)) return;
                           setConfirmDeleteSlotId(slot.id);
                           setConfirmDeleteSlotLabel(
                             `${slot.company || slot.companyName || 'Slot'} - ${slot.dateLabel || ''}`,
                           );
                         }}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded text-white ${
+                          isSlotPast(slot)
+                            ? 'bg-slate-300 cursor-not-allowed'
+                            : 'bg-red-500 hover:bg-red-600'
+                        }`}
                         aria-label="Delete"
                       >
                         <i className="fa-solid fa-trash" aria-hidden="true" />
@@ -1086,13 +1103,25 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
           </div>
         </div>
       )}
-      {/* Feedback modal */}
+
+      {/* Add Feedback modal */}
       {feedbackSlot && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
-          <div className="relative w-full max-w-md rounded-xl bg-white shadow-lg px-5 py-4">
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          onClick={() => {
+            if (!savingFeedback) {
+              setFeedbackSlot(null);
+              setFeedbackText('');
+            }
+          }}
+        >
+          <div
+            className="relative w-full max-w-md rounded-xl bg-white shadow-lg px-5 py-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-slate-800">
-                Feedback for {feedbackSlot.company || feedbackSlot.companyName || 'Slot'}
+                Add Feedback
               </h3>
               <button
                 type="button"
@@ -1108,7 +1137,12 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
                 <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
               </button>
             </div>
+
             <div className="mb-3 text-xs text-slate-600">
+              <div>
+                <span className="font-semibold">Company:</span>{' '}
+                {feedbackSlot.company || feedbackSlot.companyName || '-'}
+              </div>
               <div>
                 <span className="font-semibold">Date:</span>{' '}
                 {formatDateDDMMYYYY(feedbackSlot.date)}
@@ -1120,6 +1154,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
                 </div>
               )}
             </div>
+
             <textarea
               rows={4}
               className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
@@ -1127,6 +1162,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
             />
+
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
@@ -1136,23 +1172,20 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
                     setFeedbackText('');
                   }
                 }}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50"
+                disabled={savingFeedback}
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-70"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={savingFeedback}
+                disabled={savingFeedback || !feedbackText.trim()}
                 onClick={async () => {
-                  if (!feedbackSlot?.id) {
-                    setFeedbackSlot(null);
-                    return;
-                  }
+                  if (!feedbackSlot?.id) return;
                   try {
                     setSavingFeedback(true);
                     const ref = doc(db, 'events', feedbackSlot.id);
                     await updateDoc(ref, { feedback: feedbackText.trim() });
-                    // Update local state
                     setSlots((prev) =>
                       prev.map((s) =>
                         s.id === feedbackSlot.id ? { ...s, feedback: feedbackText.trim() } : s,
