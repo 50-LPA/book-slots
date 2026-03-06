@@ -194,7 +194,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
           rel="noopener noreferrer"
           className="text-sm text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
         >
-          virajkadam.in
+          VirajKadam.in
         </a>
       </div>
 
@@ -388,12 +388,14 @@ const MOCK_HRS = [];
 function AdminCandidatesTable({
   candidates,
   slots = [],
-  filter,
+  selectionFilter,
+  referredByFilter,
   statusFilter,
   search,
   onBackToHome,
   onOpenAddForm,
-  onChangeFilter,
+  onChangeSelectionFilter,
+  onChangeReferredByFilter,
   onChangeStatusFilter,
   onChangeSearch,
   onToggleStatus,
@@ -484,7 +486,8 @@ function AdminCandidatesTable({
           <button
             type="button"
             onClick={() => {
-              onChangeFilter('unselected');
+              onChangeSelectionFilter('unselected');
+              onChangeReferredByFilter('all');
               onChangeSearch('');
             }}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
@@ -526,9 +529,9 @@ function AdminCandidatesTable({
           {/* Selected / Unselected pill */}
           <div className="flex w-36 sm:w-48 rounded-full border border-purple-400 overflow-hidden text-[11px] sm:text-xs h-8">
             <button
-              onClick={() => onChangeFilter('selected')}
+              onClick={() => onChangeSelectionFilter('selected')}
               className={`flex-1 px-3 font-semibold flex items-center justify-center h-full ${
-                filter === 'selected'
+                selectionFilter === 'selected'
                   ? 'bg-purple-600 text-white'
                   : 'bg-white text-purple-600'
               }`}
@@ -536,9 +539,9 @@ function AdminCandidatesTable({
                 Selected
             </button>
             <button
-              onClick={() => onChangeFilter('unselected')}
+              onClick={() => onChangeSelectionFilter('unselected')}
               className={`flex-1 px-3 font-semibold flex items-center justify-center h-full ${
-                filter === 'unselected'
+                selectionFilter === 'unselected'
                   ? 'bg-purple-600 text-white'
                   : 'bg-white text-purple-600'
               }`}
@@ -549,8 +552,8 @@ function AdminCandidatesTable({
 
           {/* Referred By filter dropdown */}
           <select
-            value={filter}
-            onChange={(e) => onChangeFilter(e.target.value)}
+            value={referredByFilter}
+            onChange={(e) => onChangeReferredByFilter(e.target.value)}
             className="h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700"
           >
             <option value="all">All</option>
@@ -4415,7 +4418,8 @@ export default function AdminDashboard() {
   const [hrBackTab, setHrBackTab] = useState('home');
   const [showAddForm, setShowAddForm] = useState(false);
   // Default to showing Unselected candidates, matching your other project
-  const [candidateFilter, setCandidateFilter] = useState('unselected');
+  const [candidateSelectionFilter, setCandidateSelectionFilter] = useState('unselected'); // 'selected' | 'unselected'
+  const [candidateReferredByFilter, setCandidateReferredByFilter] = useState('all'); // 'all' | 'anil_sir' | 'viraj_sir' | 'nilesh_sir' | 'vishal_sir'
   const [candidateStatusFilter, setCandidateStatusFilter] = useState('all'); // 'all' | 'active' | 'inactive'
   const [candidateSearch, setCandidateSearch] = useState('');
   const [candidates, setCandidates] = useState(MOCK_CANDIDATES);
@@ -4788,23 +4792,23 @@ export default function AdminDashboard() {
 
   const filteredCandidates = useMemo(() => {
     const filtered = candidates.filter((c) => {
-      if (candidateFilter === 'selected' && !c.selected) return false;
-      if (candidateFilter === 'unselected' && c.selected) return false;
+      if (candidateSelectionFilter === 'selected' && !c.selected) return false;
+      if (candidateSelectionFilter === 'unselected' && c.selected) return false;
       if (candidateStatusFilter === 'active' && c.status !== 'Active') return false;
       if (candidateStatusFilter === 'inactive' && c.status !== 'Inactive') return false;
-      if (candidateFilter === 'anil_sir') {
+      if (candidateReferredByFilter === 'anil_sir') {
         const ref = (c.referredBy || '').toLowerCase();
         if (!ref.includes('anil')) return false;
       }
-      if (candidateFilter === 'viraj_sir') {
+      if (candidateReferredByFilter === 'viraj_sir') {
         const ref = (c.referredBy || '').toLowerCase();
         if (!ref.includes('viraj')) return false;
       }
-      if (candidateFilter === 'nilesh_sir') {
+      if (candidateReferredByFilter === 'nilesh_sir') {
         const ref = (c.referredBy || '').toLowerCase();
         if (!ref.includes('nilesh')) return false;
       }
-      if (candidateFilter === 'vishal_sir') {
+      if (candidateReferredByFilter === 'vishal_sir') {
         const ref = (c.referredBy || '').toLowerCase();
         if (!ref.includes('vishal')) return false;
       }
@@ -4822,7 +4826,7 @@ export default function AdminDashboard() {
       const idB = typeof b.id === 'number' ? b.id : parseInt(b.id, 10) || 0;
       return idB - idA;
     });
-  }, [candidates, candidateFilter, candidateStatusFilter, candidateSearch]);
+  }, [candidates, candidateSelectionFilter, candidateReferredByFilter, candidateStatusFilter, candidateSearch]);
 
   const filteredHRs = useMemo(() => {
     return hrs.filter((hr) => {
@@ -5204,12 +5208,14 @@ export default function AdminDashboard() {
             <AdminCandidatesTable
               candidates={filteredCandidates}
               slots={slots}
-              filter={candidateFilter}
+              selectionFilter={candidateSelectionFilter}
+              referredByFilter={candidateReferredByFilter}
               statusFilter={candidateStatusFilter}
               search={candidateSearch}
               onBackToHome={() => setActiveTab('home')}
               onOpenAddForm={() => setShowAddForm(true)}
-              onChangeFilter={setCandidateFilter}
+              onChangeSelectionFilter={setCandidateSelectionFilter}
+              onChangeReferredByFilter={setCandidateReferredByFilter}
               onChangeStatusFilter={setCandidateStatusFilter}
               onChangeSearch={setCandidateSearch}
               onToggleStatus={handleToggleStatus}

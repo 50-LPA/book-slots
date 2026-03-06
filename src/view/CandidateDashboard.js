@@ -199,7 +199,7 @@ function Header({ userName, onLogout, activeNav, onChangeNav }) {
             rel="noopener noreferrer"
             className="text-sm text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
           >
-            virajkadam.in
+            VirajKadam.in
           </a>
         </div>
 
@@ -295,60 +295,7 @@ function Header({ userName, onLogout, activeNav, onChangeNav }) {
 function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] }) {
   const headerDate = new Date();
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
-  const [disableBookNewSlot, setDisableBookNewSlot] = useState(false);
   const [calendarSelectedEvent, setCalendarSelectedEvent] = useState(null);
-
-  // Track last slot feedback status so we can disable Book New Slot
-  useEffect(() => {
-    if (!Array.isArray(candidateIds) || candidateIds.length === 0) {
-      setDisableBookNewSlot(false);
-      return;
-    }
-
-    const eventsRef = collection(db, 'events');
-    const q =
-      candidateIds.length === 1
-        ? query(eventsRef, where('candidateId', '==', candidateIds[0]))
-        : query(eventsRef, where('candidateId', 'in', candidateIds));
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const items = snap.docs
-          .map((docSnap) => {
-            const data = docSnap.data() || {};
-            return { id: docSnap.id, ...data };
-          })
-          .filter((item) => {
-            const cid = String(item.candidateId || '').trim();
-            return cid && candidateIds.includes(cid);
-          })
-          .sort((a, b) => {
-            const aTime = a.createdAt?.toMillis
-              ? a.createdAt.toMillis()
-              : a.createdAt
-              ? new Date(a.createdAt).getTime()
-              : 0;
-            const bTime = b.createdAt?.toMillis
-              ? b.createdAt.toMillis()
-              : b.createdAt
-              ? new Date(b.createdAt).getTime()
-              : 0;
-            return bTime - aTime;
-          });
-
-        const lastSlot = items[0] || null;
-        const needsFeedback =
-          lastSlot && !String(lastSlot.feedback || '').trim();
-        setDisableBookNewSlot(!!needsFeedback);
-      },
-      () => {
-        setDisableBookNewSlot(false);
-      },
-    );
-
-    return () => unsub();
-  }, [candidateIds]);
 
   const candidateTodayLabel = headerDate.toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -401,13 +348,8 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
               </button>
               <button
                 type="button"
-                onClick={!disableBookNewSlot ? onOpenBookSlot : undefined}
-                disabled={disableBookNewSlot}
-                className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${
-                  disableBookNewSlot
-                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
-                }`}
+                onClick={onOpenBookSlot}
+                className="flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
               >
                 + Book New Slot
               </button>
@@ -460,13 +402,8 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
               </button>
               <button
                 type="button"
-                onClick={!disableBookNewSlot ? onOpenBookSlot : undefined}
-                disabled={disableBookNewSlot}
-                className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap ${
-                  disableBookNewSlot
-                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
-                }`}
+                onClick={onOpenBookSlot}
+                className="px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
               >
                 + Book New Slot
               </button>
@@ -830,11 +767,6 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
   const startIdx = (currentPage - 1) * itemsPerPage;
   const paginatedSlots = filteredSlots.slice(startIdx, startIdx + itemsPerPage);
 
-  // Require feedback for the most recently booked slot (slots are already sorted newest-first)
-  const lastSlot = slots[0] || null;
-  const mustGiveFeedbackForLastSlot =
-    lastSlot && !String(lastSlot.feedback || '').trim();
-
   return (
     <div className="bg-white rounded-lg sm:rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
       {/* Header: back button left, title centered, Book New Slot button right */}
@@ -865,17 +797,12 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
           </button>
         </div>
 
-        {/* Right: Book New Slot button (disabled until all past slots have feedback) */}
+        {/* Right: Book New Slot button (always enabled) */}
         <div className="flex items-center">
           <button
             type="button"
-            onClick={!mustGiveFeedbackForLastSlot ? onBookNewSlot : undefined}
-            disabled={mustGiveFeedbackForLastSlot}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold shadow whitespace-nowrap ${
-              mustGiveFeedbackForLastSlot
-                ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
+            onClick={onBookNewSlot}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold shadow whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
           >
             <span className="text-lg">+</span>
             <span>Book New Slot</span>

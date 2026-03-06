@@ -14,7 +14,7 @@ function Header({ fullWidth = false }) {
         <div className="flex items-center justify-between w-full">
           {/* Left: app title */}
           <div className="flex items-center">
-            <span className="text-sm sm:text-base font-semibold text-purple-700 truncate">
+            <span className="text-sm sm:text-base font-bold text-black truncate">
               Slot Booking
             </span>
           </div>

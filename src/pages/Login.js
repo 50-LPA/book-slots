@@ -174,14 +174,14 @@ export default function Login() {
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
             <label className="block text-sm font-medium text-purple-600 mb-2">
-              Mobile No
+              Mobile
             </label>
             <input
               type="tel"
               placeholder="Enter mobile number"
               value={mobile}
               onChange={(e) => setMobile(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
           </div>
 
@@ -195,7 +195,7 @@ export default function Login() {
                 placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-12"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-12"
               />
               <button
                 type="button"
@@ -220,6 +220,15 @@ export default function Login() {
           </button>
         </form>
       </div>
+
+      <a
+        href="https://virajkadam.in"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-4 text-sm font-semibold text-slate-700 hover:text-slate-900 underline-offset-2 hover:underline"
+      >
+        VirajKadam.in
+      </a>
     </div>
   );
 }
