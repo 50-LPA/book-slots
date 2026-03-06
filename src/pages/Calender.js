@@ -145,7 +145,7 @@ const Calender = () => {
     <div className="min-h-screen bg-slate-100 text-slate-900 antialiased">
       <Header fullWidth />
       <main className="w-full mt-2 px-4 pb-6 sm:pb-10">
-        <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-6">
+        <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm px-4 py-6">
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center gap-2">
               <h5 className="text-lg font-semibold mb-0 text-purple-600">Slot Booking Calendar</h5>

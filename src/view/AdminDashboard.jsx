@@ -2109,8 +2109,8 @@ function AdminSlotsTable({
         </div>
       )}
 
-      {/* Metrics + Filters (same alignment row like screenshot) */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Metrics + Filters: always two rows — counts (row 1) and filters (row 2) */}
+      <div className="mb-4 flex flex-col gap-3">
         {/* Left: metrics - stacked number + label like screenshot */}
         <div className="flex flex-wrap gap-6 text-xs sm:text-sm text-slate-700">
           <div className="flex flex-col items-center">
@@ -5117,26 +5117,27 @@ export default function AdminDashboard() {
           <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-3">
             {pendingSlots.map((slot) => {
               const slotId = slot.firestoreId || slot.id;
-              const slotDateStr = slot.date instanceof Date
-                ? slot.date.toISOString().slice(0, 10)
-                : slot.date;
-              const isToday = slotDateStr === new Date().toISOString().slice(0, 10);
+              // Always show full date using shared formatter
+              const fullDate =
+                slot.date
+                  ? formatDateDDMMYYYY(slot.date)
+                  : slot.dateExactLabel || slot.dateLabel || '';
               return (
                 <div
                   key={slotId}
                   className="col-span-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 flex flex-col gap-2 text-xs sm:text-sm"
                 >
-                  {/* Line 1: Candidate name + date on the same line */}
-                  <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-slate-800">
+                  {/* Line 1: Candidate name + full date on same visual line (date never truncated) */}
+                  <div className="flex items-baseline gap-x-1.5 text-slate-800">
                     <span
-                      className="font-semibold truncate max-w-[60%]"
+                      className="font-semibold truncate"
                       title={slot.candidateName || slot.name}
                     >
                       {slot.candidateName || slot.name}
                     </span>
-                    <span className="text-slate-500">•</span>
-                    <span className="text-slate-600 truncate max-w-[35%]">
-                      {slot.dateExactLabel || slot.dateLabel}
+                    <span className="text-slate-500 flex-shrink-0">•</span>
+                    <span className="text-slate-600 whitespace-normal">
+                      {fullDate}
                     </span>
                   </div>
                   {/* Line 2: Time (when present), as before */}
@@ -5429,7 +5430,7 @@ export default function AdminDashboard() {
           <AdminLeavesTable onBackToHome={() => setActiveTab('home')} />
         ) : (
           <>
-            <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-6">
+            <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm px-4 py-6">
               {/* Admin calendar header */}
               <div className="border-b border-slate-200 pb-3 sm:pb-4">
                 {/* Mobile: match screenshot layout (all centered, stacked) */}
@@ -5677,7 +5678,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     {hrMobile && (
-                      <div className="col-span-8">
+                      <div className="mb-4">
                         <div className="text-[14px] font-semibold">{hrMobile}</div>
                         <div className="text-[11px] text-slate-500">Mobile</div>
                       </div>

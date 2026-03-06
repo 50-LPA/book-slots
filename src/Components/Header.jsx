@@ -14,12 +14,12 @@ function Header({ fullWidth = false }) {
         <div className="flex items-center justify-between w-full">
           {/* Left: app title */}
           <div className="flex items-center">
-            <span className="text-sm sm:text-base font-bold text-black truncate">
+            <span className="text-2xl font-bold text-black truncate">
               Slot Booking
             </span>
           </div>
 
-          {/* Center: virajkadam.in hyperlink */}
+          {/* Center: VirajKadam.in hyperlink */}
           <div className="flex-1 flex items-center justify-center">
             <a
               href="https://virajkadam.in"
@@ -27,14 +27,14 @@ function Header({ fullWidth = false }) {
               rel="noopener noreferrer"
               className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900 underline-offset-2 hover:underline"
             >
-              virajkadam.in
+              VirajKadam.in
             </a>
           </div>
 
           {/* Right: Login button */}
           <Link
             to="/login"
-            className="rounded-lg bg-purple-600 px-4 py-1.5 text-xs sm:text-sm font-semibold text-white shadow hover:bg-purple-700 transition"
+            className="min-w-[150px] text-center rounded-lg bg-purple-600 px-10 py-1.5 text-xs sm:text-sm font-semibold text-white shadow hover:bg-purple-700 transition"
           >
             Login
           </Link>
