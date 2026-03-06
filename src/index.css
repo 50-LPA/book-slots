@@ -8,6 +8,21 @@ body {
   @apply bg-slate-100 text-slate-900 antialiased text-[12px];
 }
 
+/* Responsive sizing for the custom SlotCalendar grid (Admin + Candidate) */
+.sb-slot-calendar {
+  --sb-slot-row-h: 4rem;
+  --sb-slot-time-w: 5.5rem;
+  --sb-slot-day-min-w: 7.5rem;
+}
+
+@media (max-width: 640px) {
+  .sb-slot-calendar {
+    --sb-slot-row-h: 3rem;
+    --sb-slot-time-w: 3.5rem;
+    --sb-slot-day-min-w: 4.25rem;
+  }
+}
+
 /* Hide default scrollbars in WebKit for a cleaner horizontal scroll on the calendar */
 .slot-calendar-scroll::-webkit-scrollbar {
   height: 6px;

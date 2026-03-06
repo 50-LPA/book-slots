@@ -2,11 +2,17 @@
 .calendar-container .fc {
   font-size: 14px;
 }
-/* Ensure date headers and time labels are 14px */
+/* Ensure date headers and time labels are readable but shrinkable */
 .calendar-container .fc .fc-col-header-cell-cushion,
 .calendar-container .fc .fc-timegrid-slot-label,
 .calendar-container .fc .fc-event {
   font-size: 14px;
+}
+/* Allow header text to wrap instead of overflowing into next column */
+.calendar-container .fc .fc-col-header-cell-cushion {
+  white-space: normal !important;
+  line-height: 1.2;
+  padding: 2px 4px;
 }
 /* 1/2 hour faint lines in FullCalendar (slotDuration 30min) */
 .calendar-container .fc .fc-timegrid-slot {
@@ -28,6 +34,13 @@
   }
   .calendar-container .fc-event {
     font-size: 0.75rem;
+  }
+  /* Keep the calendar usable on short screens */
+  .calendar-container .fc {
+    max-height: 75vh;
+  }
+  .calendar-container .fc .fc-scroller {
+    -webkit-overflow-scrolling: touch;
   }
 }
 .sunday-cell,

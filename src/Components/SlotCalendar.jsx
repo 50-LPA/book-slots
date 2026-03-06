@@ -3,7 +3,6 @@ import { getWeekDays, parseISOToDate, formatDayHeader } from '../calendar';
 
 // Time slots from 11:00 AM to 7:00 PM (inclusive)
 const HOURS = [11, 12, 13, 14, 15, 16, 17, 18, 19];
-const ROW_HEIGHT = '4rem'; // h-16 = 4rem, same for header and every slot row
 
 function hourLabel(hour24) {
   const isPM = hour24 >= 12;
@@ -67,25 +66,25 @@ function SlotCalendar({
     currentHour >= HOURS[0] && currentHour <= HOURS[HOURS.length - 1];
 
   return (
-    <div className="relative bg-white">
+    <div className="sb-slot-calendar relative bg-white">
       <div>
         <table
-          className="w-full border-collapse text-[0.9rem]"
+          className="w-full border-collapse text-[11px] sm:text-[0.9rem]"
           style={{ tableLayout: 'fixed' }}
         >
           <colgroup>
-            <col className="w-24" />
+            <col style={{ width: 'var(--sb-slot-time-w)' }} />
             {days.map((day) => (
-              <col key={day.toISOString()} className="min-w-[120px] sm:min-w-[100px]" />
+              <col key={day.toISOString()} style={{ minWidth: 'var(--sb-slot-day-min-w)' }} />
             ))}
-            <col className="w-24" />
+            <col style={{ width: 'var(--sb-slot-time-w)' }} />
           </colgroup>
           <thead>
             <tr>
               {/* Top-left corner: empty so time column and day headers align */}
               <th
                 className="border border-slate-300 bg-slate-50 align-middle"
-                style={{ height: ROW_HEIGHT }}
+                style={{ height: 'var(--sb-slot-row-h)' }}
               />
               {days.map((day, dayIdx) => {
                 const isToday = dayIdx === todayIndex;
@@ -94,28 +93,30 @@ function SlotCalendar({
                 return (
                   <th
                     key={day.toISOString()}
-                    className={`border px-2 py-2 text-center ${
+                    className={`border px-1 py-1 sm:px-2 sm:py-2 text-center ${
                       isLeaveDay
                         ? 'bg-red-100 text-red-800 border-red-300'
                         : isToday
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                         : 'bg-slate-50 text-slate-700 border-slate-300'
                     }`}
-                    style={{ height: ROW_HEIGHT }}
+                    style={{ height: 'var(--sb-slot-row-h)' }}
                   >
                     {/* Mobile: stack weekday and date to avoid mixing/overlap */}
                     <div className="sm:hidden flex flex-col items-center leading-tight">
-                      <span className="text-[14px] font-semibold uppercase tracking-[0.12em]">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em]">
                         {dayHeader.weekday}
                       </span>
-                      <span className="text-[14px] text-slate-700">
+                      <span className="text-[10px] text-slate-700">
                         {dayHeader.label.replace(`${dayHeader.weekday}, `, '')}
                       </span>
                     </div>
-                    {/* Desktop / tablet: keep single-line compact header */}
-                    <div className="hidden sm:block">
-                      <span className="text-[14px] font-semibold uppercase tracking-[0.16em] whitespace-nowrap">
-                        {dayHeader.weekday}{' '}
+                    {/* Desktop / tablet: two-line compact header to avoid overlap when zoomed */}
+                    <div className="hidden sm:block leading-tight">
+                      <span className="block text-[14px] font-semibold uppercase tracking-[0.12em]">
+                        {dayHeader.weekday}
+                      </span>
+                      <span className="block text-[14px] break-words">
                         {dayHeader.label.replace(`${dayHeader.weekday}, `, '')}
                       </span>
                     </div>
@@ -125,7 +126,7 @@ function SlotCalendar({
               {/* Top-right corner: empty for right-side time column */}
               <th
                 className="border border-slate-300 bg-slate-50 align-middle"
-                style={{ height: ROW_HEIGHT }}
+                style={{ height: 'var(--sb-slot-row-h)' }}
               />
             </tr>
           </thead>
@@ -137,8 +138,8 @@ function SlotCalendar({
               <tr key={hour}>
                 {/* Time label cell - same row as the slot row */}
                 <td
-                  className="relative border border-slate-300 bg-slate-50 text-right pr-3 text-[14px] font-medium text-slate-500 align-top overflow-visible"
-                  style={{ height: ROW_HEIGHT }}
+                  className="relative border border-slate-300 bg-slate-50 text-right pr-2 sm:pr-3 text-[10px] sm:text-[14px] font-medium text-slate-500 align-top overflow-visible"
+                  style={{ height: 'var(--sb-slot-row-h)' }}
                 >
                   {hourLabel(hour)}
                   <div className="absolute left-0 right-0 top-1/2 h-px bg-slate-300/40 pointer-events-none -translate-y-px" />
@@ -175,7 +176,7 @@ function SlotCalendar({
                           ? 'bg-emerald-50 border-emerald-200'
                           : 'bg-white border-slate-300'
                       }`}
-                      style={{ height: ROW_HEIGHT, padding: 0 }}
+                      style={{ height: 'var(--sb-slot-row-h)', padding: 0 }}
                     >
                       <div className="relative h-full px-0 py-0">
                         {/* 1/2 hour faint line */}
@@ -271,7 +272,7 @@ function SlotCalendar({
                           return (
                             <div
                               key={`${event.title}-${idx}`}
-                              className={`absolute inset-x-1 rounded-lg border border-amber-200 ${colorClass} px-2 py-1.5 sm:px-3 sm:py-2 text-[14px] text-white shadow-sm w-auto max-w-full break-words overflow-hidden`}
+                              className={`absolute inset-x-0.5 sm:inset-x-1 rounded-lg border border-amber-200 ${colorClass} px-1 py-1 sm:px-3 sm:py-2 text-[10px] sm:text-[14px] text-white shadow-sm w-auto max-w-full break-words overflow-hidden`}
                               onClick={() => {
                                 if (onEventClick) {
                                   onEventClick(event);
@@ -279,11 +280,11 @@ function SlotCalendar({
                               }}
                               style={{ top: `${topPct}%`, height: `${heightPct}%` }}
                             >
-                              <div className="text-[14px] font-semibold">
+                              <div className="text-[10px] sm:text-[14px] font-semibold">
                                 {mainLabel}
                               </div>
                               {timeLabel && (
-                                <div className="text-[14px] opacity-80">
+                                <div className="text-[10px] sm:text-[14px] opacity-80">
                                   {timeLabel}
                                 </div>
                               )}
@@ -305,8 +306,8 @@ function SlotCalendar({
                 })}
                 {/* Time label on right side */}
                 <td
-                  className="relative border border-slate-300 bg-slate-50 text-left pl-3 text-[14px] font-medium text-slate-500 align-top overflow-visible"
-                  style={{ height: ROW_HEIGHT }}
+                  className="relative border border-slate-300 bg-slate-50 text-left pl-2 sm:pl-3 text-[10px] sm:text-[14px] font-medium text-slate-500 align-top overflow-visible"
+                  style={{ height: 'var(--sb-slot-row-h)' }}
                 >
                   {hourLabel(hour)}
                   <div className="absolute left-0 right-0 top-1/2 h-px bg-slate-300/40 pointer-events-none -translate-y-px" />

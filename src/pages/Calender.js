@@ -209,6 +209,8 @@ const Calender = () => {
                     <FullCalendar
                       plugins={[timeGridPlugin, interactionPlugin, scrollGridPlugin]}
                       initialView="timeGridWeek"
+                      height="auto"
+                      expandRows
                       nowIndicator
                       slotMinTime="11:00:00"
                       slotMaxTime="20:00:00"

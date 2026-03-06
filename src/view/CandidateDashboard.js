@@ -499,6 +499,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                 ev.extendedProps?.hrMobile || ev.hrMobile || '';
 
               return (
+                <>
                 <div className="flex flex-col sm:flex-row gap-4 text-xs sm:text-sm text-slate-800">
                   <div className="flex-1 space-y-2">
                     {candidateName && (
@@ -520,8 +521,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                       </div>
                     )}
                     {(hrName || hrEmail || hrMobile) && (
-                      <div className="pt-2 border-t border-slate-100 mt-2">
-                        <div className="text-[11px] text-slate-500 mb-1">HR Details</div>
+                      <div className="pt-2 mt-2">
                         <div className="flex items-start justify-between gap-3">
                           {hrName && (
                             <div className="flex flex-col">
@@ -576,6 +576,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                     )}
                   </div>
                 </div>
+                </>
               );
             })()}
           </div>
@@ -1015,25 +1016,21 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
                       })()}
                     </td>
                     <td className="px-3 py-2 text-slate-700 text-center">
-                      <button
-                        type="button"
-                        disabled={isSlotPast(slot)}
-                        onClick={() => {
-                          if (isSlotPast(slot)) return;
-                          setConfirmDeleteSlotId(slot.id);
-                          setConfirmDeleteSlotLabel(
-                            `${slot.company || slot.companyName || 'Slot'} - ${slot.dateLabel || ''}`,
-                          );
-                        }}
-                        className={`inline-flex h-9 w-9 items-center justify-center rounded text-white ${
-                          isSlotPast(slot)
-                            ? 'bg-slate-300 cursor-not-allowed'
-                            : 'bg-red-500 hover:bg-red-600'
-                        }`}
-                        aria-label="Delete"
-                      >
-                        <i className="fa-solid fa-trash" aria-hidden="true" />
-                      </button>
+                      {!isSlotPast(slot) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmDeleteSlotId(slot.id);
+                            setConfirmDeleteSlotLabel(
+                              `${slot.company || slot.companyName || 'Slot'} - ${slot.dateLabel || ''}`,
+                            );
+                          }}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
+                          aria-label="Delete"
+                        >
+                          <i className="fa-solid fa-trash" aria-hidden="true" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

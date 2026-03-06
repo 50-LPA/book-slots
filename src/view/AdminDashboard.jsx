@@ -874,7 +874,8 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
     if (field === 'mobile') {
       value = value.replace(/\D/g, '');
     } else if (field === 'password') {
-      value = value.replace(/[a-zA-Z]/g, '');
+      // Allow digits and symbols, max 6 characters (no letters)
+      value = value.replace(/[a-zA-Z]/g, '').slice(0, 6);
     } else if (field === 'experience') {
       value = value.replace(/[^\d.]/g, '');
       let parts = value.split('.');
@@ -962,11 +963,11 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       return;
     }
     if (!trimmedPassword) {
-      setError('Password is required.');
+      setError('Password is required and must be exactly 6 characters.');
       return;
     }
-    if (/[a-zA-Z]/.test(trimmedPassword)) {
-      setError('Password can only contain numbers and symbols (no letters).');
+    if (/[a-zA-Z]/.test(trimmedPassword) || trimmedPassword.length !== 6) {
+      setError('Password must be exactly 6 characters (numbers and symbols only).');
       return;
     }
     if (!form.technology || form.technology.length === 0) {
@@ -1142,7 +1143,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
           />
         </div>
 
-        {/* Password with random generator + show/hide icon - numbers and symbols only */}
+        {/* Password with random generator + show/hide icon - 6 chars (numbers/symbols) */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-slate-700">
             <span className="text-red-500">*</span> Password
@@ -1150,9 +1151,10 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
           <div className="flex items-stretch">
             <input
               type={showPassword ? 'text' : 'password'}
+              maxLength={6}
               value={form.password}
               onChange={handleChange('password')}
-              placeholder="Numbers and symbols only"
+              placeholder="6 chars (0-9 or symbols)"
               className="flex-1 rounded-l-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
             />
             <button
@@ -1386,7 +1388,8 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
     if (field === 'mobile') {
       value = value.replace(/\D/g, '');
     } else if (field === 'password') {
-      value = value.replace(/[a-zA-Z]/g, '');
+      // Allow digits and symbols, max 6 characters (no letters)
+      value = value.replace(/[a-zA-Z]/g, '').slice(0, 6);
     } else if (field === 'experience') {
       value = value.replace(/[^\d.]/g, '');
       let parts = value.split('.');
@@ -1422,8 +1425,8 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       setError('Password is required.');
       return;
     }
-    if (/[a-zA-Z]/.test(trimmedPassword)) {
-      setError('Password can only contain numbers and symbols (no letters).');
+    if (/[a-zA-Z]/.test(trimmedPassword) || trimmedPassword.length !== 6) {
+      setError('Password must be exactly 6 characters (numbers and symbols only).');
       return;
     }
 
@@ -4273,11 +4276,11 @@ function AdminLeavesTable({ onBackToHome }) {
   );
 }
 
-// Bar graph for Statistics tab – Y-axis rotated "Total Slots", fixed 0–100 scale, grid, x-axis month labels
+// Bar graph for Statistics tab – Y-axis rotated "Total Slots", fixed 0–80 scale, grid, x-axis month labels
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const CHART_BODY_HEIGHT = 260;
-const Y_AXIS_MAX = 100; // Fixed scale 0–100 so axis always matches requested range
-const Y_TICKS = [0, 20, 40, 60, 80, 100];
+const CHART_BODY_HEIGHT = 320;
+const Y_AXIS_MAX = 80; // Fixed scale 0–80 so axis always matches requested range
+const Y_TICKS = [0, 20, 40, 60, 80];
 
 function AdminStatisticsChart({ slots = [], onReload }) {
   const monthlyStats = useMemo(() => {
@@ -5123,21 +5126,26 @@ export default function AdminDashboard() {
                   key={slotId}
                   className="col-span-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 flex flex-col gap-2 text-xs sm:text-sm"
                 >
+                  {/* Line 1: Candidate name + date on the same line */}
                   <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-slate-800">
-                    <span className="font-semibold truncate" title={slot.candidateName || slot.name}>
+                    <span
+                      className="font-semibold truncate max-w-[60%]"
+                      title={slot.candidateName || slot.name}
+                    >
                       {slot.candidateName || slot.name}
                     </span>
                     <span className="text-slate-500">•</span>
-                    <span className="text-slate-600">
+                    <span className="text-slate-600 truncate max-w-[35%]">
                       {slot.dateExactLabel || slot.dateLabel}
                     </span>
-                    {slot.timeLabel && (
-                      <>
-                        <span className="text-slate-500">•</span>
-                        <span className="text-slate-600">{slot.timeLabel}</span>
-                      </>
-                    )}
                   </div>
+                  {/* Line 2: Time (when present), as before */}
+                  {slot.timeLabel && (
+                    <div className="flex items-baseline gap-x-1.5 text-slate-800">
+                      <span className="text-slate-500">•</span>
+                      <span className="text-slate-600">{slot.timeLabel}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5 mt-auto">
                     <button
                       type="button"
@@ -5376,7 +5384,7 @@ export default function AdminDashboard() {
                 console.error('Failed to save HR to Firestore:', err);
               }
             }}
-            onUpdateHR={(id, data) => {
+            onUpdateHR={async (id, data) => {
               setHrs((prev) =>
                 prev.map((hr) =>
                   hr.id === id
@@ -5392,6 +5400,26 @@ export default function AdminDashboard() {
                     : hr,
                 ),
               );
+
+              // Persist changes to Firestore when possible
+              try {
+                const current = hrs.find((h) => h.id === id);
+                const firestoreId = current?.firestoreId;
+                if (firestoreId) {
+                  const payload = {
+                    name: data.name ?? current.name ?? '',
+                    email: data.email ?? current.email ?? '',
+                    mobile: data.mobile ?? current.mobile ?? '',
+                    company: data.company ?? current.company ?? '',
+                    technology: data.technology ?? current.technology ?? '',
+                    jobType: data.jobType ?? current.jobType ?? '',
+                  };
+                  await updateDoc(doc(db, 'hrs', firestoreId), payload);
+                }
+              } catch (err) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to update HR in Firestore:', err);
+              }
             }}
           />
           )
@@ -5578,6 +5606,7 @@ export default function AdminDashboard() {
                 ev.extendedProps?.hrMobile || ev.hrMobile || '';
 
               return (
+                <>
                 <div className="flex flex-col sm:flex-row gap-4 text-xs sm:text-sm text-slate-800">
                   <div className="flex-1 space-y-2">
                     {candidateName && (
@@ -5598,9 +5627,9 @@ export default function AdminDashboard() {
                         <div className="text-[11px] text-slate-500">Technology</div>
                       </div>
                     )}
+                    <hr className="my-2 border-slate-400" />
                     {(hrName || hrEmail || hrMobile) && (
-                      <div className="pt-2 border-t border-slate-100 mt-2">
-                        <div className="text-[11px] text-slate-500 mb-1">HR Details</div>
+                      <div className="pt-2 mt-2">
                         <div className="flex items-start justify-between gap-3">
                           {hrName && (
                             <div className="flex flex-col">
@@ -5648,13 +5677,14 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     {hrMobile && (
-                      <div>
+                      <div className="col-span-8">
                         <div className="text-[14px] font-semibold">{hrMobile}</div>
                         <div className="text-[11px] text-slate-500">Mobile</div>
                       </div>
                     )}
                   </div>
                 </div>
+                </>
               );
             })()}
           </div>
