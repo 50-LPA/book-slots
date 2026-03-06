@@ -60,7 +60,9 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
     setAvailabilityState('idle');
     setAvailabilityMessage('');
     setMeetingEndTime('');
-    onClose?.();
+    if (onClose) {
+      onClose();
+    }
   };
 
   // Calculate AM/PM based on selected hour
@@ -377,7 +379,9 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
 
     try {
       await addDoc(collection(db, 'events'), payload);
-      onBookSuccess?.();
+      if (onBookSuccess) {
+        onBookSuccess();
+      }
       navigate('/candidate-dashboard', { state: { openSlots: true }, replace: true });
     } catch (err) {
       // eslint-disable-next-line no-console

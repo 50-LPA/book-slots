@@ -19,6 +19,7 @@ import WeekCalendar from '../Components/WeekCalendar';
 import { db } from '../firebase/firebase';
 import { formatDateDDMMYYYY } from '../firebase/slotsService';
 import { parseISOToDate } from '../calendar';
+import { downloadWithSaveAs } from '../utils/downloadUtils';
 // import { formatDayHeader } from '../calendar';
 import { useAuth } from '../context/AuthContext';
 
@@ -192,7 +193,14 @@ function Header({ userName, onLogout, activeNav, onChangeNav }) {
 
         {/* Center Section - domain (hidden on small screens) */}
         <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
-          <p className="text-sm text-gray-600">virajkadam.in</p>
+          <a
+            href="https://virajkadam.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
+          >
+            virajkadam.in
+          </a>
         </div>
 
         {/* Right Section: user info */}
@@ -375,14 +383,14 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
           </div>
           {/* Download + actions stacked */}
           <div className="w-full flex flex-col items-center gap-2">
-            <a
-              href="/interview_process_candidate_details.pdf"
-              download="Personal_Detail_Form.pdf"
+            <button
+              type="button"
+              onClick={() => downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')}
               className="inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-xs font-semibold shadow"
             >
               <i className="fa-solid fa-cloud-arrow-down w-3 h-3" aria-hidden="true" />
               <span>Download Personal Detail Form</span>
-            </a>
+            </button>
             <div className="flex w-full max-w-xs gap-2">
               <button
                 type="button"
@@ -434,15 +442,15 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
 
             {/* Right: Action buttons */}
             <div className="flex flex-wrap gap-2 sm:gap-3 ml-auto">
-              <a
-                href="/interview_process_candidate_details.pdf"
-                download="Personal_Detail_Form.pdf"
+              <button
+                type="button"
+                onClick={() => downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1 inline-flex"
               >
                 <i className="fa-solid fa-cloud-arrow-down w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Download Personal Detail Form</span>
                 <span className="sm:hidden">Download</span>
-              </a>
+              </button>
               <button
                 type="button"
                 onClick={onOpenAddHR}
@@ -1092,8 +1100,17 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
       )}
       {/* Delete slot confirmation modal */}
       {confirmDeleteSlotId && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
-          <div className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-5 py-4">
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          onClick={() => {
+            setConfirmDeleteSlotId(null);
+            setConfirmDeleteSlotLabel('');
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-5 py-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-slate-800">
                 Are you sure you want to delete this slot?
@@ -1113,7 +1130,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
             <p className="text-xs text-slate-600 mb-4">
               {confirmDeleteSlotLabel}
             </p>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-between gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -1231,7 +1248,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
           </div>
         </div>
       )}
-      {filteredSlots.length > 0 && (
+      {filteredSlots.length > 0 && totalItems > itemsPerPage && (
         <div className="mt-3 flex justify-end">
           <PaginationBar
             totalItems={totalItems}
@@ -1255,12 +1272,19 @@ export default function CandidateDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
-  // Use state (not URL) for "open slots" so refresh always shows home
   const [showAddHR, setShowAddHR] = useState(false);
   const [showBookSlot, setShowBookSlot] = useState(false);
-  const [activeNav, setActiveNav] = useState(() =>
-    location.state?.openSlots ? 'slots' : 'home',
-  );
+  // Remember last opened tab across refreshes for candidate.
+  // If coming from a successful booking with openSlots, prefer "slots" once.
+  const [activeNav, setActiveNav] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('sb_candidate_active_nav');
+      if (stored) return stored;
+      return location.state?.openSlots ? 'slots' : 'home';
+    } catch {
+      return location.state?.openSlots ? 'slots' : 'home';
+    }
+  });
   const [userName, setUserName] = useState('');
 
   // Candidate ids for calendar: derive directly from current sb_user session
@@ -1394,7 +1418,7 @@ export default function CandidateDashboard() {
         addedById: currentUser?.uid || null,
         createdAt: serverTimestamp(),
       });
-      
+
       // Update local state with Firestore ID
       setHrList((prev) => [
         {
@@ -1414,6 +1438,15 @@ export default function CandidateDashboard() {
       throw err; // Re-throw so modal can handle error
     }
   };
+
+  // Persist candidate active nav so refresh keeps the same section
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('sb_candidate_active_nav', activeNav);
+    } catch {
+      // ignore
+    }
+  }, [activeNav]);
 
   const handleNavClick = (navId) => {
     setActiveNav(navId);

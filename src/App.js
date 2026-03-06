@@ -10,6 +10,28 @@ const CandidateRouteGuard = React.lazy(() => import(/* webpackChunkName: "dashbo
 const CalendarPage = React.lazy(() => import(/* webpackChunkName: "calendar" */ './pages/CalendarPage'));
 const Calender = React.lazy(() => import(/* webpackChunkName: "calendar" */ './pages/Calender'));
 
+// When a logged-in user lands on "/", send them to the correct dashboard
+function RootRoute() {
+  try {
+    const raw = sessionStorage.getItem('sb_user');
+    const parsed = raw ? JSON.parse(raw) : null;
+    const role = (parsed?.role || '').trim().toLowerCase();
+
+    if (parsed?.mobile) {
+      if (role === 'admin') {
+        return <Navigate to="/admin-dashboard" replace />;
+      }
+      if (role === 'candidate') {
+        return <Navigate to="/candidate-dashboard" replace />;
+      }
+    }
+  } catch {
+    // ignore parse errors and fall through to public calendar
+  }
+
+  return <CalendarPage />;
+}
+
 function NoDashboardViaBackForward({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -47,7 +69,7 @@ function App() {
             <Route path="/admin-dashboard" element={<AdminRouteGuard />} />
             <Route path="/candidate-dashboard" element={<CandidateRouteGuard />} />
             <Route path="/candidate-event-list" element={<CandidateRouteGuard />} />
-            <Route path="/" element={<CalendarPage />} />
+            <Route path="/" element={<RootRoute />} />
             <Route path="/calender" element={<Calender />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

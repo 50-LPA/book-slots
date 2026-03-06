@@ -26,6 +26,7 @@ import {
 } from '../firebase/slotsService';
 import { parseISOToDate } from '../calendar';
 import WeekCalendar from '../Components/WeekCalendar';
+import { downloadWithSaveAs } from '../utils/downloadUtils';
 
 // Normalise legacy round labels to new naming
 function normaliseRoundLabelAdmin(raw) {
@@ -187,7 +188,14 @@ function AdminHeader({ activeTab, onChangeTab }) {
 
         {/* Center Section - domain (hidden on small screens like screenshot) */}
       <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
-        <p className="text-sm text-gray-600">virajkadam.in</p>
+        <a
+          href="https://virajkadam.in"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
+        >
+          virajkadam.in
+        </a>
       </div>
 
         {/* Right Section: user info */}
@@ -381,10 +389,12 @@ function AdminCandidatesTable({
   candidates,
   slots = [],
   filter,
+  statusFilter,
   search,
   onBackToHome,
   onOpenAddForm,
   onChangeFilter,
+  onChangeStatusFilter,
   onChangeSearch,
   onToggleStatus,
   onDeleteCandidate,
@@ -514,10 +524,10 @@ function AdminCandidatesTable({
         {/* Right: filters grouped and right-aligned */}
         <div className="flex items-center justify-end gap-3 w-full sm:w-auto">
           {/* Selected / Unselected pill */}
-          <div className="flex rounded-full border border-purple-400 overflow-hidden text-[11px] sm:text-xs h-8">
+          <div className="flex w-36 sm:w-48 rounded-full border border-purple-400 overflow-hidden text-[11px] sm:text-xs h-8">
             <button
               onClick={() => onChangeFilter('selected')}
-              className={`px-3 font-semibold flex items-center h-full ${
+              className={`flex-1 px-3 font-semibold flex items-center justify-center h-full ${
                 filter === 'selected'
                   ? 'bg-purple-600 text-white'
                   : 'bg-white text-purple-600'
@@ -527,7 +537,7 @@ function AdminCandidatesTable({
             </button>
             <button
               onClick={() => onChangeFilter('unselected')}
-              className={`px-3 font-semibold flex items-center h-full ${
+              className={`flex-1 px-3 font-semibold flex items-center justify-center h-full ${
                 filter === 'unselected'
                   ? 'bg-purple-600 text-white'
                   : 'bg-white text-purple-600'
@@ -537,17 +547,28 @@ function AdminCandidatesTable({
             </button>
           </div>
 
-          {/* Filter dropdown */}
+          {/* Referred By filter dropdown */}
           <select
             value={filter}
             onChange={(e) => onChangeFilter(e.target.value)}
-            className="h-8 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700"
+            className="h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700"
           >
             <option value="all">All</option>
             <option value="anil_sir">Anil sir</option>
             <option value="viraj_sir">Viraj sir</option>
             <option value="nilesh_sir">Nilesh sir</option>
             <option value="vishal_sir">Vishal sir</option>
+          </select>
+
+          {/* Active / Inactive filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => onChangeStatusFilter(e.target.value)}
+            className="h-8 w-28 sm:w-32 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700"
+          >
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </select>
 
           {/* Search */}
@@ -719,31 +740,55 @@ function AdminCandidatesTable({
           </tbody>
         </table>
       </div>
-      <PaginationBar
-        totalItems={totalItems}
-        currentPage={currentPage}
-        itemsPerPage={itemsPerPage}
-        onPageChange={setCurrentPage}
-        onItemsPerPageChange={(n) => {
-          setItemsPerPage(n);
-          setCurrentPage(1);
-        }}
-        label="Candidates"
-      />
+      {totalItems > itemsPerPage && (
+        <PaginationBar
+          totalItems={totalItems}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          }}
+          label="Candidates"
+        />
+      )}
       {/* Delete candidate confirmation modal */}
       {confirmDeleteCandidateId != null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5">
-            <h3 className="text-sm font-semibold text-slate-900 mb-2">
-              Are you sure you want to delete this candidate?
-            </h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => {
+            setConfirmDeleteCandidateId(null);
+            setConfirmDeleteCandidateName('');
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Are you sure you want to delete this candidate?
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDeleteCandidateId(null);
+                  setConfirmDeleteCandidateName('');
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+              </button>
+            </div>
             <p className="text-xs text-slate-600 mb-4">
               Candidate:{' '}
               <span className="font-semibold">
                 {confirmDeleteCandidateName || 'Unnamed'}
               </span>
             </p>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-between gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -877,6 +922,12 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
   useEffect(() => {
     if (!showTechDropdown) setTechSearch('');
   }, [showTechDropdown]);
+
+  const handleGeneratePassword = () => {
+    const random = String(Math.floor(100000 + Math.random() * 900000));
+    setForm((prev) => ({ ...prev, password: random }));
+    setShowPassword(true);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1080,22 +1131,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
           />
         </div>
 
-        {/* Experience - required, 0–20, digits and decimal only */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
-            <span className="text-red-500">*</span> Experience
-          </label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={form.experience}
-            onChange={handleChange('experience')}
-            placeholder="0–20 (e.g., 2 or 2.5)"
-            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-          />
-        </div>
-
-        {/* Password with Font Awesome show/hide icon - 6 digits only */}
+        {/* Password with random generator + show/hide icon - 6 digits only */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-slate-700">
             <span className="text-red-500">*</span> Password
@@ -1112,6 +1148,13 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
             />
             <button
               type="button"
+              onClick={handleGeneratePassword}
+              className="inline-flex items-center justify-center border-y border-slate-200 bg-slate-50 px-2 text-[11px] sm:text-xs text-slate-700 hover:bg-slate-100"
+            >
+              Random
+            </button>
+            <button
+              type="button"
               onClick={() => setShowPassword((v) => !v)}
               className="inline-flex items-center justify-center rounded-r-md border border-l-0 border-slate-200 bg-slate-50 px-3 text-slate-500 hover:bg-slate-100"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
@@ -1120,6 +1163,9 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
             </button>
           </div>
         </div>
+
+        {/* Spacer to keep 3 fields on first row in 4-column layout */}
+        <div className="hidden md:block" />
 
         {/* Technology (custom multi-select dropdown, tags inside input like screenshot) */}
         <div className="flex flex-col gap-1">
@@ -1165,7 +1211,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
                       e.stopPropagation();
                       setForm((prev) => ({ ...prev, technology: [] }));
                     }}
-                    className="text-slate-400 text-xs hover:text-slate-600"
+                    className="text-slate-500 text-sm font-semibold hover:text-slate-700 px-1"
                     aria-label="Clear technologies"
                   >
                     ×
@@ -1233,6 +1279,21 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
             <option value="Nilesh Sir">Nilesh Sir</option>
             <option value="Vishal Sir">Vishal Sir</option>
           </select>
+        </div>
+
+        {/* Experience - required, 0–20, digits and decimal only */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-700">
+            <span className="text-red-500">*</span> Experience
+          </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={form.experience}
+            onChange={handleChange('experience')}
+            placeholder="0–20 (e.g., 2 or 2.5)"
+            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          />
         </div>
       </div>
 
@@ -1348,7 +1409,11 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
     setError('');
 
     const trimmedPassword = form.password?.trim();
-    if (trimmedPassword && !/^\d{6}$/.test(trimmedPassword)) {
+    if (!trimmedPassword) {
+      setError('Password is required and must be exactly 6 digits.');
+      return;
+    }
+    if (!/^\d{6}$/.test(trimmedPassword)) {
       setError('Password must be exactly 6 digits.');
       return;
     }
@@ -1387,7 +1452,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       const candidateData = {
         name: form.name.trim(),
         mobile: form.mobile.trim(),
-        ...(trimmedPassword && { password: trimmedPassword }),
+        password: trimmedPassword,
         approvedByAdmin: true,
         technology: techString,
         refereedBy: form.referredBy,
@@ -1508,25 +1573,10 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
           />
         </div>
 
-        {/* Experience - required, 0–20, digits and decimal only */}
+        {/* Password with show/hide toggle - 6 digits only (mandatory) */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-slate-700">
-            <span className="text-red-500">*</span> Experience
-          </label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={form.experience}
-            onChange={handleChange('experience')}
-            placeholder="0–20 (e.g., 2 or 2.5)"
-            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-          />
-        </div>
-
-        {/* Password with show/hide toggle - 6 digits only */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
-            Password
+            <span className="text-red-500">*</span> Password
           </label>
           <div className="flex items-stretch">
             <input
@@ -1535,7 +1585,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
               maxLength={6}
               value={form.password}
               onChange={handleChange('password')}
-              placeholder="Leave blank to keep current"
+              placeholder="6 digits"
               className="flex-1 rounded-l-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200 rounded-r-none"
             />
             <button
@@ -1548,6 +1598,9 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
             </button>
           </div>
         </div>
+
+        {/* Spacer so first row is: Name, Mobile, Password */}
+        <div className="hidden md:block" />
 
         {/* Technology (multi-select with tags) */}
         <div className="flex flex-col gap-1">
@@ -1592,7 +1645,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
                       e.stopPropagation();
                       setForm((prev) => ({ ...prev, technology: [] }));
                     }}
-                    className="text-slate-400 text-xs hover:text-slate-600"
+                    className="text-slate-500 text-sm font-semibold hover:text-slate-700 px-1"
                     aria-label="Clear technologies"
                   >
                     ×
@@ -1641,7 +1694,42 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
           </div>
         </div>
 
-        {/* Selected toggle - always visible */}
+        {/* Normal form: Referred By dropdown - only when NOT selected */}
+        {!form.selected && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              <span className="text-red-500">*</span> Referred By
+            </label>
+            <select
+              value={form.referredBy}
+              onChange={handleChange('referredBy')}
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            >
+              <option value="">Select Referred By</option>
+              <option value="Anil Shinde Sir">Anil Shinde Sir</option>
+              <option value="Viraj Kadam Sir">Viraj Kadam Sir</option>
+              <option value="Nilesh Sir">Nilesh Sir</option>
+              <option value="Vishal Sir">Vishal Sir</option>
+            </select>
+          </div>
+        )}
+
+        {/* Experience - required, 0–20, digits and decimal only */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-700">
+            <span className="text-red-500">*</span> Experience
+          </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={form.experience}
+            onChange={handleChange('experience')}
+            placeholder="0–20 (e.g., 2 or 2.5)"
+            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          />
+        </div>
+
+        {/* Selected toggle - always visible (placed last in second row) */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-slate-700">
             Selected
@@ -1667,26 +1755,6 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
             </span>
           </div>
         </div>
-
-        {/* Normal form: Referred By dropdown - only when NOT selected */}
-        {!form.selected && (
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
-              <span className="text-red-500">*</span> Referred By
-            </label>
-            <select
-              value={form.referredBy}
-              onChange={handleChange('referredBy')}
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            >
-              <option value="">Select Referred By</option>
-              <option value="Anil Shinde Sir">Anil Shinde Sir</option>
-              <option value="Viraj Kadam Sir">Viraj Kadam Sir</option>
-              <option value="Nilesh Sir">Nilesh Sir</option>
-              <option value="Vishal Sir">Vishal Sir</option>
-            </select>
-          </div>
-        )}
       </div>
 
       {/* Selected form: extra fields - only when Selected is ON */}
@@ -2093,7 +2161,7 @@ function AdminSlotsTable({
                 setShowRoundDropdown(false);
                 setShowHrDropdown(false);
               }}
-              className="flex items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-[11px] sm:text-xs text-slate-700 min-w-[110px] justify-between"
+              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
               aria-label="Filter by company"
             >
               <span className="truncate">
@@ -2166,7 +2234,7 @@ function AdminSlotsTable({
                 setShowRoundDropdown(false);
                 setShowHrDropdown(false);
               }}
-              className="flex items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-[11px] sm:text-xs text-slate-700 min-w-[130px] justify-between"
+              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
               aria-label="Filter by technology"
             >
               <span className="truncate">
@@ -2239,7 +2307,7 @@ function AdminSlotsTable({
                 setShowTechnologyDropdown(false);
                 setShowHrDropdown(false);
               }}
-              className="flex items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-[11px] sm:text-xs text-slate-700 min-w-[110px] justify-between"
+              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
               aria-label="Filter by round"
             >
               <span className="truncate">
@@ -2312,7 +2380,7 @@ function AdminSlotsTable({
                 setShowTechnologyDropdown(false);
                 setShowRoundDropdown(false);
               }}
-              className="flex items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-[11px] sm:text-xs text-slate-700 min-w-[110px] justify-between"
+              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
               aria-label="Filter by HR"
             >
               <span className="truncate">
@@ -2531,66 +2599,80 @@ function AdminSlotsTable({
                     </td>
                     <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
                       {(() => {
-                        const hrName = slot.hrName || '';
-                        const hrMobile = slot.hrMobile || (hrs.find((h) => (h.name || '').trim() === (hrName || '').trim())?.mobile ?? '');
-                        const hrEmail = slot.hrEmail || (hrs.find((h) => (h.name || '').trim() === (hrName || '').trim())?.email ?? '');
+                        const fallbackHrName = (slot.hrName || '').trim();
+                        const fromList =
+                          hrs.find(
+                            (h) =>
+                              (h.name || '').trim().toLowerCase() ===
+                              fallbackHrName.toLowerCase(),
+                          ) || null;
+
+                        const hrName = fallbackHrName || (fromList?.name || '').trim();
+                        const hrMobile =
+                          (slot.hrMobile || '').trim() || (fromList?.mobile || '').trim();
+                        const hrEmail =
+                          (slot.hrEmail || '').trim() || (fromList?.email || '').trim();
 
                         if (!hrName && !hrMobile && !hrEmail) {
                           return <span className="text-slate-400">-</span>;
                         }
 
-                        const hrLinkClass = 'text-purple-600 font-semibold hover:text-purple-800 hover:underline focus:outline-none focus:underline cursor-pointer';
+                        const hrLinkClass =
+                          'text-purple-600 font-semibold hover:text-purple-800 hover:underline focus:outline-none focus:underline cursor-pointer';
+
+                        const renderValue = (value, onClick) => {
+                          if (!value) return null;
+                          if (!onOpenHRView || value === '-') {
+                            return <span>{value}</span>;
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={onClick}
+                              className={hrLinkClass}
+                            >
+                              {value}
+                            </button>
+                          );
+                        };
 
                         return (
                           <div className="flex flex-col gap-1">
                             {hrName && (
                               <div className="flex items-center gap-1.5">
-                                <i className="fa-solid fa-user-tie text-slate-500 w-3.5" aria-hidden="true" />
-                                {onOpenHRView ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => onOpenHRView(hrName)}
-                                    className={hrLinkClass}
-                                  >
-                                    {hrName}
-                                  </button>
-                                ) : (
-                                  <span>{hrName}</span>
-                                )}
+                                <i
+                                  className="fa-solid fa-user-tie text-slate-500 w-3.5"
+                                  aria-hidden="true"
+                                />
+                                {renderValue(hrName, () => onOpenHRView(hrName))}
                               </div>
                             )}
                             {hrMobile && (
                               <div className="flex items-center gap-1.5">
-                                <i className="fa-solid fa-phone text-slate-500 w-3.5" aria-hidden="true" />
-                                {onOpenHRView ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => onOpenHRView(hrMobile)}
-                                    className={hrLinkClass}
-                                  >
-                                    {hrMobile}
-                                  </button>
-                                ) : (
-                                  <span>{hrMobile}</span>
-                                )}
+                                <i
+                                  className="fa-solid fa-phone text-slate-500 w-3.5"
+                                  aria-hidden="true"
+                                />
+                                {renderValue(hrMobile, () => onOpenHRView(hrMobile))}
                               </div>
                             )}
                             {hrEmail && (
                               <div className="flex items-center gap-1.5">
-                                <i className="fa-solid fa-envelope text-slate-500 w-3.5" aria-hidden="true" />
-                                {onOpenHRView ? (
+                                <i
+                                  className="fa-solid fa-envelope text-slate-500 w-3.5"
+                                  aria-hidden="true"
+                                />
+                                {hrEmail === '-' || !onOpenHRView ? (
+                                  <span title={hrEmail}>{hrEmail}</span>
+                                ) : (
                                   <button
                                     type="button"
                                     onClick={() => onOpenHRView(hrEmail)}
-                                    className={`truncate max-w-[180px] ${hrLinkClass}`}
+                                    className={hrLinkClass}
                                     title={hrEmail}
                                   >
                                     {hrEmail}
                                   </button>
-                                ) : (
-                                  <span className="truncate max-w-[180px]" title={hrEmail}>
-                                    {hrEmail}
-                                  </span>
                                 )}
                               </div>
                             )}
@@ -2694,7 +2776,7 @@ function AdminSlotsTable({
           </table>
         </div>
       )}
-      {!loading && dropdownFilteredSlots.length > 0 && (
+      {!loading && dropdownFilteredSlots.length > 0 && totalItems > itemsPerPage && (
         <PaginationBar
           totalItems={totalItems}
           currentPage={currentPage}
@@ -2709,18 +2791,40 @@ function AdminSlotsTable({
       )}
       {/* Delete slot confirmation modal */}
       {confirmDeleteSlotId != null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5">
-            <h3 className="text-sm font-semibold text-slate-900 mb-2">
-              Are you sure you want to delete this slot?
-            </h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => {
+            setConfirmDeleteSlotId(null);
+            setConfirmDeleteSlotName('');
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Are you sure you want to delete this slot?
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDeleteSlotId(null);
+                  setConfirmDeleteSlotName('');
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+              </button>
+            </div>
             <p className="text-xs text-slate-600 mb-4">
               Slot for:{' '}
               <span className="font-semibold">
                 {confirmDeleteSlotName || 'Candidate / Company'}
               </span>
             </p>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-between gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -2830,6 +2934,26 @@ function AdminHRsTable({
       .filter((v) => v && v.toLowerCase() !== 'admin');
     return [...new Set(values)].sort((a, b) => a.localeCompare(b));
   }, [hrs]);
+
+  const [companySearch, setCompanySearch] = useState('');
+  const [technologySearch, setTechnologySearch] = useState('');
+  const [addedBySearch, setAddedBySearch] = useState('');
+
+  const filteredCompanyOptions = useMemo(() => {
+    const q = companySearch.trim().toLowerCase();
+    if (!q) return companyOptions;
+    return companyOptions.filter((c) => c.toLowerCase().includes(q));
+  }, [companyOptions, companySearch]);
+  const filteredTechnologyOptions = useMemo(() => {
+    const q = technologySearch.trim().toLowerCase();
+    if (!q) return techOptions;
+    return techOptions.filter((t) => t.toLowerCase().includes(q));
+  }, [techOptions, technologySearch]);
+  const filteredAddedByOptions = useMemo(() => {
+    const q = addedBySearch.trim().toLowerCase();
+    if (!q) return addedByOptions;
+    return addedByOptions.filter((v) => v.toLowerCase().includes(q));
+  }, [addedByOptions, addedBySearch]);
 
   const filteredRows = useMemo(() => {
     return hrs.filter((hr) => {
@@ -2955,7 +3079,7 @@ function AdminHRsTable({
                 setShowJobTypeDropdown(false);
                 setShowAddedByDropdown(false);
               }}
-              className="flex items-center h-8 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 min-w-[90px] justify-between"
+              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
             >
               <span className="truncate">
                 {companyFilter ? toTitleCase(companyFilter) : 'Company'}
@@ -2987,12 +3111,22 @@ function AdminHRsTable({
             </button>
             {showCompanyDropdown && (
               <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
-                {companyOptions.map((opt) => (
+                <div className="px-2 py-1.5 border-b border-slate-100 sticky top-0 bg-white">
+                  <input
+                    type="text"
+                    placeholder="Search company..."
+                    value={companySearch}
+                    onChange={(e) => setCompanySearch(e.target.value)}
+                    className="w-full rounded-full border border-slate-200 px-2 py-1 text-[11px] sm:text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-purple-200"
+                  />
+                </div>
+                {filteredCompanyOptions.map((opt) => (
                   <button
                     key={opt}
                     type="button"
                     onClick={() => {
                       setCompanyFilter(opt);
+                      setCompanySearch('');
                       setShowCompanyDropdown(false);
                     }}
                     className={`w-full text-left px-3 py-1.5 ${
@@ -3018,7 +3152,7 @@ function AdminHRsTable({
                 setShowJobTypeDropdown(false);
                 setShowAddedByDropdown(false);
               }}
-              className="flex items-center h-8 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 min-w-[110px] justify-between"
+              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
             >
               <span className="truncate">
                 {techFilter ? toTitleCase(techFilter) : 'Technology'}
@@ -3050,12 +3184,22 @@ function AdminHRsTable({
             </button>
             {showTechDropdown && (
               <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
-                {techOptions.map((opt) => (
+                <div className="px-2 py-1.5 border-b border-slate-100 sticky top-0 bg-white">
+                  <input
+                    type="text"
+                    placeholder="Search technology..."
+                    value={technologySearch}
+                    onChange={(e) => setTechnologySearch(e.target.value)}
+                    className="w-full rounded-full border border-slate-200 px-2 py-1 text-[11px] sm:text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-purple-200"
+                  />
+                </div>
+                {filteredTechnologyOptions.map((opt) => (
                   <button
                     key={opt}
                     type="button"
                     onClick={() => {
                       setTechFilter(opt);
+                      setTechnologySearch('');
                       setShowTechDropdown(false);
                     }}
                     className={`w-full text-left px-3 py-1.5 ${
@@ -3081,7 +3225,7 @@ function AdminHRsTable({
                 setShowTechDropdown(false);
                 setShowAddedByDropdown(false);
               }}
-              className="flex items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-[11px] sm:text-xs text-slate-700 min-w-[100px] justify-between"
+              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
             >
               <span className="truncate">
                 {jobTypeFilter ? toTitleCase(jobTypeFilter) : 'Job Type'}
@@ -3144,7 +3288,7 @@ function AdminHRsTable({
                 setShowTechDropdown(false);
                 setShowJobTypeDropdown(false);
               }}
-              className="flex items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-[11px] sm:text-xs text-slate-700 min-w-[100px] justify-between"
+              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
             >
               <span className="truncate">
                 {addedByFilter ? toTitleCase(addedByFilter) : 'Added By'}
@@ -3176,12 +3320,22 @@ function AdminHRsTable({
             </button>
             {showAddedByDropdown && (
               <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
-                {addedByOptions.map((opt) => (
+                <div className="px-2 py-1.5 border-b border-slate-100 sticky top-0 bg-white">
+                  <input
+                    type="text"
+                    placeholder="Search added by..."
+                    value={addedBySearch}
+                    onChange={(e) => setAddedBySearch(e.target.value)}
+                    className="w-full rounded-full border border-slate-200 px-2 py-1 text-[11px] sm:text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-purple-200"
+                  />
+                </div>
+                {filteredAddedByOptions.map((opt) => (
                   <button
                     key={opt}
                     type="button"
                     onClick={() => {
                       setAddedByFilter(opt);
+                      setAddedBySearch('');
                       setShowAddedByDropdown(false);
                     }}
                     className={`w-full text-left px-3 py-1.5 ${
@@ -3346,31 +3500,55 @@ function AdminHRsTable({
           </tbody>
         </table>
       </div>
-      <PaginationBar
-        totalItems={totalItems}
-        currentPage={currentPage}
-        itemsPerPage={itemsPerPage}
-        onPageChange={setCurrentPage}
-        onItemsPerPageChange={(n) => {
-          setItemsPerPage(n);
-          setCurrentPage(1);
-        }}
-        label="HRs"
-      />
+      {totalItems > itemsPerPage && (
+        <PaginationBar
+          totalItems={totalItems}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          }}
+          label="HRs"
+        />
+      )}
       {/* Delete confirmation modal */}
       {confirmDeleteId != null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5">
-            <h3 className="text-sm font-semibold text-slate-900 mb-2">
-              Are you sure you want to delete?
-            </h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => {
+            setConfirmDeleteId(null);
+            setConfirmDeleteName('');
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Are you sure you want to delete?
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDeleteId(null);
+                  setConfirmDeleteName('');
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+              </button>
+            </div>
             <p className="text-xs text-slate-600 mb-4">
               HR:{' '}
               <span className="font-semibold">
                 {confirmDeleteName || 'Unnamed'}
               </span>
             </p>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-between gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -3927,31 +4105,55 @@ function AdminLeavesTable({ onBackToHome }) {
         </table>
       </div>
 
-      <PaginationBar
-        totalItems={totalItems}
-        currentPage={currentPage}
-        itemsPerPage={itemsPerPage}
-        onPageChange={setCurrentPage}
-        onItemsPerPageChange={(n) => {
-          setItemsPerPage(n);
-          setCurrentPage(1);
-        }}
-        label="Leaves"
-      />
+      {totalItems > itemsPerPage && (
+        <PaginationBar
+          totalItems={totalItems}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          }}
+          label="Leaves"
+        />
+      )}
       {/* Delete leave confirmation modal */}
       {confirmDeleteLeaveId != null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5">
-            <h3 className="text-sm font-semibold text-slate-900 mb-2">
-              Are you sure you want to delete this leave?
-            </h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => {
+            setConfirmDeleteLeaveId(null);
+            setConfirmDeleteLeaveLabel('');
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Are you sure you want to delete this leave?
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDeleteLeaveId(null);
+                  setConfirmDeleteLeaveLabel('');
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+              </button>
+            </div>
             <p className="text-xs text-slate-600 mb-4">
               Date:{' '}
               <span className="font-semibold">
                 {confirmDeleteLeaveLabel || '-'}
               </span>
             </p>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-between gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -4201,11 +4403,20 @@ function AdminStatisticsChart({ slots = [], onReload }) {
 }
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('home');
+  // Remember last opened tab across refreshes for admin
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('sb_admin_active_tab');
+      return stored || 'home';
+    } catch {
+      return 'home';
+    }
+  });
   const [hrBackTab, setHrBackTab] = useState('home');
   const [showAddForm, setShowAddForm] = useState(false);
   // Default to showing Unselected candidates, matching your other project
   const [candidateFilter, setCandidateFilter] = useState('unselected');
+  const [candidateStatusFilter, setCandidateStatusFilter] = useState('all'); // 'all' | 'active' | 'inactive'
   const [candidateSearch, setCandidateSearch] = useState('');
   const [candidates, setCandidates] = useState(MOCK_CANDIDATES);
   const candidateByIdCacheRef = useRef(new Map());
@@ -4287,6 +4498,15 @@ export default function AdminDashboard() {
 
     loadCandidatesFromFirestore();
   }, []);
+
+  // Persist admin active tab so refresh keeps the same section
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('sb_admin_active_tab', activeTab);
+    } catch {
+      // ignore
+    }
+  }, [activeTab]);
 
   // Load HRs from Firestore on mount and listen for real-time updates
   useEffect(() => {
@@ -4570,6 +4790,8 @@ export default function AdminDashboard() {
     const filtered = candidates.filter((c) => {
       if (candidateFilter === 'selected' && !c.selected) return false;
       if (candidateFilter === 'unselected' && c.selected) return false;
+      if (candidateStatusFilter === 'active' && c.status !== 'Active') return false;
+      if (candidateStatusFilter === 'inactive' && c.status !== 'Inactive') return false;
       if (candidateFilter === 'anil_sir') {
         const ref = (c.referredBy || '').toLowerCase();
         if (!ref.includes('anil')) return false;
@@ -4600,7 +4822,7 @@ export default function AdminDashboard() {
       const idB = typeof b.id === 'number' ? b.id : parseInt(b.id, 10) || 0;
       return idB - idA;
     });
-  }, [candidates, candidateFilter, candidateSearch]);
+  }, [candidates, candidateFilter, candidateStatusFilter, candidateSearch]);
 
   const filteredHRs = useMemo(() => {
     return hrs.filter((hr) => {
@@ -4879,11 +5101,7 @@ export default function AdminDashboard() {
                     </span>
                     <span className="text-slate-500">•</span>
                     <span className="text-slate-600">
-                      {isToday ? (
-                        <span className="text-emerald-700 font-medium">Today</span>
-                      ) : (
-                        slot.dateExactLabel || slot.dateLabel
-                      )}
+                      {slot.dateExactLabel || slot.dateLabel}
                     </span>
                     {slot.timeLabel && (
                       <>
@@ -4987,10 +5205,12 @@ export default function AdminDashboard() {
               candidates={filteredCandidates}
               slots={slots}
               filter={candidateFilter}
+              statusFilter={candidateStatusFilter}
               search={candidateSearch}
               onBackToHome={() => setActiveTab('home')}
               onOpenAddForm={() => setShowAddForm(true)}
               onChangeFilter={setCandidateFilter}
+              onChangeStatusFilter={setCandidateStatusFilter}
               onChangeSearch={setCandidateSearch}
               onToggleStatus={handleToggleStatus}
               onDeleteCandidate={handleDeleteCandidate}
@@ -5180,9 +5400,9 @@ export default function AdminDashboard() {
                   </div>
                   {/* Download button full-width-ish */}
                   <div className="w-full flex justify-center">
-                    <a
-                      href="/interview_process_candidate_details.pdf"
-                      download="Personal_Detail_Form.pdf"
+                    <button
+                      type="button"
+                      onClick={() => downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')}
                       className="inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-sky-600"
                     >
                       <svg
@@ -5198,7 +5418,7 @@ export default function AdminDashboard() {
                         <rect x="4" y="17" width="16" height="3" rx="1" />
                       </svg>
                       <span>Download Personal Detail Form</span>
-                    </a>
+                    </button>
                   </div>
                 </div>
 
@@ -5229,9 +5449,9 @@ export default function AdminDashboard() {
 
                   {/* Right: Download button only (stats are in CalendarToolbar below) */}
                   <div className="flex items-center justify-end">
-                    <a
-                      href="/interview_process_candidate_details.pdf"
-                      download="Personal_Detail_Form.pdf"
+                    <button
+                      type="button"
+                      onClick={() => downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')}
                       className="inline-flex items-center gap-2 rounded-md bg-sky-500 px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold text-white shadow hover:bg-sky-600 whitespace-nowrap"
                     >
                       <svg
@@ -5247,7 +5467,7 @@ export default function AdminDashboard() {
                         <rect x="4" y="17" width="16" height="3" rx="1" />
                       </svg>
                       <span>Download Personal Detail Form</span>
-                    </a>
+                    </button>
                     </div>
                   </div>
                 </div>
