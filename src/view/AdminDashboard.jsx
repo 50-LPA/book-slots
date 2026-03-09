@@ -2899,6 +2899,7 @@ function AdminHRsTable({
   const [showAddedByDropdown, setShowAddedByDropdown] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmDeleteName, setConfirmDeleteName] = useState('');
+  const [hrFormErrors, setHrFormErrors] = useState({});
 
   const filtersRef = useRef(null);
 
@@ -2972,11 +2973,12 @@ function AdminHRsTable({
   }, [addedByOptions, addedBySearch]);
 
   const filteredRows = useMemo(() => {
+    const norm = (v) => String(v || '').trim().toLowerCase();
     return hrs.filter((hr) => {
-      if (companyFilter && hr.company !== companyFilter) return false;
-      if (techFilter && hr.technology !== techFilter) return false;
-      if (jobTypeFilter && hr.jobType !== jobTypeFilter) return false;
-      if (addedByFilter && (hr.addedBy || '').trim() !== addedByFilter) return false;
+      if (companyFilter && norm(hr.company) !== norm(companyFilter)) return false;
+      if (techFilter && norm(hr.technology) !== norm(techFilter)) return false;
+      if (jobTypeFilter && norm(hr.jobType) !== norm(jobTypeFilter)) return false;
+      if (addedByFilter && norm(hr.addedBy) !== norm(addedByFilter)) return false;
       return true;
     });
   }, [hrs, companyFilter, techFilter, jobTypeFilter, addedByFilter]);
@@ -2995,12 +2997,46 @@ function AdminHRsTable({
   }, [filteredRows.length]);
 
   const handleChange = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    let { value } = e.target;
+
+    if (field === 'mobile') {
+      // Digits only, max 10
+      value = value.replace(/\D/g, '').slice(0, 10);
+    }
+
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setHrFormErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.name || !form.email) return;
+    const errors = {};
+    const name = String(form.name || '').trim();
+    const email = String(form.email || '').trim();
+    const technology = String(form.technology || '').trim();
+    const jobType = String(form.jobType || '').trim();
+    const company = String(form.company || '').trim();
+    const mobile = String(form.mobile || '').trim();
+
+    if (!name) errors.name = 'This is required.';
+    if (!email) {
+      errors.email = 'This is required.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = 'Please enter a valid email.';
+    }
+    if (!technology) errors.technology = 'This is required.';
+    if (!jobType) errors.jobType = 'This is required.';
+    if (!company) errors.company = 'This is required.';
+    if (mobile && !/^\d{10}$/.test(mobile)) {
+      errors.mobile = 'Mobile must be 10 digits.';
+    }
+    setHrFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     if (modalMode === 'edit' && onUpdateHR && editingId != null) {
       onUpdateHR(editingId, form);
     } else if (onAddHR) {
@@ -3439,7 +3475,7 @@ function AdminHRsTable({
                   {startIdx + index + 1}
                 </td>
                 <td className="px-3 py-2 text-slate-800 border-r border-slate-200">
-                  {hr.name}
+                  {toTitleCase(hr.name || '')}
                 </td>
                 <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
                   {hr.email}
@@ -3448,13 +3484,13 @@ function AdminHRsTable({
                   {hr.mobile}
                 </td>
                 <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                  {hr.company}
+                  {toTitleCase(hr.company || '')}
                 </td>
                 <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                  {hr.technology}
+                  {toTitleCase(hr.technology || '')}
                 </td>
                 <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                  {hr.jobType}
+                  {toTitleCase(hr.jobType || '')}
                 </td>
                 <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
                   {(() => {
@@ -3650,6 +3686,9 @@ function AdminHRsTable({
                   className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
                   placeholder="Enter HR Name"
                 />
+                {hrFormErrors.name && (
+                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.name}</p>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -3668,6 +3707,9 @@ function AdminHRsTable({
                     </option>
                   ))}
                 </select>
+                {hrFormErrors.technology && (
+                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.technology}</p>
+                )}
               </div>
 
               {/* Row 2: Email | Mobile */}
@@ -3676,12 +3718,15 @@ function AdminHRsTable({
                   <span className="text-red-500">*</span> Email
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   value={form.email}
                   onChange={handleChange('email')}
                   className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
                   placeholder="Enter Email"
                 />
+                {hrFormErrors.email && (
+                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.email}</p>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -3689,18 +3734,21 @@ function AdminHRsTable({
                   Mobile
                 </label>
                 <input
-                  type="tel"
+                  type="text"
                   value={form.mobile}
                   onChange={handleChange('mobile')}
                   className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
                   placeholder="Enter 10 digit mobile number"
                 />
+                {hrFormErrors.mobile && (
+                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.mobile}</p>
+                )}
               </div>
 
               {/* Row 3: Job Type (same as email field) */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-semibold text-slate-700">
-                  Job Type
+                  <span className="text-red-500">*</span> Job Type
                 </label>
                 <select
                   value={form.jobType}
@@ -3714,12 +3762,15 @@ function AdminHRsTable({
                     </option>
                   ))}
                 </select>
+                {hrFormErrors.jobType && (
+                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.jobType}</p>
+                )}
               </div>
 
               {/* Row 4: Company Name full width */}
               <div className="flex flex-col gap-1 md:col-span-2">
                 <label className="text-xs font-semibold text-slate-700">
-                  Company Name
+                  <span className="text-red-500">*</span> Company Name
                 </label>
                 <input
                   type="text"
@@ -3728,6 +3779,9 @@ function AdminHRsTable({
                   className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
                   placeholder="Enter Company Name"
                 />
+                {hrFormErrors.company && (
+                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.company}</p>
+                )}
               </div>
             </div>
 
@@ -3743,7 +3797,7 @@ function AdminHRsTable({
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-5 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap"
+                className="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 text-white px-4 sm:px-5 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap"
               >
                 <i className={`fa-solid ${modalMode === 'edit' ? 'fa-pen' : 'fa-plus'} text-xs`} aria-hidden="true" />
                 {modalMode === 'edit' ? 'Update HR' : 'Add New HR'}
@@ -4859,10 +4913,19 @@ export default function AdminDashboard() {
     return hrs.filter((hr) => {
       if (!hrSearch.trim()) return true;
       const q = hrSearch.toLowerCase();
+      const name = String(hr.name || '').toLowerCase();
+      const email = String(hr.email || '').toLowerCase();
+      const mobile = String(hr.mobile || '').toLowerCase();
+      const company = String(hr.company || '').toLowerCase();
+      const technology = String(hr.technology || '').toLowerCase();
+      const addedBy = String(hr.addedBy || '').toLowerCase();
       return (
-        hr.name.toLowerCase().includes(q) ||
-        hr.email.toLowerCase().includes(q) ||
-        (hr.mobile && hr.mobile.toLowerCase().includes(q))
+        name.includes(q) ||
+        email.includes(q) ||
+        mobile.includes(q) ||
+        company.includes(q) ||
+        technology.includes(q) ||
+        addedBy.includes(q)
       );
     });
   }, [hrs, hrSearch]);
@@ -5122,29 +5185,66 @@ export default function AdminDashboard() {
                 slot.date
                   ? formatDateDDMMYYYY(slot.date)
                   : slot.dateExactLabel || slot.dateLabel || '';
+              const candidateName = slot.candidateName || slot.name || '';
+              const timeLabel = slot.timeLabel || '';
+              const hrName = slot.hrName || slot.hr || '';
+              const hrMobile = slot.hrMobile || '';
+              const hrEmail = slot.hrEmail || '';
               return (
                 <div
                   key={slotId}
-                  className="col-span-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 flex flex-col gap-2 text-xs sm:text-sm"
+                  className="col-span-2 sm:col-span-4 lg:col-span-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 flex flex-col gap-2 text-xs sm:text-sm"
                 >
-                  {/* Line 1: Candidate name + full date on same visual line (date never truncated) */}
-                  <div className="flex items-baseline gap-x-1.5 text-slate-800">
-                    <span
-                      className="font-semibold truncate"
-                      title={slot.candidateName || slot.name}
-                    >
-                      {slot.candidateName || slot.name}
-                    </span>
-                    <span className="text-slate-500 flex-shrink-0">•</span>
-                    <span className="text-slate-600 whitespace-normal">
-                      {fullDate}
-                    </span>
+                  {/* Row 1: Candidate Name, Slot Date, Slot Time */}
+                  <div className="flex flex-wrap items-baseline gap-x-1.5 text-slate-800">
+                    {candidateName && (
+                      <span
+                        className="font-semibold truncate max-w-[40%]"
+                        title={candidateName}
+                      >
+                        {candidateName}
+                      </span>
+                    )}
+                    {fullDate && (
+                      <>
+                        <span className="text-slate-500 flex-shrink-0">•</span>
+                        <span className="text-slate-700 whitespace-normal">
+                          {fullDate}
+                        </span>
+                      </>
+                    )}
+                    {timeLabel && (
+                      <>
+                        <span className="text-slate-500 flex-shrink-0">•</span>
+                        <span className="text-slate-700 whitespace-nowrap">
+                          {timeLabel}
+                        </span>
+                      </>
+                    )}
                   </div>
-                  {/* Line 2: Time (when present), as before */}
-                  {slot.timeLabel && (
-                    <div className="flex items-baseline gap-x-1.5 text-slate-800">
-                      <span className="text-slate-500">•</span>
-                      <span className="text-slate-600">{slot.timeLabel}</span>
+
+                  {/* Row 2: HR Name, HR Mobile, HR Email */}
+                  {(hrName || hrMobile || hrEmail) && (
+                    <div className="flex flex-wrap items-baseline gap-x-1.5 text-slate-700">
+                      {hrName && (
+                        <span className="font-medium truncate max-w-[40%]">
+                          {hrName}
+                        </span>
+                      )}
+                      {hrMobile && (
+                        <>
+                          <span className="text-slate-500 flex-shrink-0">•</span>
+                          <span className="whitespace-nowrap">{hrMobile}</span>
+                        </>
+                      )}
+                      {hrEmail && (
+                        <>
+                          <span className="text-slate-500 flex-shrink-0">•</span>
+                          <span className="break-words" title={hrEmail}>
+                            {hrEmail}
+                          </span>
+                        </>
+                      )}
                     </div>
                   )}
                   <div className="flex items-center gap-1.5 mt-auto">
@@ -5607,85 +5707,94 @@ export default function AdminDashboard() {
                 ev.extendedProps?.hrMobile || ev.hrMobile || '';
 
               return (
-                <>
-                <div className="flex flex-col sm:flex-row gap-4 text-xs sm:text-sm text-slate-800">
-                  <div className="flex-1 space-y-2">
-                    {candidateName && (
-                      <div>
-                        <div className="font-semibold">{candidateName}</div>
-                        <div className="text-[11px] text-slate-500">Candidate</div>
-                      </div>
-                    )}
-                    {company && (
-                      <div>
-                        <div className="font-semibold">{company}</div>
-                        <div className="text-[11px] text-slate-500">Company</div>
-                      </div>
-                    )}
-                    {technology && (
-                      <div>
-                        <div className="font-semibold">{technology}</div>
-                        <div className="text-[11px] text-slate-500">Technology</div>
-                      </div>
-                    )}
-                    <hr className="my-2 border-slate-400" />
-                    {(hrName || hrEmail || hrMobile) && (
-                      <div className="pt-2 mt-2">
-                        <div className="flex items-start justify-between gap-3">
-                          {hrName && (
-                            <div className="flex flex-col">
-                              <span className="text-[14px] font-semibold">
-                                {hrName}
-                              </span>
-                              <span className="text-[11px] text-slate-500">
-                                Name
-                              </span>
-                            </div>
-                          )}
+                <div className="space-y-2 text-xs sm:text-sm text-slate-800">
+                  {/* Row 1: Candidate Name + Round */}
+                  {(candidateName || round) && (
+                    <div className="flex justify-between gap-4">
+                      {candidateName && (
+                        <div className="flex-1">
+                          <div className="font-semibold">{candidateName}</div>
+                          <div className="text-[11px] text-slate-500">Candidate</div>
                         </div>
-                        {hrEmail && (
-                          <div className="mt-1">
-                            <span className="text-[14px] font-semibold break-all">
-                              {hrEmail}
-                            </span>
-                            <div className="text-[11px] text-slate-500">
-                              Email
-                            </div>
+                      )}
+                      {round && (
+                        <div className="flex-1 text-right">
+                          <div className="font-semibold">
+                            {normaliseRoundLabelAdmin(round)}
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="w-full sm:w-40 space-y-2 text-right sm:text-left">
-                    {round && (
-                      <div>
-                        <div className="font-semibold">
-                          {normaliseRoundLabelAdmin(round)}
+                          <div className="text-[11px] text-slate-500">Round</div>
                         </div>
-                        <div className="text-[11px] text-slate-500">Round</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Row 2: Company + Date */}
+                  {(company || dateStr) && (
+                    <div className="flex justify-between gap-4">
+                      {company && (
+                        <div className="flex-1">
+                          <div className="font-semibold">{company}</div>
+                          <div className="text-[11px] text-slate-500">Company</div>
+                        </div>
+                      )}
+                      {dateStr && (
+                        <div className="flex-1 text-right">
+                          <div className="font-semibold">{dateStr}</div>
+                          <div className="text-[11px] text-slate-500">Date</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Row 3: Technology + Time */}
+                  {(technology || timeStr) && (
+                    <div className="flex justify-between gap-4">
+                      {technology && (
+                        <div className="flex-1">
+                          <div className="font-semibold">{technology}</div>
+                          <div className="text-[11px] text-slate-500">Technology</div>
+                        </div>
+                      )}
+                      {timeStr && (
+                        <div className="flex-1 text-right">
+                          <div className="font-semibold">{timeStr}</div>
+                          <div className="text-[11px] text-slate-500">Time</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Separator line */}
+                  <hr className="my-2 border-slate-400" />
+
+                  {/* Row 4: HR Name + HR Mobile */}
+                  {(hrName || hrMobile) && (
+                    <div className="flex justify-between gap-4">
+                      {hrName && (
+                        <div className="flex-1">
+                          <div className="font-semibold text-[14px]">{hrName}</div>
+                          <div className="text-[11px] text-slate-500">HR Name</div>
+                        </div>
+                      )}
+                      {hrMobile && (
+                        <div className="flex-1 text-right">
+                          <div className="font-semibold text-[14px]">{hrMobile}</div>
+                          <div className="text-[11px] text-slate-500">Mobile</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Row 5: HR Email */}
+                  {hrEmail && (
+                    <div>
+                      <div className="font-semibold text-[14px] break-all">
+                        {hrEmail}
                       </div>
-                    )}
-                    {dateStr && (
-                      <div>
-                        <div className="font-semibold">{dateStr}</div>
-                        <div className="text-[11px] text-slate-500">Date</div>
-                      </div>
-                    )}
-                    {timeStr && (
-                      <div>
-                        <div className="font-semibold">{timeStr}</div>
-                        <div className="text-[11px] text-slate-500">Time</div>
-                      </div>
-                    )}
-                    {hrMobile && (
-                      <div className="mb-4">
-                        <div className="text-[14px] font-semibold">{hrMobile}</div>
-                        <div className="text-[11px] text-slate-500">Mobile</div>
-                      </div>
-                    )}
-                  </div>
+                      <div className="text-[11px] text-slate-500">Email</div>
+                    </div>
+                  )}
                 </div>
-                </>
               );
             })()}
           </div>

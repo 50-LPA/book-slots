@@ -499,84 +499,94 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                 ev.extendedProps?.hrMobile || ev.hrMobile || '';
 
               return (
-                <>
-                <div className="flex flex-col sm:flex-row gap-4 text-xs sm:text-sm text-slate-800">
-                  <div className="flex-1 space-y-2">
-                    {candidateName && (
-                      <div>
-                        <div className="font-semibold">{candidateName}</div>
-                        <div className="text-[11px] text-slate-500">Candidate</div>
-                      </div>
-                    )}
-                    {company && (
-                      <div>
-                        <div className="font-semibold">{company}</div>
-                        <div className="text-[11px] text-slate-500">Company</div>
-                      </div>
-                    )}
-                    {technology && (
-                      <div>
-                        <div className="font-semibold">{technology}</div>
-                        <div className="text-[11px] text-slate-500">Technology</div>
-                      </div>
-                    )}
-                    {(hrName || hrEmail || hrMobile) && (
-                      <div className="pt-2 mt-2">
-                        <div className="flex items-start justify-between gap-3">
-                          {hrName && (
-                            <div className="flex flex-col">
-                              <span className="text-[14px] font-semibold">
-                                {hrName}
-                              </span>
-                              <span className="text-[11px] text-slate-500">
-                                Name
-                              </span>
-                            </div>
-                          )}
+                <div className="space-y-2 text-xs sm:text-sm text-slate-800">
+                  {/* Row 1: Candidate Name + Round */}
+                  {(candidateName || round) && (
+                    <div className="flex justify-between gap-4">
+                      {candidateName && (
+                        <div className="flex-1">
+                          <div className="font-semibold">{candidateName}</div>
+                          <div className="text-[11px] text-slate-500">Candidate</div>
                         </div>
-                        {hrEmail && (
-                          <div className="mt-1">
-                            <span className="text-[14px] font-semibold break-all">
-                              {hrEmail}
-                            </span>
-                            <div className="text-[11px] text-slate-500">
-                              Email
-                            </div>
+                      )}
+                      {round && (
+                        <div className="flex-1 text-right">
+                          <div className="font-semibold">
+                            {normaliseRoundLabel(round)}
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="w-full sm:w-40 space-y-2 text-right sm:text-left">
-                    {round && (
-                      <div>
-                        <div className="font-semibold">
-                          {normaliseRoundLabel(round)}
+                          <div className="text-[11px] text-slate-500">Round</div>
                         </div>
-                        <div className="text-[11px] text-slate-500">Round</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Row 2: Company + Date */}
+                  {(company || dateStr) && (
+                    <div className="flex justify-between gap-4">
+                      {company && (
+                        <div className="flex-1">
+                          <div className="font-semibold">{company}</div>
+                          <div className="text-[11px] text-slate-500">Company</div>
+                        </div>
+                      )}
+                      {dateStr && (
+                        <div className="flex-1 text-right">
+                          <div className="font-semibold">{dateStr}</div>
+                          <div className="text-[11px] text-slate-500">Date</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Row 3: Technology + Time */}
+                  {(technology || timeStr) && (
+                    <div className="flex justify-between gap-4">
+                      {technology && (
+                        <div className="flex-1">
+                          <div className="font-semibold">{technology}</div>
+                          <div className="text-[11px] text-slate-500">Technology</div>
+                        </div>
+                      )}
+                      {timeStr && (
+                        <div className="flex-1 text-right">
+                          <div className="font-semibold">{timeStr}</div>
+                          <div className="text-[11px] text-slate-500">Time</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Separator line */}
+                  <hr className="my-2 border-slate-400" />
+
+                  {/* Row 4: HR Name + HR Mobile */}
+                  {(hrName || hrMobile) && (
+                    <div className="flex justify-between gap-4">
+                      {hrName && (
+                        <div className="flex-1">
+                          <div className="font-semibold text-[14px]">{hrName}</div>
+                          <div className="text-[11px] text-slate-500">HR Name</div>
+                        </div>
+                      )}
+                      {hrMobile && (
+                        <div className="flex-1 text-right">
+                          <div className="font-semibold text-[14px]">{hrMobile}</div>
+                          <div className="text-[11px] text-slate-500">Mobile</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Row 5: HR Email */}
+                  {hrEmail && (
+                    <div>
+                      <div className="font-semibold text-[14px] break-all">
+                        {hrEmail}
                       </div>
-                    )}
-                    {dateStr && (
-                      <div>
-                        <div className="font-semibold">{dateStr}</div>
-                        <div className="text-[11px] text-slate-500">Date</div>
-                      </div>
-                    )}
-                    {timeStr && (
-                      <div>
-                        <div className="font-semibold">{timeStr}</div>
-                        <div className="text-[11px] text-slate-500">Time</div>
-                      </div>
-                    )}
-                    {hrMobile && (
-                      <div>
-                        <div className="text-[14px] font-semibold">{hrMobile}</div>
-                        <div className="text-[11px] text-slate-500">Mobile</div>
-                      </div>
-                    )}
-                  </div>
+                      <div className="text-[11px] text-slate-500">Email</div>
+                    </div>
+                  )}
                 </div>
-                </>
               );
             })()}
           </div>

@@ -60,7 +60,14 @@ export default function AddHRModal({
   if (!isOpen) return null;
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    let { value } = e.target;
+
+    if (name === 'mobile') {
+      // Allow digits only, max 10
+      value = value.replace(/\D/g, '').slice(0, 10);
+    }
+
     setForm((f) => ({ ...f, [name]: value }));
     setErrors((prev) => {
       if (!prev[name]) return prev;
@@ -217,7 +224,7 @@ export default function AddHRModal({
                   <span className="text-red-500">*</span> Email
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   name="email"
                   value={form.email}
                   onChange={handleChange}

@@ -488,7 +488,7 @@ export default function BookSlot({
             <h2 className="mx-auto text-purple-600 font-semibold text-sm md:text-base">Book Slot</h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
             {/* COLUMN 1 (Left) */}
             <div className="flex flex-col gap-3">
               {/* Date field */}
@@ -670,9 +670,9 @@ export default function BookSlot({
                 </div>
               </div>
 
-              {/* Technology dropdown - visible only after availability confirmed */}
+              {/* Technology dropdown - visible only after availability confirmed (desktop/tablet) */}
               {availabilityState === 'available' && (
-                <div>
+                <div className="hidden md:block">
                   <label className="block text-xs font-medium text-gray-600 mt-6">
                     {isTechnologyRestricted ? (
                       <>
@@ -761,9 +761,9 @@ export default function BookSlot({
                 <p className="text-xs text-red-500 mt-1">Book slots between 11 AM to 7 PM</p>
               </div>
 
-              {/* Round dropdown - visible only after availability confirmed */}
+              {/* Round dropdown - visible only after availability confirmed (desktop/tablet) */}
               {availabilityState === 'available' && (
-                <div>
+                <div className="hidden md:block">
                   <label className="block text-xs font-medium text-gray-600 mt-6">
                     <span className="text-red-500">*</span> Round
                   </label>
@@ -823,7 +823,7 @@ export default function BookSlot({
               )}
 
               {availabilityState === 'available' && (
-                <div className="text-center">
+                <div className="hidden md:block text-center">
                   {meetingEndTime && (
                     <p className="text-xs text-red-500">
                       Meeting End Time: {meetingEndTime}
@@ -835,9 +835,9 @@ export default function BookSlot({
                 </div>
               )}
 
-              {/* Select HR + Add New HR (same row) - visible only after availability confirmed */}
+              {/* Select HR + Add New HR (same row) - visible only after availability confirmed (desktop/tablet) */}
               {availabilityState === 'available' && (
-                <div>
+                <div className="hidden md:block">
                   <label className="block text-xs font-medium text-gray-600">
                     <span className="text-red-500">*</span> Select HR
                   </label>
@@ -934,13 +934,179 @@ export default function BookSlot({
                 <button
                   type="button"
                   onClick={bookSlot}
-                  className="mt-auto inline-flex items-center justify-center gap-2 px-3 py-2 rounded bg-emerald-400 hover:bg-emerald-500 text-white font-semibold h-9 w-full"
+                  className="hidden md:inline-flex mt-auto items-center justify-center gap-2 px-3 py-2 rounded bg-emerald-400 hover:bg-emerald-500 text-white font-semibold h-9 w-full"
                 >
                   Book My Slot
                 </button>
               )}
             </div>
           </div>
+
+          {/* Mobile-only stacked fields shown AFTER Check Availability */}
+          {availabilityState === 'available' && (
+            <div className="mt-4 space-y-3 md:hidden">
+              {/* Technology */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600">
+                  {isTechnologyRestricted ? (
+                    <>
+                      <span className="text-red-500">*</span> Technology
+                    </>
+                  ) : (
+                    <>Technology</>
+                  )}
+                </label>
+                <select
+                  name="technology"
+                  value={form.technology}
+                  onChange={handleChange}
+                  disabled={!isTechnologyRestricted}
+                  className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white disabled:bg-slate-50 disabled:text-slate-500"
+                >
+                  {isTechnologyRestricted ? (
+                    <option value="">Select Technology</option>
+                  ) : (
+                    <option value="">No technology assigned</option>
+                  )}
+                  {techOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                {errors.technology && (
+                  <p className="text-xs text-red-500 mt-1">{errors.technology}</p>
+                )}
+                {!isTechnologyRestricted && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Your profile has no technology assigned. Please contact admin.
+                  </p>
+                )}
+              </div>
+
+              {/* Round */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600">
+                  <span className="text-red-500">*</span> Round
+                </label>
+                <select
+                  name="round"
+                  value={form.round}
+                  onChange={handleChange}
+                  className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                >
+                  <option value="">Select Round</option>
+                  <option>Technical Round 1</option>
+                  <option>Technical Round 2</option>
+                  <option>Technical Round 3</option>
+                  <option>Manageral Round</option>
+                  <option>HR Round</option>
+                  <option>Task Assesment</option>
+                </select>
+                {errors.round && <p className="text-xs text-red-500 mt-1">{errors.round}</p>}
+              </div>
+
+              {/* Select HR */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600">
+                  <span className="text-red-500">*</span> Select HR
+                </label>
+                <div className="mt-1 flex items-center gap-3">
+                  <div className="relative flex-1 min-w-0" ref={hrDropdownRef}>
+                    <input
+                      type="text"
+                      name="hr_search"
+                      value={showHrDropdown ? hrQuery : selectedHR ? selectedHR.name : hrQuery}
+                      onChange={(e) => {
+                        setHrQuery(e.target.value);
+                        setShowHrDropdown(true);
+                      }}
+                      onFocus={() => {
+                        if (isTechnologyRestricted && !form.technology) return;
+                        setShowHrDropdown(true);
+                      }}
+                      placeholder={
+                        isTechnologyRestricted && !form.technology
+                          ? 'Select technology first'
+                          : 'Click to select HR'
+                      }
+                      disabled={isTechnologyRestricted && !form.technology}
+                      className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 disabled:bg-slate-50 disabled:text-slate-500"
+                    />
+                    {showHrDropdown && (
+                      <ul className="absolute left-0 right-0 bg-white border border-gray-200 rounded-md mt-1 max-h-48 overflow-auto z-20">
+                        {filteredHR.length > 0 ? (
+                          filteredHR.map((h) => (
+                            <li
+                              key={h.id}
+                              className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex justify-between items-center"
+                              onMouseDown={(ev) => {
+                                ev.preventDefault();
+                                setForm((f) => ({ ...f, hr: h.id }));
+                                setHrQuery('');
+                                setShowHrDropdown(false);
+                              }}
+                            >
+                              <div>
+                                <div className="text-sm font-medium text-gray-800">{h.name}</div>
+                                <div className="text-xs text-gray-500">{h.company}</div>
+                              </div>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="px-3 py-2 text-sm text-gray-600">
+                            No HR found.
+                            <button
+                              type="button"
+                              onMouseDown={(ev) => {
+                                ev.preventDefault();
+                                setShowHrDropdown(false);
+                                onOpenAddHR();
+                              }}
+                              className="ml-2 text-purple-600 underline"
+                            >
+                              Create new HR
+                            </button>
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onOpenAddHR}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0"
+                  >
+                    + Add New HR
+                  </button>
+                </div>
+                {errors.hr && <p className="text-xs text-red-500 mt-1">{errors.hr}</p>}
+              </div>
+
+              {/* Availability status + Book button */}
+              <div className="space-y-2">
+                <div className="text-center">
+                  {availabilityState === 'available' && meetingEndTime && (
+                    <p className="text-xs text-red-500">
+                      Meeting End Time: {meetingEndTime}
+                    </p>
+                  )}
+                  {availabilityState === 'available' && (
+                    <p className="text-xs text-green-600 font-semibold">
+                      Time slot is available.
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={bookSlot}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded bg-emerald-400 hover:bg-emerald-500 text-white font-semibold h-9 w-full"
+                >
+                  Book My Slot
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* (removed duplicate mobile book button - layout now uses the grid above) */}
 

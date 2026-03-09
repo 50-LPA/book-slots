@@ -11,10 +11,10 @@ function Header({ fullWidth = false }) {
             : 'mx-auto max-w-6xl px-4 py-2 h-14 flex items-center'
         }
       >
-        <div className="flex items-center justify-between w-full">
+        <div className="flex items-center justify-between w-full gap-2">
           {/* Left: app title */}
           <div className="flex items-center">
-            <span className="text-2xl font-bold text-black truncate">
+            <span className="text-lg sm:text-2xl font-bold text-black truncate">
               Slot Booking
             </span>
           </div>
@@ -25,7 +25,7 @@ function Header({ fullWidth = false }) {
               href="https://virajkadam.in"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900 underline-offset-2 hover:underline"
+              className="text-[10px] sm:text-sm font-semibold text-slate-700 hover:text-slate-900 underline-offset-2 hover:underline"
             >
               VirajKadam.in
             </a>
@@ -34,7 +34,7 @@ function Header({ fullWidth = false }) {
           {/* Right: Login button */}
           <Link
             to="/login"
-            className="min-w-[150px] text-center rounded-lg bg-purple-600 px-10 py-1.5 text-xs sm:text-sm font-semibold text-white shadow hover:bg-purple-700 transition"
+            className="min-w-[96px] sm:min-w-[150px] text-center rounded-lg bg-purple-600 px-4 sm:px-10 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow hover:bg-purple-700 transition"
           >
             Login
           </Link>
