@@ -1243,6 +1243,7 @@ export default function CandidateDashboard() {
     }
   });
   const [userName, setUserName] = useState('');
+  const [candidateTechnologies, setCandidateTechnologies] = useState([]);
 
   // Candidate ids for calendar: derive directly from current sb_user session
   const candidateIds = (() => {
@@ -1312,31 +1313,67 @@ export default function CandidateDashboard() {
   }, []);
 
   useEffect(() => {
+    const normaliseTechnologies = (data) => {
+      if (!data) return [];
+      if (Array.isArray(data.technologies)) {
+        return data.technologies.map((t) => String(t || '').trim()).filter(Boolean);
+      }
+      if (Array.isArray(data.technology)) {
+        return data.technology.map((t) => String(t || '').trim()).filter(Boolean);
+      }
+      if (typeof data.technology === 'string' && data.technology.trim()) {
+        return data.technology
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean);
+      }
+      return [];
+    };
+
     const loadUserName = async () => {
       try {
         const raw = sessionStorage.getItem('sb_user');
         const parsed = raw ? JSON.parse(raw) : null;
         const cachedName = (parsed?.name || '').trim();
+        const cachedTechs = Array.isArray(parsed?.technologies)
+          ? parsed.technologies.map((t) => String(t || '').trim()).filter(Boolean)
+          : [];
+        if (cachedTechs.length) setCandidateTechnologies(cachedTechs);
         if (cachedName) {
           setUserName(cachedName);
-          return;
+          if (cachedTechs.length) return;
         }
 
         const mobile = String(parsed?.mobile || '').trim();
         if (!mobile) return;
 
-        const q = query(collection(db, 'users'), where('mobile', '==', mobile));
-        const snap = await getDocs(q);
-        if (snap.empty) return;
+        // Prefer candidates profile (this is where technologies are assigned).
+        let data = null;
+        try {
+          const candQ = query(collection(db, 'candidates'), where('mobile', '==', mobile));
+          const candSnap = await getDocs(candQ);
+          if (!candSnap.empty) data = candSnap.docs[0].data();
+        } catch {
+          // ignore and fall back
+        }
 
-        const data = snap.docs[0].data();
+        // Fallback to legacy users collection (kept for backward compatibility)
+        if (!data) {
+          const q = query(collection(db, 'users'), where('mobile', '==', mobile));
+          const snap = await getDocs(q);
+          if (!snap.empty) data = snap.docs[0].data();
+        }
+
+        if (!data) return;
+
         const name = String(data?.name || '').trim();
-        if (!name) return;
+        const techs = normaliseTechnologies(data);
+        if (name) setUserName(name);
+        if (techs.length) setCandidateTechnologies(techs);
 
-        setUserName(name);
         sessionStorage.setItem(
           'sb_user',
-          JSON.stringify({ ...parsed, name }),
+          JSON.stringify({ ...parsed, name: name || cachedName, technologies: techs }),
         );
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -1443,6 +1480,7 @@ export default function CandidateDashboard() {
               setActiveNav('slots');
             }}
             hrList={hrList}
+            candidateTechnologies={candidateTechnologies}
           />
         ) : activeNav === 'slots' ? (
           <MySlots
@@ -1475,6 +1513,7 @@ export default function CandidateDashboard() {
           }
         }}
         onAdd={handleAddHR}
+        technologyOptions={candidateTechnologies}
       />
     </div>
   );

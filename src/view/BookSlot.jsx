@@ -1,11 +1,21 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
 import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY } from '../firebase/slotsService';
 
-export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList = [] }) {
+function normaliseKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+export default function BookSlot({
+  onClose,
+  onOpenAddHR,
+  onBookSuccess,
+  hrList = [],
+  candidateTechnologies = [],
+}) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [form, setForm] = useState({
@@ -14,6 +24,7 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
     hour: '',
     minute: '00',
     duration: '',
+    technology: '',
     round: '',
     hr: '',
   });
@@ -35,6 +46,14 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
     getLeaves().then((list) => setLeaveDates(list.map((l) => l.date).filter(Boolean)));
   }, []);
 
+  const techOptions = useMemo(() => {
+    const list = Array.isArray(candidateTechnologies)
+      ? candidateTechnologies.map((t) => String(t || '').trim()).filter(Boolean)
+      : [];
+    return [...new Set(list)];
+  }, [candidateTechnologies]);
+  const isTechnologyRestricted = techOptions.length > 0;
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((f) => {
@@ -44,8 +63,16 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
         const hourNum = parseInt(value, 10);
         // AM/PM will be calculated dynamically in render
       }
+      if (name === 'technology') {
+        // Technology controls which HRs are shown; clear selection when it changes.
+        updated.hr = '';
+      }
       return updated;
     });
+    if (name === 'technology') {
+      setHrQuery('');
+      setShowHrDropdown(false);
+    }
   };
 
   // If date/time/duration changes, force re-check availability
@@ -172,6 +199,9 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
   const hrDropdownRef = useRef(null);
   const selectedHR = hrList.find((h) => String(h.id) === String(form.hr));
   const filteredHR = hrList.filter((h) => {
+    if (isTechnologyRestricted && form.technology) {
+      if (normaliseKey(h.technology) !== normaliseKey(form.technology)) return false;
+    }
     if (!hrQuery) return true;
     const q = hrQuery.toLowerCase();
     return (h.name || '').toLowerCase().includes(q) || (h.company || '').toLowerCase().includes(q);
@@ -281,7 +311,9 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
   };
 
   const bookSlot = async () => {
-    const ok = validate(['date', 'hour', 'minute', 'duration', 'round', 'hr']);
+    const required = ['date', 'hour', 'minute', 'duration', 'round', 'hr'];
+    if (isTechnologyRestricted) required.splice(4, 0, 'technology');
+    const ok = validate(required);
     if (!ok) return;
 
     if (isSunday(form.date)) {
@@ -359,7 +391,7 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
 
     const payload = {
       company,
-      technology,
+      technology: form.technology || technology || '',
       interviewRound: form.round,
       start: startDateTime.toISOString(),
       end: endDateTime.toISOString(),
@@ -638,27 +670,44 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
                 </div>
               </div>
 
-              {/* Round dropdown - visible only after availability confirmed */}
+              {/* Technology dropdown - visible only after availability confirmed */}
               {availabilityState === 'available' && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600">
-                    <span className="text-red-500">*</span> Round
+                  <label className="block text-xs font-medium text-gray-600 mt-6">
+                    {isTechnologyRestricted ? (
+                      <>
+                        <span className="text-red-500">*</span> Technology
+                      </>
+                    ) : (
+                      <>Technology</>
+                    )}
                   </label>
                   <select
-                    name="round"
-                    value={form.round}
+                    name="technology"
+                    value={form.technology}
                     onChange={handleChange}
-                    className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                    disabled={!isTechnologyRestricted}
+                    className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white disabled:bg-slate-50 disabled:text-slate-500"
                   >
-                    <option value="">Select Round</option>
-                    <option>Technical Round 1</option>
-                    <option>Technical Round 2</option>
-                    <option>Technical Round 3</option>
-                    <option>Manageral Round</option>
-                    <option>HR Round</option>
-                    <option>Task Assesment</option>
+                    {isTechnologyRestricted ? (
+                      <option value="">Select Technology</option>
+                    ) : (
+                      <option value="">No technology assigned</option>
+                    )}
+                    {techOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
                   </select>
-                  {errors.round && <p className="text-xs text-red-500 mt-1">{errors.round}</p>}
+                  {errors.technology && (
+                    <p className="text-xs text-red-500 mt-1">{errors.technology}</p>
+                  )}
+                  {!isTechnologyRestricted && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Your profile has no technology assigned. Please contact admin.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -712,6 +761,80 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
                 <p className="text-xs text-red-500 mt-1">Book slots between 11 AM to 7 PM</p>
               </div>
 
+              {/* Round dropdown - visible only after availability confirmed */}
+              {availabilityState === 'available' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mt-6">
+                    <span className="text-red-500">*</span> Round
+                  </label>
+                  <select
+                    name="round"
+                    value={form.round}
+                    onChange={handleChange}
+                    className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                  >
+                    <option value="">Select Round</option>
+                    <option>Technical Round 1</option>
+                    <option>Technical Round 2</option>
+                    <option>Technical Round 3</option>
+                    <option>Manageral Round</option>
+                    <option>HR Round</option>
+                    <option>Task Assesment</option>
+                  </select>
+                  {errors.round && <p className="text-xs text-red-500 mt-1">{errors.round}</p>}
+                </div>
+              )}
+            </div>
+
+            {/* COLUMN 3 - Meeting Duration + Select HR */}
+            <div className="flex flex-col gap-3">
+              {/* Meeting Duration */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600">
+                  <span className="text-red-500">*</span> Meeting Duration
+                </label>
+                <select
+                  name="duration"
+                  value={form.duration}
+                  onChange={handleChange}
+                  className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                >
+                  <option value="">Select Duration</option>
+                  <option value="15">15 Minutes</option>
+                  <option value="30">30 Minutes</option>
+                  <option value="60">1 Hour</option>
+                  <option value="120">2 Hours</option>
+                  <option value="180">3 Hours</option>
+                  <option value="240">4 Hours</option>
+                </select>
+                {errors.duration && <p className="text-xs text-red-500 mt-1">{errors.duration}</p>}
+              </div>
+
+              {availabilityState === 'needs_fields' && (
+                <p className="text-xs text-red-500 text-center">
+                  {availabilityMessage || 'Please select date, start time, and meeting duration.'}
+                </p>
+              )}
+
+              {availabilityState === 'unavailable' && (
+                <p className="text-xs text-red-600 font-semibold text-center">
+                  {availabilityMessage || 'This slot is not available.'}
+                </p>
+              )}
+
+              {availabilityState === 'available' && (
+                <div className="text-center">
+                  {meetingEndTime && (
+                    <p className="text-xs text-red-500">
+                      Meeting End Time: {meetingEndTime}
+                    </p>
+                  )}
+                  <p className="text-xs text-green-600 font-semibold">
+                    Time slot is available.
+                  </p>
+                </div>
+              )}
+
               {/* Select HR + Add New HR (same row) - visible only after availability confirmed */}
               {availabilityState === 'available' && (
                 <div>
@@ -728,9 +851,17 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
                           setHrQuery(e.target.value);
                           setShowHrDropdown(true);
                         }}
-                        onFocus={() => setShowHrDropdown(true)}
-                        placeholder="Click to select HR"
-                        className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9"
+                        onFocus={() => {
+                          if (isTechnologyRestricted && !form.technology) return;
+                          setShowHrDropdown(true);
+                        }}
+                        placeholder={
+                          isTechnologyRestricted && !form.technology
+                            ? 'Select technology first'
+                            : 'Click to select HR'
+                        }
+                        disabled={isTechnologyRestricted && !form.technology}
+                        className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 disabled:bg-slate-50 disabled:text-slate-500"
                       />
                       {showHrDropdown && (
                       <ul className="absolute left-0 right-0 bg-white border border-gray-200 rounded-md mt-1 max-h-48 overflow-auto z-20">
@@ -783,56 +914,6 @@ export default function BookSlot({ onClose, onOpenAddHR, onBookSuccess, hrList =
                     <p className="text-xs text-red-500">• Create new HR if not listed.</p>
                     <p className="text-xs text-green-600">• Search HR name or Company name.</p>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* COLUMN 3 - Meeting Duration */}
-            <div className="flex flex-col gap-3">
-              {/* Meeting Duration */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600">
-                  <span className="text-red-500">*</span> Meeting Duration
-                </label>
-                <select
-                  name="duration"
-                  value={form.duration}
-                  onChange={handleChange}
-                  className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
-                >
-                  <option value="">Select Duration</option>
-                  <option value="15">15 Minutes</option>
-                  <option value="30">30 Minutes</option>
-                  <option value="60">1 Hour</option>
-                  <option value="120">2 Hours</option>
-                  <option value="180">3 Hours</option>
-                  <option value="240">4 Hours</option>
-                </select>
-                {errors.duration && <p className="text-xs text-red-500 mt-1">{errors.duration}</p>}
-              </div>
-
-              {availabilityState === 'needs_fields' && (
-                <p className="text-xs text-red-500 text-center">
-                  {availabilityMessage || 'Please select date, start time, and meeting duration.'}
-                </p>
-              )}
-
-              {availabilityState === 'unavailable' && (
-                <p className="text-xs text-red-600 font-semibold text-center">
-                  {availabilityMessage || 'This slot is not available.'}
-                </p>
-              )}
-
-              {availabilityState === 'available' && (
-                <div className="text-center">
-                  {meetingEndTime && (
-                    <p className="text-xs text-red-500">
-                      Meeting End Time: {meetingEndTime}
-                    </p>
-                  )}
-                  <p className="text-xs text-green-600 font-semibold">
-                    Time slot is available.
-                  </p>
                 </div>
               )}
             </div>

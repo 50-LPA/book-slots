@@ -1,6 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
-export default function AddHRModal({ isOpen, onClose, onAdd }) {
+function formatTechLabel(value) {
+  const s = String(value || '').trim();
+  if (!s) return '';
+  // Keep existing case for non-trivial strings, but make simple lowercase keys readable.
+  if (/^[a-z0-9]+$/.test(s)) return s.charAt(0).toUpperCase() + s.slice(1);
+  return s;
+}
+
+export default function AddHRModal({
+  isOpen,
+  onClose,
+  onAdd,
+  technologyOptions = null,
+}) {
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -10,6 +23,24 @@ export default function AddHRModal({ isOpen, onClose, onAdd }) {
     company: '',
   });
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const techOptions = useMemo(() => {
+    const opts = Array.isArray(technologyOptions)
+      ? technologyOptions.map((t) => String(t || '').trim()).filter(Boolean)
+      : [];
+    if (opts.length) return [...new Set(opts)];
+    return ['react', 'node', 'java'];
+  }, [technologyOptions]);
+
+  // If options are restricted, ensure selected value stays valid (on open / when options load)
+  useEffect(() => {
+    if (!isOpen) return;
+    setForm((f) => {
+      if (!f.technology) return f;
+      return techOptions.includes(f.technology) ? f : { ...f, technology: '' };
+    });
+  }, [isOpen, techOptions]);
 
   // Escape key + scroll lock
   useEffect(() => {
@@ -31,15 +62,53 @@ export default function AddHRModal({ isOpen, onClose, onAdd }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
+    setErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
+  const validate = () => {
+    const e = {};
+    const name = String(form.name || '').trim();
+    const email = String(form.email || '').trim();
+    const jobType = String(form.jobType || '').trim();
+    const company = String(form.company || '').trim();
+    const technology = String(form.technology || '').trim();
+    const mobile = String(form.mobile || '').trim();
+
+    if (!name) e.name = 'HR name is required.';
+    if (!email) e.email = 'Email is required.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Please enter a valid email.';
+    if (!jobType) e.jobType = 'Job type is required.';
+    if (!company) e.company = 'Company name is required.';
+    if (!technology) e.technology = 'Technology is required.';
+    if (mobile && !/^\d{10}$/.test(mobile)) e.mobile = 'Mobile must be 10 digits.';
+
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
+
     // Call parent handler if provided
     if (onAdd) {
       try {
         // create an id for the HR
-        const newHR = { id: Date.now(), ...form };
+        const newHR = {
+          id: Date.now(),
+          ...form,
+          name: String(form.name || '').trim(),
+          email: String(form.email || '').trim(),
+          company: String(form.company || '').trim(),
+          technology: String(form.technology || '').trim(),
+          jobType: String(form.jobType || '').trim(),
+          mobile: String(form.mobile || '').trim(),
+        };
         await onAdd(newHR);
         
         // Show success toast in form header
@@ -140,6 +209,7 @@ export default function AddHRModal({ isOpen, onClose, onAdd }) {
                   className="mt-1 block w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white h-9"
                   placeholder="Enter HR Name"
                 />
+                {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
               </div>
 
               <div>
@@ -147,12 +217,14 @@ export default function AddHRModal({ isOpen, onClose, onAdd }) {
                   <span className="text-red-500">*</span> Email
                 </label>
                 <input
+                  type="email"
                   name="email"
                   value={form.email}
                   onChange={handleChange}
                   className="mt-1 block w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white h-9"
                   placeholder="Enter Email"
                 />
+                {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
               </div>
 
               <div>
@@ -170,6 +242,7 @@ export default function AddHRModal({ isOpen, onClose, onAdd }) {
                   <option value="remote">Remote</option>
                   <option value="hybrid">Hybrid</option>
                 </select>
+                {errors.jobType && <p className="mt-1 text-xs text-red-500">{errors.jobType}</p>}
               </div>
 
               <div>
@@ -183,6 +256,7 @@ export default function AddHRModal({ isOpen, onClose, onAdd }) {
                   className="mt-1 block w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white h-9"
                   placeholder="Enter Company Name"
                 />
+                {errors.company && <p className="mt-1 text-xs text-red-500">{errors.company}</p>}
               </div>
             </div>
 
@@ -199,10 +273,13 @@ export default function AddHRModal({ isOpen, onClose, onAdd }) {
                   className="mt-1 block w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white h-9"
                 >
                   <option value="">Select Technology</option>
-                  <option value="react">React</option>
-                  <option value="node">Node</option>
-                  <option value="java">Java</option>
+                  {techOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {formatTechLabel(opt)}
+                    </option>
+                  ))}
                 </select>
+                {errors.technology && <p className="mt-1 text-xs text-red-500">{errors.technology}</p>}
               </div>
 
               <div>
@@ -214,6 +291,7 @@ export default function AddHRModal({ isOpen, onClose, onAdd }) {
                   className="mt-1 block w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white h-9"
                   placeholder="Enter 10 digit number"
                 />
+                {errors.mobile && <p className="mt-1 text-xs text-red-500">{errors.mobile}</p>}
                 <ul className="mt-2 text-xs text-red-500 list-disc list-inside">
                   <li>Don't include +91</li>
                   <li>Don't use your own mobile number.</li>

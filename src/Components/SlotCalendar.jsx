@@ -102,13 +102,14 @@ function SlotCalendar({
                     }`}
                     style={{ height: 'var(--sb-slot-row-h)' }}
                   >
-                    {/* Mobile: stack weekday and date to avoid mixing/overlap */}
-                    <div className="sm:hidden flex flex-col items-center leading-tight">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em]">
-                        {dayHeader.weekday}
-                      </span>
-                      <span className="text-[10px] text-slate-700">
-                        {dayHeader.label.replace(`${dayHeader.weekday}, `, '')}
+                    {/* Mobile: match home calendar day + date format (e.g. Mon 24 Feb) */}
+                    <div className="sm:hidden flex items-center justify-center leading-tight">
+                      <span className="text-[10px] font-semibold text-slate-800">
+                        {day.toLocaleDateString('en-US', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                        })}
                       </span>
                     </div>
                     {/* Desktop / tablet: two-line compact header to avoid overlap when zoomed */}
