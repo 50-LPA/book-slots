@@ -38,6 +38,13 @@ function CalendarToolbar({
             <path d="M9 6l6 6-6 6" />
           </svg>
         </button>
+        <button
+          type="button"
+          onClick={onToday}
+          className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-700 shadow-sm transition hover:bg-slate-50 whitespace-nowrap flex-shrink-0"
+        >
+          today
+        </button>
       </div>
 
       {/* Center - Date Range with reload */}
