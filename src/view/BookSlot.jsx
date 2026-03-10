@@ -184,6 +184,12 @@ export default function BookSlot({
     return cells;
   };
   const isSameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const isPastDayDate = (d) => {
+    if (!d) return false;
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const dayOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return dayOnly < todayStart;
+  };
   const isSundayDate = (d) => d && d.getDay() === 0;
   const isLeaveDayDate = (d) => {
     if (!d) return false;
@@ -453,6 +459,17 @@ export default function BookSlot({
       }
     });
 
+    // Disallow booking on past dates
+    if (form.date) {
+      const now = new Date();
+      const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+        now.getDate(),
+      ).padStart(2, '0')}`;
+      if (form.date < todayLocal) {
+        e.date = 'You cannot book a slot for a past date.';
+      }
+    }
+
     // Disallow booking within 5 minutes of current time (only for today)
     if (form.date && form.hour && form.minute) {
       const hh = String(form.hour).padStart(2, '0');
@@ -615,7 +632,7 @@ export default function BookSlot({
                           <button
                             key={i}
                             type="button"
-                            disabled={!day || isSundayDate(day) || isLeaveDayDate(day)}
+                            disabled={!day || isSundayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)}
                             onClick={() => {
                               if (day && !isSundayDate(day) && !isLeaveDayDate(day)) {
                                 const yyyymmdd = formatDateForInput(day);
@@ -626,7 +643,7 @@ export default function BookSlot({
                             className={`py-1.5 rounded text-sm ${
                               !day
                                 ? 'invisible'
-                                : isSundayDate(day) || isLeaveDayDate(day)
+                                : isSundayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)
                                 ? 'text-gray-300 cursor-not-allowed'
                                 : isSameDay(day, form.date ? new Date(form.date + 'T12:00:00') : null)
                                 ? 'bg-purple-600 text-white'
