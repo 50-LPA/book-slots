@@ -12,9 +12,9 @@ function CalendarToolbar({
   onReload,
 }) {
   return (
-    <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 bg-white px-1 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 gap-1 sm:gap-2 md:gap-3 min-h-12 sm:min-h-14">
+    <div className="relative flex flex-col sm:flex-row md:flex-col lg:flex-row sm:items-center md:items-center lg:items-center sm:justify-between md:justify-center lg:justify-between border-b border-slate-200 bg-white px-1 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 gap-1 sm:gap-2 md:gap-3 min-h-12 sm:min-h-14">
       {/* Left Navigation Controls (next only) – desktop/tablet only */}
-      <div className="hidden sm:flex items-center gap-2 flex-shrink-0 z-10 justify-start w-auto order-3 sm:order-none">
+      <div className="hidden sm:flex md:flex lg:flex items-center gap-2 flex-shrink-0 z-10 justify-start md:justify-center w-auto order-3 sm:order-none">
         <button
           type="button"
           onClick={
@@ -41,8 +41,8 @@ function CalendarToolbar({
       </div>
 
       {/* Center - Date Range with reload */}
-      {/* Desktop / tablet: keep centered absolute for exact layout */}
-      <div className="hidden sm:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
+      {/* Desktop/tablet: absolute center; iPad (md-lg): static for stacked layout */}
+      <div className="hidden sm:flex md:relative md:left-0 md:translate-x-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 items-center gap-1 md:justify-center">
         <span className="pointer-events-none text-[10px] sm:text-xs md:text-sm font-semibold text-slate-800 whitespace-nowrap">
           {rangeLabel}
         </span>
@@ -106,7 +106,7 @@ function CalendarToolbar({
       </div>
 
       {/* Right - Today & Weekly Slots summary */}
-      <div className="flex flex-row items-center justify-center sm:justify-end gap-3 sm:gap-6 flex-shrink-0 pr-2 z-10 text-[10px] sm:text-xs md:text-sm text-slate-700 mt-1 sm:mt-0 text-center sm:text-left order-1 sm:order-none">
+      <div className="flex flex-row items-center justify-center sm:justify-end md:justify-center lg:justify-end gap-3 sm:gap-6 flex-shrink-0 pr-2 z-10 text-[10px] sm:text-xs md:text-sm text-slate-700 mt-1 sm:mt-0 text-center sm:text-left md:text-center lg:text-left order-1 sm:order-none">
         <div className="flex flex-row items-baseline gap-1 whitespace-nowrap">
           <span className="font-semibold text-slate-900">
             {todaysSlotsCount}

@@ -196,7 +196,8 @@ export default function BookSlot({
   // HR search state for searchable dropdown
   const [hrQuery, setHrQuery] = useState('');
   const [showHrDropdown, setShowHrDropdown] = useState(false);
-  const hrDropdownRef = useRef(null);
+  const hrDropdownRefDesktop = useRef(null);
+  const hrDropdownRefMobile = useRef(null);
   const selectedHR = hrList.find((h) => String(h.id) === String(form.hr));
   const filteredHR = hrList.filter((h) => {
     if (isTechnologyRestricted && form.technology) {
@@ -207,18 +208,20 @@ export default function BookSlot({
     return (h.name || '').toLowerCase().includes(q) || (h.company || '').toLowerCase().includes(q);
   });
 
-  // Close HR dropdown when clicking outside
+  // Close HR dropdown when clicking outside (check both desktop and mobile refs)
   useEffect(() => {
     if (!showHrDropdown) return;
 
     const handleClickOutside = (event) => {
-      if (hrDropdownRef.current && !hrDropdownRef.current.contains(event.target)) {
+      const inDesktop = hrDropdownRefDesktop.current?.contains(event.target);
+      const inMobile = hrDropdownRefMobile.current?.contains(event.target);
+      if (!inDesktop && !inMobile) {
         setShowHrDropdown(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -488,7 +491,8 @@ export default function BookSlot({
             <h2 className="mx-auto text-purple-600 font-semibold text-sm md:text-base">Book Slot</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
+          {/* iPad (md): 2 cols to prevent overlap; desktop (lg): 4 cols; mobile: 1 col */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch overflow-visible">
             {/* COLUMN 1 (Left) */}
             <div className="flex flex-col gap-3">
               {/* Date field */}
@@ -670,9 +674,9 @@ export default function BookSlot({
                 </div>
               </div>
 
-              {/* Technology dropdown - visible only after availability confirmed (desktop/tablet) */}
+              {/* Technology dropdown - visible only after availability confirmed (desktop lg only; iPad gets it in row below) */}
               {availabilityState === 'available' && (
-                <div className="hidden md:block">
+                <div className="hidden lg:block">
                   <label className="block text-xs font-medium text-gray-600 mt-6">
                     {isTechnologyRestricted ? (
                       <>
@@ -761,9 +765,9 @@ export default function BookSlot({
                 <p className="text-xs text-red-500 mt-1">Book slots between 11 AM to 7 PM</p>
               </div>
 
-              {/* Round dropdown - visible only after availability confirmed (desktop/tablet) */}
+              {/* Round dropdown - visible only after availability confirmed (desktop lg only; iPad gets it in row below) */}
               {availabilityState === 'available' && (
-                <div className="hidden md:block">
+                <div className="hidden lg:block">
                   <label className="block text-xs font-medium text-gray-600 mt-6">
                     <span className="text-red-500">*</span> Round
                   </label>
@@ -787,7 +791,7 @@ export default function BookSlot({
             </div>
 
             {/* COLUMN 3 - Meeting Duration + Select HR */}
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 overflow-visible">
               {/* Meeting Duration */}
               <div>
                 <label className="block text-xs font-medium text-gray-600">
@@ -837,12 +841,12 @@ export default function BookSlot({
 
               {/* Select HR + Add New HR (same row) - visible only after availability confirmed (desktop/tablet) */}
               {availabilityState === 'available' && (
-                <div className="hidden md:block">
+                <div className="hidden md:block md:min-w-0">
                   <label className="block text-xs font-medium text-gray-600">
                     <span className="text-red-500">*</span> Select HR
                   </label>
                   <div className="mt-1 flex items-center gap-3">
-                    <div className="relative flex-1 min-w-0" ref={hrDropdownRef}>
+                    <div className="relative flex-1 min-w-0 isolate" ref={hrDropdownRefDesktop}>
                       <input
                         type="text"
                         name="hr_search"
@@ -864,24 +868,39 @@ export default function BookSlot({
                         className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 disabled:bg-slate-50 disabled:text-slate-500"
                       />
                       {showHrDropdown && (
-                      <ul className="absolute left-0 right-0 bg-white border border-gray-200 rounded-md mt-1 max-h-48 overflow-auto z-20">
+                      <ul className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-auto z-[100] overscroll-contain">
                         {filteredHR.length > 0 ? (
                           filteredHR.map((h) => (
-                            <li
-                              key={h.id}
-                              className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex justify-between items-center"
-                              onMouseDown={(ev) => {
-                                // onMouseDown to prevent input blur before click
-                                ev.preventDefault();
-                                setForm((f) => ({ ...f, hr: h.id }));
-                                setHrQuery('');
-                                setShowHrDropdown(false);
-                              }}
-                            >
-                              <div>
-                                <div className="text-sm font-medium text-gray-800">{h.name}</div>
-                                <div className="text-xs text-gray-500">{h.company}</div>
-                              </div>
+                            <li key={h.id} className="list-none">
+                              <button
+                                type="button"
+                                role="option"
+                                className="w-full text-left px-3 py-2.5 hover:bg-gray-50 active:bg-gray-100 cursor-pointer flex justify-between items-center touch-manipulation border-0 bg-transparent"
+                                onMouseDown={(ev) => {
+                                  ev.preventDefault();
+                                  ev.stopPropagation();
+                                  setForm((f) => ({ ...f, hr: h.id }));
+                                  setHrQuery('');
+                                  setShowHrDropdown(false);
+                                }}
+                                onTouchEnd={(ev) => {
+                                  ev.preventDefault();
+                                  setForm((f) => ({ ...f, hr: h.id }));
+                                  setHrQuery('');
+                                  setShowHrDropdown(false);
+                                }}
+                                onClick={(ev) => {
+                                  ev.preventDefault();
+                                  setForm((f) => ({ ...f, hr: h.id }));
+                                  setHrQuery('');
+                                  setShowHrDropdown(false);
+                                }}
+                              >
+                                <div>
+                                  <div className="text-sm font-medium text-gray-800">{h.name}</div>
+                                  <div className="text-xs text-gray-500">{h.company}</div>
+                                </div>
+                              </button>
                             </li>
                           ))
                         ) : (
@@ -929,6 +948,68 @@ export default function BookSlot({
                 >
                   {checkingAvailability ? 'Checking…' : 'Check Availability'}
                 </button>
+              )}
+              {/* iPad-only: Technology + Round between Check Availability and Book My Slot */}
+              {availabilityState === 'available' && (
+                <div className="hidden md:grid lg:hidden grid-cols-2 gap-3">
+                  <div className="col-start-1">
+                    <label className="block text-xs font-medium text-gray-600">
+                      {isTechnologyRestricted ? (
+                        <>
+                          <span className="text-red-500">*</span> Technology
+                        </>
+                      ) : (
+                        <>Technology</>
+                      )}
+                    </label>
+                    <select
+                      name="technology"
+                      value={form.technology}
+                      onChange={handleChange}
+                      disabled={!isTechnologyRestricted}
+                      className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white disabled:bg-slate-50 disabled:text-slate-500"
+                    >
+                      {isTechnologyRestricted ? (
+                        <option value="">Select Technology</option>
+                      ) : (
+                        <option value="">No technology assigned</option>
+                      )}
+                      {techOptions.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.technology && (
+                      <p className="text-xs text-red-500 mt-1">{errors.technology}</p>
+                    )}
+                    {!isTechnologyRestricted && (
+                      <p className="text-xs text-slate-500 mt-1">
+                        Your profile has no technology assigned. Please contact admin.
+                      </p>
+                    )}
+                  </div>
+                  <div className="col-start-2">
+                    <label className="block text-xs font-medium text-gray-600">
+                      <span className="text-red-500">*</span> Round
+                    </label>
+                    <select
+                      name="round"
+                      value={form.round}
+                      onChange={handleChange}
+                      className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                    >
+                      <option value="">Select Round</option>
+                      <option>Technical Round 1</option>
+                      <option>Technical Round 2</option>
+                      <option>Technical Round 3</option>
+                      <option>Manageral Round</option>
+                      <option>HR Round</option>
+                      <option>Task Assesment</option>
+                    </select>
+                    {errors.round && <p className="text-xs text-red-500 mt-1">{errors.round}</p>}
+                  </div>
+                </div>
               )}
               {availabilityState === 'available' && (
                 <button
@@ -1012,7 +1093,7 @@ export default function BookSlot({
                   <span className="text-red-500">*</span> Select HR
                 </label>
                 <div className="mt-1 flex items-center gap-3">
-                  <div className="relative flex-1 min-w-0" ref={hrDropdownRef}>
+                  <div className="relative flex-1 min-w-0" ref={hrDropdownRefMobile}>
                     <input
                       type="text"
                       name="hr_search"
@@ -1034,23 +1115,39 @@ export default function BookSlot({
                       className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 disabled:bg-slate-50 disabled:text-slate-500"
                     />
                     {showHrDropdown && (
-                      <ul className="absolute left-0 right-0 bg-white border border-gray-200 rounded-md mt-1 max-h-48 overflow-auto z-20">
+                      <ul className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-auto z-[100] overscroll-contain">
                         {filteredHR.length > 0 ? (
                           filteredHR.map((h) => (
-                            <li
-                              key={h.id}
-                              className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex justify-between items-center"
-                              onMouseDown={(ev) => {
-                                ev.preventDefault();
-                                setForm((f) => ({ ...f, hr: h.id }));
-                                setHrQuery('');
-                                setShowHrDropdown(false);
-                              }}
-                            >
-                              <div>
-                                <div className="text-sm font-medium text-gray-800">{h.name}</div>
-                                <div className="text-xs text-gray-500">{h.company}</div>
-                              </div>
+                            <li key={h.id} className="list-none">
+                              <button
+                                type="button"
+                                role="option"
+                                className="w-full text-left px-3 py-2.5 hover:bg-gray-50 active:bg-gray-100 cursor-pointer flex justify-between items-center touch-manipulation border-0 bg-transparent"
+                                onMouseDown={(ev) => {
+                                  ev.preventDefault();
+                                  ev.stopPropagation();
+                                  setForm((f) => ({ ...f, hr: h.id }));
+                                  setHrQuery('');
+                                  setShowHrDropdown(false);
+                                }}
+                                onTouchEnd={(ev) => {
+                                  ev.preventDefault();
+                                  setForm((f) => ({ ...f, hr: h.id }));
+                                  setHrQuery('');
+                                  setShowHrDropdown(false);
+                                }}
+                                onClick={(ev) => {
+                                  ev.preventDefault();
+                                  setForm((f) => ({ ...f, hr: h.id }));
+                                  setHrQuery('');
+                                  setShowHrDropdown(false);
+                                }}
+                              >
+                                <div>
+                                  <div className="text-sm font-medium text-gray-800">{h.name}</div>
+                                  <div className="text-xs text-gray-500">{h.company}</div>
+                                </div>
+                              </button>
                             </li>
                           ))
                         ) : (

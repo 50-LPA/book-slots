@@ -367,16 +367,16 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
 
         {/* Desktop / tablet layout (unchanged) */}
         <div className="hidden sm:block">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 relative">
+          <div className="flex md:flex-col lg:flex-row sm:items-center sm:justify-between md:justify-center lg:justify-between gap-3 mb-4 relative">
             {/* Left: Today's date */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 md:justify-center">
               <span className="text-xs sm:text-sm text-gray-700 font-medium">
                 Today {candidateTodayLabel}
               </span>
             </div>
 
-            {/* Center: Title + reload */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
+            {/* Center: Title + reload - iPad: static; desktop: absolute */}
+            <div className="absolute md:relative md:left-0 md:translate-x-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 flex items-center gap-2 md:justify-center">
               <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-purple-600 whitespace-nowrap">
                 Slot Booking
               </h2>
@@ -391,7 +391,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
             </div>
 
             {/* Right: Action buttons */}
-            <div className="flex flex-wrap gap-2 sm:gap-3 ml-auto">
+            <div className="flex flex-wrap gap-2 sm:gap-3 ml-auto md:ml-0 md:justify-center lg:ml-auto">
               <button
                 type="button"
                 onClick={() => downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')}

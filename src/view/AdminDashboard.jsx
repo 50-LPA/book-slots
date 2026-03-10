@@ -5583,16 +5583,16 @@ export default function AdminDashboard() {
 
                 {/* Desktop / tablet: keep existing centered header layout */}
                 <div className="hidden sm:block">
-                <div className="relative flex items-center justify-between gap-3">
+                <div className="relative flex md:flex-col lg:flex-row items-center justify-between md:justify-center lg:justify-between gap-3 md:gap-2">
                     {/* Left: Today's date */}
-                    <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-700 w-40 min-w-0">
-                      <span className="font-medium truncate">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-700 w-40 min-w-0 md:w-auto md:justify-center">
+                      <span className="font-medium truncate md:truncate-none">
                         Today {adminTodayLabel}
                       </span>
                   </div>
 
-                    {/* Center: Slot Booking + reload */}
-                    <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+                    {/* Center: Slot Booking + reload - iPad: static; desktop: absolute */}
+                    <div className="absolute md:relative md:left-0 md:translate-x-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 flex items-center gap-2">
                       <span className="text-xs sm:text-sm font-semibold text-purple-600">
                         Slot Booking
                   </span>
@@ -5607,7 +5607,7 @@ export default function AdminDashboard() {
                     </div>
 
                   {/* Right: Download button only (stats are in CalendarToolbar below) */}
-                  <div className="flex items-center justify-end">
+                  <div className="flex items-center justify-end md:justify-center lg:justify-end">
                     <button
                       type="button"
                       onClick={() => downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')}
