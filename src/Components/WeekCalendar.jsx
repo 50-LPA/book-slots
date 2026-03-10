@@ -85,7 +85,7 @@ function WeekCalendar({ candidateIds = [], onEventClick }) {
         />
       </div>
       <div className="mt-4 overflow-x-auto">
-        <div className="min-w-[360px] sm:min-w-[720px]">
+        <div className="min-w-[720px]">
           <SlotCalendar
             today={today}
             weekStart={weekStart}

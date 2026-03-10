@@ -210,6 +210,14 @@ function Header({ userName, onLogout, activeNav, onChangeNav }) {
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2 focus:outline-none"
           >
+            {/* Mobile: show name + role beside avatar, like desktop */}
+            <div className="flex flex-col items-end sm:hidden">
+              <p className="font-semibold text-[11px] text-gray-900 max-w-[120px] truncate">
+                {userName || 'Candidate'}
+              </p>
+              <p className="text-[10px] text-gray-500">Candidate</p>
+            </div>
+            {/* Desktop / tablet: existing name + role */}
             <div className="text-right hidden sm:block">
               <p className="font-semibold text-xs sm:text-sm md:text-base text-gray-900 truncate">
                 {userName || 'Candidate'}
@@ -499,21 +507,19 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                 ev.extendedProps?.hrMobile || ev.hrMobile || '';
 
               return (
-                <div className="space-y-2 text-xs sm:text-sm text-slate-800">
+                <div className="space-y-2 text-xs sm:text-sm text-slate-800 min-w-0">
                   {/* Row 1: Candidate Name + Round */}
                   {(candidateName || round) && (
-                    <div className="flex justify-between gap-4">
+                    <div className="flex flex-wrap justify-between gap-x-4 gap-y-2 min-w-0">
                       {candidateName && (
-                        <div className="flex-1">
-                          <div className="font-semibold">{candidateName}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="break-words">{candidateName}</div>
                           <div className="text-[11px] text-slate-500">Candidate</div>
                         </div>
                       )}
                       {round && (
-                        <div className="flex-1 text-right">
-                          <div className="font-semibold">
-                            {normaliseRoundLabel(round)}
-                          </div>
+                        <div className="flex-1 min-w-0 text-right">
+                          <div className="break-words">{normaliseRoundLabel(round)}</div>
                           <div className="text-[11px] text-slate-500">Round</div>
                         </div>
                       )}
@@ -522,16 +528,16 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
 
                   {/* Row 2: Company + Date */}
                   {(company || dateStr) && (
-                    <div className="flex justify-between gap-4">
+                    <div className="flex flex-wrap justify-between gap-x-4 gap-y-2 min-w-0">
                       {company && (
-                        <div className="flex-1">
-                          <div className="font-semibold">{company}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="break-words">{company}</div>
                           <div className="text-[11px] text-slate-500">Company</div>
                         </div>
                       )}
                       {dateStr && (
-                        <div className="flex-1 text-right">
-                          <div className="font-semibold">{dateStr}</div>
+                        <div className="flex-1 min-w-0 text-right">
+                          <div className="break-words">{dateStr}</div>
                           <div className="text-[11px] text-slate-500">Date</div>
                         </div>
                       )}
@@ -540,16 +546,16 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
 
                   {/* Row 3: Technology + Time */}
                   {(technology || timeStr) && (
-                    <div className="flex justify-between gap-4">
+                    <div className="flex flex-wrap justify-between gap-x-4 gap-y-2 min-w-0">
                       {technology && (
-                        <div className="flex-1">
-                          <div className="font-semibold">{technology}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="break-words">{technology}</div>
                           <div className="text-[11px] text-slate-500">Technology</div>
                         </div>
                       )}
                       {timeStr && (
-                        <div className="flex-1 text-right">
-                          <div className="font-semibold">{timeStr}</div>
+                        <div className="flex-1 min-w-0 text-right">
+                          <div className="break-words">{timeStr}</div>
                           <div className="text-[11px] text-slate-500">Time</div>
                         </div>
                       )}
@@ -561,16 +567,16 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
 
                   {/* Row 4: HR Name + HR Mobile */}
                   {(hrName || hrMobile) && (
-                    <div className="flex justify-between gap-4">
+                    <div className="flex flex-wrap justify-between gap-x-4 gap-y-2 min-w-0">
                       {hrName && (
-                        <div className="flex-1">
-                          <div className="font-semibold text-[14px]">{hrName}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[14px] break-words">{hrName}</div>
                           <div className="text-[11px] text-slate-500">HR Name</div>
                         </div>
                       )}
                       {hrMobile && (
-                        <div className="flex-1 text-right">
-                          <div className="font-semibold text-[14px]">{hrMobile}</div>
+                        <div className="flex-1 min-w-0 text-right">
+                          <div className="text-[14px] break-all">{hrMobile}</div>
                           <div className="text-[11px] text-slate-500">Mobile</div>
                         </div>
                       )}
@@ -580,7 +586,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                   {/* Row 5: HR Email */}
                   {hrEmail && (
                     <div>
-                      <div className="font-semibold text-[14px] break-all">
+                      <div className="text-[14px] break-all">
                         {hrEmail}
                       </div>
                       <div className="text-[11px] text-slate-500">Email</div>

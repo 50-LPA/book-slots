@@ -205,6 +205,14 @@ function AdminHeader({ activeTab, onChangeTab }) {
           onClick={() => setMenuOpen((open) => !open)}
           className="flex items-center gap-2 focus:outline-none"
         >
+          {/* Mobile: show name + role beside avatar, like desktop */}
+          <div className="flex flex-col items-end sm:hidden">
+            <p className="font-semibold text-[11px] text-gray-900 max-w-[120px] truncate">
+              Viraj Kadam
+            </p>
+            <p className="text-[10px] text-gray-500">Admin</p>
+          </div>
+          {/* Desktop / tablet: existing name + role */}
           <div className="text-right hidden sm:block">
             <p className="font-semibold text-xs sm:text-sm md:text-base text-gray-900 truncate">
               Viraj Kadam
@@ -2497,7 +2505,7 @@ function AdminSlotsTable({
                 <th className="px-3 py-2 text-center font-semibold border-b border-r border-slate-200 w-10">
                   Sr.
                 </th>
-                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
+                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200 min-w-[90px]" style={{ textAlign: 'left' }}>
                   Name
                 </th>
                 <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
@@ -2585,17 +2593,18 @@ function AdminSlotsTable({
                     <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">
                       {startIdx + index + 1}
                     </td>
-                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
+                    <td className="px-3 py-2 text-slate-700 text-left border-r border-slate-200 min-w-[90px]" style={{ textAlign: 'left' }}>
                       {slot.candidateName || slot.name ? (
                         <button
                           type="button"
-                      onClick={() =>
+                          onClick={() =>
                             onOpenCandidateSlots &&
                             onOpenCandidateSlots((slot.candidateName || slot.name || '').trim())
-                      }
-                          className="text-purple-600 font-semibold hover:text-purple-800 hover:underline focus:outline-none focus:underline"
-                    >
-                      {slot.candidateName || slot.name}
+                          }
+                          className="text-purple-600 font-semibold hover:text-purple-800 hover:underline focus:outline-none focus:underline text-left"
+                          style={{ textAlign: 'left' }}
+                        >
+                          {slot.candidateName || slot.name}
                         </button>
                       ) : (
                         '-'
@@ -3032,8 +3041,8 @@ function AdminHRsTable({
     if (!technology) errors.technology = 'This is required.';
     if (!jobType) errors.jobType = 'This is required.';
     if (!company) errors.company = 'This is required.';
-    if (mobile && !/^\d{10}$/.test(mobile)) {
-      errors.mobile = 'Mobile must be 10 digits.';
+    if (mobile && !/^[6-9]\d{9}$/.test(mobile)) {
+      errors.mobile = 'Enter valid 10-digit mobile number starting with 6-9.';
     }
     setHrFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -5193,54 +5202,53 @@ export default function AdminDashboard() {
               return (
                 <div
                   key={slotId}
-                  className="col-span-2 sm:col-span-4 lg:col-span-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 flex flex-col gap-2 text-xs sm:text-sm"
+                  className="col-span-2 sm:col-span-4 lg:col-span-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-4 flex flex-col gap-2 text-xs sm:text-sm min-w-0"
                 >
-                  {/* Row 1: Candidate Name, Slot Date, Slot Time */}
-                  <div className="flex flex-wrap items-baseline gap-x-1.5 text-slate-800">
+                  {/* Row 1: Name • Date • Time (wrap + full data) */}
+                  <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-slate-800 min-w-0">
                     {candidateName && (
-                      <span
-                        className="font-semibold truncate max-w-[40%]"
-                        title={candidateName}
-                      >
+                      <span className="font-semibold break-words" title={candidateName}>
                         {candidateName}
                       </span>
                     )}
                     {fullDate && (
                       <>
-                        <span className="text-slate-500 flex-shrink-0">•</span>
-                        <span className="text-slate-700 whitespace-normal">
-                          {fullDate}
-                        </span>
+                        {candidateName && <span className="text-slate-500 flex-shrink-0">•</span>}
+                        <span className="text-slate-700 break-words">{fullDate}</span>
                       </>
                     )}
                     {timeLabel && (
                       <>
-                        <span className="text-slate-500 flex-shrink-0">•</span>
-                        <span className="text-slate-700 whitespace-nowrap">
+                        {(candidateName || fullDate) && (
+                          <span className="text-slate-500 flex-shrink-0">•</span>
+                        )}
+                        <span className="text-slate-700 break-words" title={timeLabel}>
                           {timeLabel}
                         </span>
                       </>
                     )}
                   </div>
 
-                  {/* Row 2: HR Name, HR Mobile, HR Email */}
+                  {/* Row 2: HR Name • Mobile • Email (wrap + full data) */}
                   {(hrName || hrMobile || hrEmail) && (
-                    <div className="flex flex-wrap items-baseline gap-x-1.5 text-slate-700">
+                    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-slate-700 min-w-0">
                       {hrName && (
-                        <span className="font-medium truncate max-w-[40%]">
+                        <span className="font-medium break-words" title={hrName}>
                           {hrName}
                         </span>
                       )}
                       {hrMobile && (
                         <>
-                          <span className="text-slate-500 flex-shrink-0">•</span>
-                          <span className="whitespace-nowrap">{hrMobile}</span>
+                          {hrName && <span className="text-slate-500 flex-shrink-0">•</span>}
+                          <span className="break-words">{hrMobile}</span>
                         </>
                       )}
                       {hrEmail && (
                         <>
-                          <span className="text-slate-500 flex-shrink-0">•</span>
-                          <span className="break-words" title={hrEmail}>
+                          {(hrName || hrMobile) && (
+                            <span className="text-slate-500 flex-shrink-0">•</span>
+                          )}
+                          <span className="break-all min-w-0" title={hrEmail}>
                             {hrEmail}
                           </span>
                         </>
@@ -5707,21 +5715,19 @@ export default function AdminDashboard() {
                 ev.extendedProps?.hrMobile || ev.hrMobile || '';
 
               return (
-                <div className="space-y-2 text-xs sm:text-sm text-slate-800">
+                <div className="space-y-2 text-xs sm:text-sm text-slate-800 min-w-0">
                   {/* Row 1: Candidate Name + Round */}
                   {(candidateName || round) && (
-                    <div className="flex justify-between gap-4">
+                    <div className="flex flex-wrap justify-between gap-x-4 gap-y-2 min-w-0">
                       {candidateName && (
-                        <div className="flex-1">
-                          <div className="font-semibold">{candidateName}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="break-words">{candidateName}</div>
                           <div className="text-[11px] text-slate-500">Candidate</div>
                         </div>
                       )}
                       {round && (
-                        <div className="flex-1 text-right">
-                          <div className="font-semibold">
-                            {normaliseRoundLabelAdmin(round)}
-                          </div>
+                        <div className="flex-1 min-w-0 text-right">
+                          <div className="break-words">{normaliseRoundLabelAdmin(round)}</div>
                           <div className="text-[11px] text-slate-500">Round</div>
                         </div>
                       )}
@@ -5730,16 +5736,16 @@ export default function AdminDashboard() {
 
                   {/* Row 2: Company + Date */}
                   {(company || dateStr) && (
-                    <div className="flex justify-between gap-4">
+                    <div className="flex flex-wrap justify-between gap-x-4 gap-y-2 min-w-0">
                       {company && (
-                        <div className="flex-1">
-                          <div className="font-semibold">{company}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="break-words">{company}</div>
                           <div className="text-[11px] text-slate-500">Company</div>
                         </div>
                       )}
                       {dateStr && (
-                        <div className="flex-1 text-right">
-                          <div className="font-semibold">{dateStr}</div>
+                        <div className="flex-1 min-w-0 text-right">
+                          <div className="break-words">{dateStr}</div>
                           <div className="text-[11px] text-slate-500">Date</div>
                         </div>
                       )}
@@ -5748,16 +5754,16 @@ export default function AdminDashboard() {
 
                   {/* Row 3: Technology + Time */}
                   {(technology || timeStr) && (
-                    <div className="flex justify-between gap-4">
+                    <div className="flex flex-wrap justify-between gap-x-4 gap-y-2 min-w-0">
                       {technology && (
-                        <div className="flex-1">
-                          <div className="font-semibold">{technology}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="break-words">{technology}</div>
                           <div className="text-[11px] text-slate-500">Technology</div>
                         </div>
                       )}
                       {timeStr && (
-                        <div className="flex-1 text-right">
-                          <div className="font-semibold">{timeStr}</div>
+                        <div className="flex-1 min-w-0 text-right">
+                          <div className="break-words">{timeStr}</div>
                           <div className="text-[11px] text-slate-500">Time</div>
                         </div>
                       )}
@@ -5769,16 +5775,16 @@ export default function AdminDashboard() {
 
                   {/* Row 4: HR Name + HR Mobile */}
                   {(hrName || hrMobile) && (
-                    <div className="flex justify-between gap-4">
+                    <div className="flex flex-wrap justify-between gap-x-4 gap-y-2 min-w-0">
                       {hrName && (
-                        <div className="flex-1">
-                          <div className="font-semibold text-[14px]">{hrName}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[14px] break-words">{hrName}</div>
                           <div className="text-[11px] text-slate-500">HR Name</div>
                         </div>
                       )}
                       {hrMobile && (
-                        <div className="flex-1 text-right">
-                          <div className="font-semibold text-[14px]">{hrMobile}</div>
+                        <div className="flex-1 min-w-0 text-right">
+                          <div className="text-[14px] break-all">{hrMobile}</div>
                           <div className="text-[11px] text-slate-500">Mobile</div>
                         </div>
                       )}
@@ -5788,7 +5794,7 @@ export default function AdminDashboard() {
                   {/* Row 5: HR Email */}
                   {hrEmail && (
                     <div>
-                      <div className="font-semibold text-[14px] break-all">
+                      <div className="text-[14px] break-all">
                         {hrEmail}
                       </div>
                       <div className="text-[11px] text-slate-500">Email</div>

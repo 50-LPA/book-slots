@@ -92,7 +92,9 @@ export default function AddHRModal({
     if (!jobType) e.jobType = 'Job type is required.';
     if (!company) e.company = 'Company name is required.';
     if (!technology) e.technology = 'Technology is required.';
-    if (mobile && !/^\d{10}$/.test(mobile)) e.mobile = 'Mobile must be 10 digits.';
+    if (mobile && !/^[6-9]\d{9}$/.test(mobile)) {
+      e.mobile = 'Enter valid 10-digit mobile number starting with 6-9.';
+    }
 
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -305,7 +307,7 @@ export default function AddHRModal({
                 </ul>
               </div>
 
-              <div className="h-12" /> {/* spacer to align with left column */}
+              <div className="hidden md:block h-12" /> {/* spacer to align with left column on desktop/tablet only */}
             </div>
           </div>
 

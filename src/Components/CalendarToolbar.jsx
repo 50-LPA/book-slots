@@ -106,19 +106,19 @@ function CalendarToolbar({
       </div>
 
       {/* Right - Today & Weekly Slots summary */}
-      <div className="flex flex-row items-center justify-center sm:justify-end md:justify-center lg:justify-end gap-3 sm:gap-6 flex-shrink-0 pr-2 z-10 text-[10px] sm:text-xs md:text-sm text-slate-700 mt-1 sm:mt-0 text-center sm:text-left md:text-center lg:text-left order-1 sm:order-none">
+      <div className="flex flex-row items-center justify-center sm:justify-end md:justify-center lg:justify-end gap-3 sm:gap-6 flex-shrink-0 pr-2 z-10 text-[10px] sm:text-xs md:text-sm text-slate-700 mt-2 sm:mt-0 text-center sm:text-left md:text-center lg:text-left order-1 sm:order-none">
         <div className="flex flex-row items-baseline gap-1 whitespace-nowrap">
           <span className="font-semibold text-slate-900">
             {todaysSlotsCount}
           </span>
-          <span className="leading-tight">Total Slots Today</span>
+          <span className="leading-tight mt-[1px] sm:mt-0">Total Slots Today</span>
         </div>
         <span className="hidden sm:inline-block h-3 w-px bg-slate-300" />
         <div className="flex flex-row items-baseline gap-1 whitespace-nowrap">
           <span className="font-semibold text-slate-900">
             {weeklySlotsCount}
           </span>
-          <span className="leading-tight">Total Slots This Week</span>
+          <span className="leading-tight mt-[1px] sm:mt-0">Total Slots This Week</span>
         </div>
       </div>
     </div>
