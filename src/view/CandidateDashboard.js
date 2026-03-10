@@ -865,8 +865,18 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
               placeholder="Search slots..."
               value={slotSearch}
               onChange={(e) => setSlotSearch(e.target.value)}
-              className="w-full rounded-full border border-slate-200 bg-white pl-3 pr-3 py-1.5 text-xs sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="w-full rounded-full border border-slate-200 bg-white pl-3 pr-8 py-1.5 text-xs sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
             />
+            {slotSearch && (
+              <button
+                type="button"
+                onClick={() => setSlotSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                aria-label="Clear search"
+              >
+                <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
       </div>

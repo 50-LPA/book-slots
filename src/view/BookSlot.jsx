@@ -882,10 +882,24 @@ export default function BookSlot({
                             : 'Click to select HR'
                         }
                         disabled={isTechnologyRestricted && !form.technology}
-                        className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 disabled:bg-slate-50 disabled:text-slate-500"
+                        className="w-full border border-gray-200 rounded-md pl-3 pr-8 py-2 text-sm h-9 disabled:bg-slate-50 disabled:text-slate-500"
                       />
+                      {(selectedHR || hrQuery) && !(isTechnologyRestricted && !form.technology) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForm((f) => ({ ...f, hr: '' }));
+                            setHrQuery('');
+                            setShowHrDropdown(false);
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                          aria-label="Clear HR selection"
+                        >
+                          <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+                        </button>
+                      )}
                       {showHrDropdown && (
-                      <ul className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-auto z-[100] overscroll-contain">
+                      <ul className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-auto z-[100] overscroll-contain touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
                         {filteredHR.length > 0 ? (
                           filteredHR.map((h) => (
                             <li key={h.id} className="list-none">
@@ -896,12 +910,6 @@ export default function BookSlot({
                                 onMouseDown={(ev) => {
                                   ev.preventDefault();
                                   ev.stopPropagation();
-                                  setForm((f) => ({ ...f, hr: h.id }));
-                                  setHrQuery('');
-                                  setShowHrDropdown(false);
-                                }}
-                                onTouchEnd={(ev) => {
-                                  ev.preventDefault();
                                   setForm((f) => ({ ...f, hr: h.id }));
                                   setHrQuery('');
                                   setShowHrDropdown(false);
@@ -1129,10 +1137,24 @@ export default function BookSlot({
                           : 'Click to select HR'
                       }
                       disabled={isTechnologyRestricted && !form.technology}
-                      className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 disabled:bg-slate-50 disabled:text-slate-500"
+                      className="w-full border border-gray-200 rounded-md pl-3 pr-8 py-2 text-sm h-9 disabled:bg-slate-50 disabled:text-slate-500"
                     />
+                    {(selectedHR || hrQuery) && !(isTechnologyRestricted && !form.technology) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForm((f) => ({ ...f, hr: '' }));
+                          setHrQuery('');
+                          setShowHrDropdown(false);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                        aria-label="Clear HR selection"
+                      >
+                        <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+                      </button>
+                    )}
                     {showHrDropdown && (
-                      <ul className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-auto z-[100] overscroll-contain">
+                      <ul className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-auto z-[100] overscroll-contain touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
                         {filteredHR.length > 0 ? (
                           filteredHR.map((h) => (
                             <li key={h.id} className="list-none">
@@ -1143,12 +1165,6 @@ export default function BookSlot({
                                 onMouseDown={(ev) => {
                                   ev.preventDefault();
                                   ev.stopPropagation();
-                                  setForm((f) => ({ ...f, hr: h.id }));
-                                  setHrQuery('');
-                                  setShowHrDropdown(false);
-                                }}
-                                onTouchEnd={(ev) => {
-                                  ev.preventDefault();
                                   setForm((f) => ({ ...f, hr: h.id }));
                                   setHrQuery('');
                                   setShowHrDropdown(false);
