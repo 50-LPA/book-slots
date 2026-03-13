@@ -43,6 +43,19 @@ function normaliseRoundLabelAdmin(raw) {
   return r;
 }
 
+// Normalise legacy technology labels for admin dropdowns
+function normaliseTechLabelAdmin(raw) {
+  const v = String(raw || '').trim();
+  const lower = v.toLowerCase();
+  if (lower === '.net devloper' || lower === 'dot net' || lower === '.net') {
+    return '.Net';
+  }
+  if (lower === 'devops(awg)' || lower === 'devops awg') {
+    return 'DevOps (AWS)';
+  }
+  return v;
+}
+
 // Reusable pagination bar: left = count label, right = « < pages > » + per-page selector
 function PaginationBar({
   totalItems,
@@ -858,7 +871,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
 
   const techOptions = [
     'PHP',
-    '.net Devloper',
+    '.Net',
     'Python',
     'Data Science',
     'MERN Stack',
@@ -869,7 +882,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
     'Busness Analyst',
     'Manual Testing',
     'Automation Testing',
-    'DevOps(AWG)',
+    'DevOps (AWS)',
     'DevOps(Azure)',
     'Data Analysts',
     'AEM',
@@ -890,8 +903,8 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       if (parts.length > 2) {
         parts = [parts[0], parts.slice(1).join('')];
       }
-      if (parts.length === 2 && parts[1].length > 1) {
-        parts[1] = parts[1].slice(0, 1);
+      if (parts.length === 2 && parts[1].length > 2) {
+        parts[1] = parts[1].slice(0, 2);
       }
       value = parts.join('.');
     }
@@ -991,14 +1004,14 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       setError('Experience is required.');
       return;
     }
-    const validExpPattern = /^\d+(\.\d)?$/;
+    const validExpPattern = /^\d+(\.\d{1,2})?$/;
     if (!validExpPattern.test(trimmedExperience)) {
-      setError('Experience must be a number between 0 and 20 with at most one decimal place.');
+      setError('Experience must be a number between 0 and 20 with at most two decimal places.');
       return;
     }
     const expNum = parseFloat(trimmedExperience);
     if (Number.isNaN(expNum) || expNum < 0 || expNum > 20) {
-      setError('Experience must be a number between 0 and 20 with at most one decimal place.');
+      setError('Experience must be a number between 0 and 20 with at most two decimal places.');
       return;
     }
     setLoading(true);
@@ -1334,7 +1347,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
 
 const EDIT_TECH_OPTIONS = [
   'PHP',
-  '.net Devloper',
+  '.Net',
   'Python',
   'Data Science',
   'MERN Stack',
@@ -1345,8 +1358,8 @@ const EDIT_TECH_OPTIONS = [
   'Busness Analyst',
   'Manual Testing',
   'Automation Testing',
-  'DevOps(AWG)',
-  'DevOps(Azure)',
+  'DevOps (AWS)',
+  'DevOps (Azure)',
   'Data Analysts',
   'AEM',
   'Power BI',
@@ -1360,7 +1373,9 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
     mobile: candidate?.mobile || '',
     experience: candidate?.experience || '',
     password: String(candidate?.password ?? '').trim(),
-    technology: Array.isArray(candidate?.technologies) ? [...candidate.technologies] : [],
+    technology: Array.isArray(candidate?.technologies)
+      ? candidate.technologies.map((t) => normaliseTechLabelAdmin(t))
+      : [],
     referredBy: candidate?.referredBy || 'Viraj Kadam Sir',
     selected: candidate?.selected ?? false,
     selectedDate: candidate?.selectedDate || '',
@@ -1380,7 +1395,9 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         mobile: candidate.mobile || '',
         experience: candidate.experience || '',
         password: String(candidate.password ?? '').trim(),
-        technology: Array.isArray(candidate.technologies) ? [...candidate.technologies] : [],
+        technology: Array.isArray(candidate.technologies)
+          ? candidate.technologies.map((t) => normaliseTechLabelAdmin(t))
+          : [],
         referredBy: candidate.referredBy || 'Viraj Kadam Sir',
         selected: candidate.selected ?? false,
         selectedDate: candidate.selectedDate || '',
@@ -1404,8 +1421,8 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       if (parts.length > 2) {
         parts = [parts[0], parts.slice(1).join('')];
       }
-      if (parts.length === 2 && parts[1].length > 1) {
-        parts[1] = parts[1].slice(0, 1);
+      if (parts.length === 2 && parts[1].length > 2) {
+        parts[1] = parts[1].slice(0, 2);
       }
       value = parts.join('.');
     }
@@ -1443,14 +1460,14 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       setError('Experience is required.');
       return;
     }
-    const validExpPattern = /^\d+(\.\d)?$/;
+    const validExpPattern = /^\d+(\.\d{1,2})?$/;
     if (!validExpPattern.test(trimmedExperience)) {
-      setError('Experience must be a number between 0 and 20 with at most one decimal place.');
+      setError('Experience must be a number between 0 and 20 with at most two decimal places.');
       return;
     }
     const expNum = parseFloat(trimmedExperience);
     if (Number.isNaN(expNum) || expNum < 0 || expNum > 20) {
-      setError('Experience must be a number between 0 and 20 with at most one decimal place.');
+      setError('Experience must be a number between 0 and 20 with at most two decimal places.');
       return;
     }
 

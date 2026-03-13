@@ -69,7 +69,7 @@ function SlotCalendar({
     <div className="sb-slot-calendar relative bg-white">
       <div>
         <table
-          className="w-full border-collapse text-[11px] sm:text-[0.9rem]"
+          className="w-full border-separate border-spacing-0 text-[11px] sm:text-[0.9rem]"
           style={{ tableLayout: 'fixed' }}
         >
           <colgroup>
@@ -167,6 +167,44 @@ function SlotCalendar({
                       return slotEndMinutes > hourStartMinutes && slotStartMinutes < hourEndMinutes;
                     }) || [];
 
+                  // Special case: hide the horizontal gap ONLY when a single event
+                  // crosses the boundary between this hour and the next (for the row
+                  // above) or between the previous hour and this one (for the row below).
+                  const crossingDown = dayEvents.filter((event) => {
+                    if (!(event.__startDate instanceof Date) || !(event.__endDate instanceof Date)) {
+                      return false;
+                    }
+                    if (Number.isNaN(event.__startDate.getTime()) || Number.isNaN(event.__endDate.getTime())) {
+                      return false;
+                    }
+                    const slotStartMinutes =
+                      event.__startDate.getHours() * 60 + event.__startDate.getMinutes();
+                    const slotEndMinutes =
+                      event.__endDate.getHours() * 60 + event.__endDate.getMinutes();
+                    // crosses this hour's bottom boundary (e.g. 2:30–3:30 crosses 3:00 for hour=14)
+                    return slotStartMinutes < hourEndMinutes && slotEndMinutes > hourEndMinutes;
+                  });
+
+                  const crossingUp = dayEvents.filter((event) => {
+                    if (!(event.__startDate instanceof Date) || !(event.__endDate instanceof Date)) {
+                      return false;
+                    }
+                    if (Number.isNaN(event.__startDate.getTime()) || Number.isNaN(event.__endDate.getTime())) {
+                      return false;
+                    }
+                    const slotStartMinutes =
+                      event.__startDate.getHours() * 60 + event.__startDate.getMinutes();
+                    const slotEndMinutes =
+                      event.__endDate.getHours() * 60 + event.__endDate.getMinutes();
+                    // crosses this hour's top boundary (e.g. 2:30–3:30 crosses 3:00 for hour=15)
+                    return slotStartMinutes < hourStartMinutes && slotEndMinutes > hourStartMinutes;
+                  });
+
+                  const shouldHideBottomBorder =
+                    crossingDown.length === 1 && hourEvents.length === 1;
+                  const shouldHideTopBorder =
+                    crossingUp.length === 1 && hourEvents.length === 1;
+
                   return (
                     <td
                       key={day.toISOString()}
@@ -177,11 +215,22 @@ function SlotCalendar({
                           ? 'bg-emerald-50 border-emerald-200'
                           : 'bg-white border-slate-300'
                       }`}
-                      style={{ height: 'var(--sb-slot-row-h)', padding: 0 }}
+                      style={{
+                        height: 'var(--sb-slot-row-h)',
+                        padding: 0,
+                        // Only hide this cell's border when exactly one slot crosses
+                        // this hour boundary (e.g. 2:30–3:30 over 3:00). For all
+                        // other cases (multiple slots, or clean hour slots),
+                        // keep the normal gray line so slots stay separated.
+                        borderBottom: shouldHideBottomBorder ? 'none' : undefined,
+                        borderTop: shouldHideTopBorder ? 'none' : undefined,
+                      }}
                     >
                       <div className="relative h-full px-0 py-0">
-                        {/* 1/2 hour faint line */}
-                        <div className="absolute left-0 right-0 top-1/2 h-px bg-slate-300/40 pointer-events-none -translate-y-px" />
+                        {/* 1/2 hour faint line - only when there are no events in this cell */}
+                        {hourEvents.length === 0 && (
+                          <div className="absolute left-0 right-0 top-1/2 h-px bg-slate-300/40 pointer-events-none -translate-y-px" />
+                        )}
                         {hourEvents.map((event, idx) => {
                           const isCandidateView = candidateIds.length > 0;
                           const isOwnSlot =
@@ -237,6 +286,12 @@ function SlotCalendar({
                               event.__startDate.getHours() * 60 + event.__startDate.getMinutes();
                             const slotEndMinutesTotal =
                               event.__endDate.getHours() * 60 + event.__endDate.getMinutes();
+
+                            // Determine if this row is where the event starts
+                            const isFirstHourRowForEvent =
+                              slotStartMinutesTotal >= hourStartMinutes &&
+                              slotStartMinutesTotal < hourEndMinutes;
+
                             const clippedStart = Math.max(slotStartMinutesTotal, hourStartMinutes);
                             const clippedEnd = Math.min(slotEndMinutesTotal, hourEndMinutes);
                             const visibleStartWithinHour = clippedStart - hourStartMinutes; // 0–60
@@ -252,6 +307,12 @@ function SlotCalendar({
                               100 - topPct,
                               (visibleDurationMinutes / 60) * 100,
                             );
+
+                            // For continuation rows, hide labels so it looks like one long block
+                            if (!isFirstHourRowForEvent) {
+                              mainLabel = '';
+                              timeLabel = '';
+                            }
                           }
 
                           let colorClass = 'bg-indigo-600';
@@ -270,6 +331,8 @@ function SlotCalendar({
                               colorClass = 'bg-orange-500';
                             }
                           }
+
+                          const eventCount = hourEvents.length;
                           return (
                             <div
                               key={`${event.title}-${idx}`}
@@ -279,7 +342,10 @@ function SlotCalendar({
                                   onEventClick(event);
                                 }
                               }}
-                              style={{ top: `${topPct}%`, height: `${heightPct}%` }}
+                              style={{
+                                top: `${topPct}%`,
+                                height: `${heightPct}%`,
+                              }}
                             >
                               <div className="text-[10px] sm:text-[14px] font-semibold">
                                 {mainLabel}
@@ -288,6 +354,9 @@ function SlotCalendar({
                                 <div className="text-[10px] sm:text-[14px] opacity-80">
                                   {timeLabel}
                                 </div>
+                              )}
+                              {eventCount > 1 && idx < eventCount - 1 && (
+                                <div className="absolute left-0 right-0 bottom-0 h-px bg-slate-300" />
                               )}
                             </div>
                           );

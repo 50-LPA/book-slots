@@ -203,6 +203,7 @@ export default function BookSlot({
   const [hrQuery, setHrQuery] = useState('');
   const [showHrDropdown, setShowHrDropdown] = useState(false);
   const hrDropdownRefDesktop = useRef(null);
+  const hrDropdownRefTab = useRef(null);
   const hrDropdownRefMobile = useRef(null);
   const selectedHR = hrList.find((h) => String(h.id) === String(form.hr));
   const filteredHR = hrList.filter((h) => {
@@ -220,8 +221,9 @@ export default function BookSlot({
 
     const handleClickOutside = (event) => {
       const inDesktop = hrDropdownRefDesktop.current?.contains(event.target);
+      const inTab = hrDropdownRefTab.current?.contains(event.target);
       const inMobile = hrDropdownRefMobile.current?.contains(event.target);
-      if (!inDesktop && !inMobile) {
+      if (!inDesktop && !inTab && !inMobile) {
         setShowHrDropdown(false);
       }
     };
@@ -508,8 +510,352 @@ export default function BookSlot({
             <h2 className="mx-auto text-purple-600 font-semibold text-sm md:text-base">Book Slot</h2>
           </div>
 
+          {/* Tab view only (768px–1023px): reordered layout */}
+          <div className="hidden md:block lg:hidden space-y-4">
+            {/* Row 1: Date | Start Time */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600">
+                  <span className="text-red-500">*</span> Date
+                </label>
+                <div className="mt-1 relative">
+                  <div className="relative w-full">
+                    <input
+                      ref={dateRef}
+                      type="text"
+                      name="date"
+                      placeholder="DD-MMM-YYYY"
+                      value={form.dateDisplay !== undefined ? form.dateDisplay : formatDateForDisplay(form.date)}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const parsed = parseDDMMYYYY(raw);
+                        if (parsed) {
+                          setForm((f) => ({ ...f, date: parsed, dateDisplay: formatDateForDisplay(parsed) }));
+                        } else if (raw === '') {
+                          setForm((f) => ({ ...f, date: '', dateDisplay: '' }));
+                        } else {
+                          setForm((f) => ({ ...f, date: '', dateDisplay: raw }));
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const raw = e.target.value.trim();
+                        const parsed = parseDDMMYYYY(raw);
+                        if (parsed) {
+                          setForm((f) => ({ ...f, date: parsed, dateDisplay: formatDateForDisplay(parsed) }));
+                        } else if (raw === '') {
+                          setForm((f) => ({ ...f, date: '', dateDisplay: '' }));
+                        }
+                      }}
+                      className="w-full border border-gray-200 rounded-md pl-3 pr-10 py-2 text-sm h-9 placeholder-gray-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!showCalendar && form.date) {
+                          const d = new Date(form.date + 'T12:00:00');
+                          setCalendarView({ year: d.getFullYear(), month: d.getMonth() });
+                        }
+                        setShowCalendar((v) => !v);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer bg-transparent border-0"
+                      aria-label="Open calendar"
+                    >
+                      <i className="fa-solid fa-calendar text-sm" aria-hidden="true" />
+                    </button>
+                  </div>
+                  {showCalendar && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        aria-hidden="true"
+                        onClick={() => setShowCalendar(false)}
+                      />
+                      <div
+                        ref={calendarRef}
+                        className="absolute left-0 top-full mt-1 z-50 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <button
+                            type="button"
+                            onClick={() => setCalendarView((v) => ({ ...v, month: v.month - 1 < 0 ? 11 : v.month - 1, year: v.month - 1 < 0 ? v.year - 1 : v.year }))}
+                            className="p-1 rounded hover:bg-gray-100 text-gray-600"
+                          >
+                            <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
+                          </button>
+                          <span className="text-sm font-medium">
+                            {new Date(calendarView.year, calendarView.month).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setCalendarView((v) => ({ ...v, month: v.month + 1 > 11 ? 0 : v.month + 1, year: v.month + 1 > 11 ? v.year + 1 : v.year }))}
+                            className="p-1 rounded hover:bg-gray-100 text-gray-600"
+                          >
+                            <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-7 gap-0.5 text-center text-xs">
+                          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => (
+                            <div key={d} className="py-1 text-gray-500 font-medium">{d}</div>
+                          ))}
+                          {getCalendarDays(calendarView.year, calendarView.month).map((day, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              disabled={!day || isSundayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)}
+                              onClick={() => {
+                                if (day && !isSundayDate(day) && !isLeaveDayDate(day)) {
+                                  const yyyymmdd = formatDateForInput(day);
+                                  setForm((f) => ({ ...f, date: yyyymmdd, dateDisplay: formatDateForDisplay(yyyymmdd) }));
+                                  setShowCalendar(false);
+                                }
+                              }}
+                              className={`py-1.5 rounded text-sm ${
+                                !day
+                                  ? 'invisible'
+                                  : isSundayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)
+                                  ? 'text-gray-300 cursor-not-allowed'
+                                  : isSameDay(day, form.date ? new Date(form.date + 'T12:00:00') : null)
+                                  ? 'bg-purple-600 text-white'
+                                  : 'hover:bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {day ? day.getDate() : ''}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="mt-2 text-xs text-purple-600 flex gap-3">
+                  <button type="button" onClick={() => handleDateShortcut('today')} className="text-purple-600 hover:text-purple-800 cursor-pointer">Today</button>
+                  <button type="button" onClick={() => handleDateShortcut('tomorrow')} className="text-purple-600 hover:text-purple-800 cursor-pointer">Tomorrow</button>
+                  <button type="button" onClick={() => handleDateShortcut('next2')} className="text-purple-600 hover:text-purple-800 cursor-pointer">{formatShortcutDate(dateIn2Days)}</button>
+                  <button type="button" onClick={() => handleDateShortcut('next3')} className="text-purple-600 hover:text-purple-800 cursor-pointer">{formatShortcutDate(dateIn3Days)}</button>
+                </div>
+              </div>
+              <div className="min-w-0">
+                <label className="block text-xs font-medium text-gray-600">
+                  <span className="text-red-500">*</span> Start Time
+                </label>
+                <div className="mt-1 flex gap-2 items-center w-full">
+                  <select
+                    name="hour"
+                    value={form.hour}
+                    onChange={handleChange}
+                    className="flex-1 min-w-0 border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                  >
+                    <option value="">Hour</option>
+                    {Array.from({ length: 9 }).map((_, i) => {
+                      const hh = 11 + i;
+                      const displayHour = hh % 12 === 0 ? 12 : hh % 12;
+                      return (
+                        <option key={hh} value={String(hh).padStart(2, '0')}>
+                          {displayHour}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <select
+                    name="minute"
+                    value={form.minute}
+                    onChange={handleChange}
+                    className="flex-1 min-w-0 border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                  >
+                    <option value="00">00</option>
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                    <option value="45">45</option>
+                  </select>
+                  <div className="flex-shrink-0 w-12 h-9 border border-gray-200 rounded-md flex items-center justify-center text-sm text-gray-500 bg-gray-50">
+                    {getAmPm()}
+                  </div>
+                </div>
+                {errors.time && <p className="text-xs text-red-500 mt-1">{errors.time}</p>}
+                {errors.hour && <p className="text-xs text-red-500 mt-1">{errors.hour}</p>}
+                {errors.minute && <p className="text-xs text-red-500 mt-1">{errors.minute}</p>}
+                <p className="text-xs text-red-500 mt-1">Book slots between 11 AM to 7 PM</p>
+              </div>
+            </div>
+
+            {/* Row 2: Meeting Duration | Check Availability */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600">
+                  <span className="text-red-500">*</span> Meeting Duration
+                </label>
+                <select
+                  name="duration"
+                  value={form.duration}
+                  onChange={handleChange}
+                  className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                >
+                  <option value="">Select Duration</option>
+                  <option value="15">15 Minutes</option>
+                  <option value="30">30 Minutes</option>
+                  <option value="60">1 Hour</option>
+                  <option value="120">2 Hours</option>
+                  <option value="180">3 Hours</option>
+                  <option value="240">4 Hours</option>
+                </select>
+                {errors.duration && <p className="text-xs text-red-500 mt-1">{errors.duration}</p>}
+              </div>
+              <div className="flex flex-col justify-end">
+                {form.date && (
+                  <button
+                    type="button"
+                    onClick={checkAvailability}
+                    disabled={checkingAvailability}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-yellow-200 hover:bg-yellow-300 text-sm h-9 w-full disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {checkingAvailability ? 'Checking…' : 'Check Availability'}
+                  </button>
+                )}
+                {availabilityState === 'needs_fields' && (
+                  <p className="text-xs text-red-500 text-center mt-1">{availabilityMessage || 'Please select date, start time, and meeting duration.'}</p>
+                )}
+                {availabilityState === 'unavailable' && (
+                  <p className="text-xs text-red-600 font-semibold text-center mt-1">{availabilityMessage || 'This slot is not available.'}</p>
+                )}
+                {availabilityState === 'available' && (
+                  <div className="mt-1 text-center">
+                    {meetingEndTime && <p className="text-xs text-red-500">Meeting End Time: {meetingEndTime}</p>}
+                    <p className="text-xs text-green-600 font-semibold">Time slot is available.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {availabilityState === 'available' && (
+              <>
+                {/* Row 3: Technology | Round */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600">
+                      {isTechnologyRestricted ? <><span className="text-red-500">*</span> Technology</> : <>Technology</>}
+                    </label>
+                    <select
+                      name="technology"
+                      value={form.technology}
+                      onChange={handleChange}
+                      disabled={!isTechnologyRestricted}
+                      className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white disabled:bg-slate-50 disabled:text-slate-500"
+                    >
+                      {isTechnologyRestricted ? <option value="">Select Technology</option> : <option value="">No technology assigned</option>}
+                      {techOptions.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                    {errors.technology && <p className="text-xs text-red-500 mt-1">{errors.technology}</p>}
+                    {!isTechnologyRestricted && <p className="text-xs text-slate-500 mt-1">Your profile has no technology assigned. Please contact admin.</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600">
+                      <span className="text-red-500">*</span> Round
+                    </label>
+                    <select
+                      name="round"
+                      value={form.round}
+                      onChange={handleChange}
+                      className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                    >
+                      <option value="">Select Round</option>
+                      <option>Technical Round 1</option>
+                      <option>Technical Round 2</option>
+                      <option>Technical Round 3</option>
+                      <option>Manageral Round</option>
+                      <option>HR Round</option>
+                      <option>Task Assesment</option>
+                    </select>
+                    {errors.round && <p className="text-xs text-red-500 mt-1">{errors.round}</p>}
+                  </div>
+                </div>
+
+                {/* Row 4: Select HR | Book My Slot */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="min-w-0" ref={hrDropdownRefTab}>
+                    <label className="block text-xs font-medium text-gray-600">
+                      <span className="text-red-500">*</span> Select HR
+                    </label>
+                    <div className="mt-1 flex items-center gap-3">
+                      <div className="relative flex-1 min-w-0 isolate">
+                        <input
+                          type="text"
+                          name="hr_search"
+                          value={showHrDropdown ? hrQuery : selectedHR ? selectedHR.name : hrQuery}
+                          onChange={(e) => { setHrQuery(e.target.value); setShowHrDropdown(true); }}
+                          onFocus={() => {
+                            if (isTechnologyRestricted && !form.technology) return;
+                            setShowHrDropdown(true);
+                          }}
+                          placeholder={isTechnologyRestricted && !form.technology ? 'Select technology first' : 'Click to select HR'}
+                          disabled={isTechnologyRestricted && !form.technology}
+                          className="w-full border border-gray-200 rounded-md pl-3 pr-8 py-2 text-sm h-9 disabled:bg-slate-50 disabled:text-slate-500"
+                        />
+                        {(selectedHR || hrQuery) && !(isTechnologyRestricted && !form.technology) && (
+                          <button
+                            type="button"
+                            onClick={() => { setForm((f) => ({ ...f, hr: '' })); setHrQuery(''); setShowHrDropdown(false); }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                            aria-label="Clear HR selection"
+                          >
+                            <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+                          </button>
+                        )}
+                        {showHrDropdown && (
+                          <ul className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-auto z-[100] overscroll-contain touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
+                            {filteredHR.length > 0 ? (
+                              filteredHR.map((h) => (
+                                <li key={h.id} className="list-none">
+                                  <button
+                                    type="button"
+                                    role="option"
+                                    className="w-full text-left px-3 py-2.5 hover:bg-gray-50 active:bg-gray-100 cursor-pointer flex justify-between items-center touch-manipulation border-0 bg-transparent"
+                                    onMouseDown={(ev) => { ev.preventDefault(); ev.stopPropagation(); setForm((f) => ({ ...f, hr: h.id })); setHrQuery(''); setShowHrDropdown(false); }}
+                                    onClick={(ev) => { ev.preventDefault(); setForm((f) => ({ ...f, hr: h.id })); setHrQuery(''); setShowHrDropdown(false); }}
+                                  >
+                                    <div>
+                                      <div className="text-sm font-medium text-gray-800">{h.name}</div>
+                                      <div className="text-xs text-gray-500">{h.company}</div>
+                                    </div>
+                                  </button>
+                                </li>
+                              ))
+                            ) : (
+                              <li className="px-3 py-2 text-sm text-gray-600">
+                                No HR found.
+                                <button type="button" onMouseDown={(ev) => { ev.preventDefault(); setShowHrDropdown(false); onOpenAddHR(); }} className="ml-2 text-purple-600 underline">Create new HR</button>
+                              </li>
+                            )}
+                          </ul>
+                        )}
+                      </div>
+                      <button type="button" onClick={onOpenAddHR} className="inline-flex items-center gap-2 px-3 py-2 rounded bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0">+ Add New HR</button>
+                    </div>
+                    {errors.hr && <p className="text-xs text-red-500 mt-1">{errors.hr}</p>}
+                    <div className="mt-1">
+                      <p className="text-xs text-red-500">• Create new HR if not listed.</p>
+                      <p className="text-xs text-green-600">• Search HR name or Company name.</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <button
+                      type="button"
+                      onClick={bookSlot}
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded bg-emerald-400 hover:bg-emerald-500 text-white font-semibold h-9 w-full"
+                    >
+                      Book My Slot
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Mobile + Desktop: original grid (hidden at tab md) */}
+          <div className="block md:hidden lg:block">
           {/* iPad (md): 2 cols to prevent overlap; desktop (lg): 4 cols; mobile: 1 col */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch overflow-visible">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-stretch overflow-visible">
             {/* COLUMN 1 (Left) */}
             <div className="flex flex-col gap-3">
               {/* Date field */}
@@ -810,7 +1156,7 @@ export default function BookSlot({
             {/* COLUMN 3 - Meeting Duration + Select HR */}
             <div className="flex flex-col gap-3 overflow-visible">
               {/* Meeting Duration */}
-              <div>
+                <div>
                 <label className="block text-xs font-medium text-gray-600">
                   <span className="text-red-500">*</span> Meeting Duration
                 </label>
@@ -907,7 +1253,7 @@ export default function BookSlot({
                                 type="button"
                                 role="option"
                                 className="w-full text-left px-3 py-2.5 hover:bg-gray-50 active:bg-gray-100 cursor-pointer flex justify-between items-center touch-manipulation border-0 bg-transparent"
-                                onMouseDown={(ev) => {
+                              onMouseDown={(ev) => {
                                   ev.preventDefault();
                                   ev.stopPropagation();
                                   setForm((f) => ({ ...f, hr: h.id }));
@@ -915,16 +1261,16 @@ export default function BookSlot({
                                   setShowHrDropdown(false);
                                 }}
                                 onClick={(ev) => {
-                                  ev.preventDefault();
-                                  setForm((f) => ({ ...f, hr: h.id }));
-                                  setHrQuery('');
-                                  setShowHrDropdown(false);
-                                }}
-                              >
-                                <div>
-                                  <div className="text-sm font-medium text-gray-800">{h.name}</div>
-                                  <div className="text-xs text-gray-500">{h.company}</div>
-                                </div>
+                                ev.preventDefault();
+                                setForm((f) => ({ ...f, hr: h.id }));
+                                setHrQuery('');
+                                setShowHrDropdown(false);
+                              }}
+                            >
+                              <div>
+                                <div className="text-sm font-medium text-gray-800">{h.name}</div>
+                                <div className="text-xs text-gray-500">{h.company}</div>
+                              </div>
                               </button>
                             </li>
                           ))
@@ -978,7 +1324,7 @@ export default function BookSlot({
               {availabilityState === 'available' && (
                 <div className="hidden md:grid lg:hidden grid-cols-2 gap-3">
                   <div className="col-start-1">
-                    <label className="block text-xs font-medium text-gray-600">
+                <label className="block text-xs font-medium text-gray-600">
                       {isTechnologyRestricted ? (
                         <>
                           <span className="text-red-500">*</span> Technology
@@ -986,8 +1332,8 @@ export default function BookSlot({
                       ) : (
                         <>Technology</>
                       )}
-                    </label>
-                    <select
+                </label>
+                <select
                       name="technology"
                       value={form.technology}
                       onChange={handleChange}
@@ -1021,9 +1367,9 @@ export default function BookSlot({
                     <select
                       name="round"
                       value={form.round}
-                      onChange={handleChange}
-                      className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
-                    >
+                  onChange={handleChange}
+                  className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                >
                       <option value="">Select Round</option>
                       <option>Technical Round 1</option>
                       <option>Technical Round 2</option>
@@ -1031,7 +1377,7 @@ export default function BookSlot({
                       <option>Manageral Round</option>
                       <option>HR Round</option>
                       <option>Task Assesment</option>
-                    </select>
+                </select>
                     {errors.round && <p className="text-xs text-red-500 mt-1">{errors.round}</p>}
                   </div>
                 </div>
@@ -1047,6 +1393,7 @@ export default function BookSlot({
               )}
             </div>
           </div>
+              </div>
 
           {/* Mobile-only stacked fields shown AFTER Check Availability */}
           {availabilityState === 'available' && (
@@ -1086,8 +1433,8 @@ export default function BookSlot({
                 {!isTechnologyRestricted && (
                   <p className="text-xs text-slate-500 mt-1">
                     Your profile has no technology assigned. Please contact admin.
-                  </p>
-                )}
+                </p>
+              )}
               </div>
 
               {/* Round */}
@@ -1222,11 +1569,11 @@ export default function BookSlot({
                     </p>
                   )}
                   {availabilityState === 'available' && (
-                    <p className="text-xs text-green-600 font-semibold">
-                      Time slot is available.
-                    </p>
-                  )}
-                </div>
+                  <p className="text-xs text-green-600 font-semibold">
+                    Time slot is available.
+                  </p>
+              )}
+            </div>
                 <button
                   type="button"
                   onClick={bookSlot}
@@ -1234,8 +1581,8 @@ export default function BookSlot({
                 >
                   Book My Slot
                 </button>
-              </div>
             </div>
+          </div>
           )}
 
           {/* (removed duplicate mobile book button - layout now uses the grid above) */}
