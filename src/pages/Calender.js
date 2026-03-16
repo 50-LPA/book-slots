@@ -170,7 +170,8 @@ const Calender = () => {
           </div>
           <div className="row">
             <div className="col-12">
-              <div className="card shadow-sm border border-slate-200">
+              {/* Outer calendar card with clear gray border */}
+              <div className="bg-white shadow-sm rounded-xl border border-gray-300 p-6">
                 <div className="card-header flex justify-between items-center bg-white border-b border-slate-200 px-4 py-3">
                   <div className="flex items-center" style={{ width: '33%' }}>
                     <i className="fa-regular fa-calendar-days text-2xl text-purple-600 me-2" aria-hidden="true" />
@@ -195,7 +196,8 @@ const Calender = () => {
                     </div>
                   </div>
                 </div>
-                <div className="m-0 p-0">
+                {/* Inner calendar body (no extra border, just padding/background) */}
+                <div className="m-0 p-0 bg-white">
                   <div className="calendar-container position-relative">
                     {isLoading && (
                       <div
@@ -209,7 +211,6 @@ const Calender = () => {
                     <FullCalendar
                       plugins={[timeGridPlugin, interactionPlugin, scrollGridPlugin]}
                       initialView="timeGridWeek"
-                      height="auto"
                       expandRows
                       nowIndicator
                       slotMinTime="11:00:00"
@@ -224,7 +225,6 @@ const Calender = () => {
                       height="auto"
                       contentHeight="auto"
                       aspectRatio={1.8}
-                      expandRows
                       slotDuration="00:30:00"
                       allDaySlot={false}
                       dayHeaderFormat={{ weekday: 'long' }}

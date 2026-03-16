@@ -320,7 +320,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
   });
 
   return (
-    <div className="bg-white rounded-lg sm:rounded-2xl shadow-md overflow-hidden border border-slate-200">
+    <div className="bg-white rounded-lg sm:rounded-2xl shadow-md overflow-hidden border border-slate-300">
       {/* Title + candidate actions (Download, Add HR, Book Slot) */}
       <div className="border-b border-slate-200 p-3 sm:p-4 md:p-6">
         {/* Mobile: centered, stacked layout like admin */}
@@ -427,19 +427,21 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
           </div>
         </div>
 
-        <WeekCalendar
-          key={calendarRefreshKey}
-          candidateIds={candidateIds}
-          onEventClick={(event) => {
-            if (
-              event.candidateId &&
-              Array.isArray(candidateIds) &&
-              candidateIds.includes(event.candidateId)
-            ) {
-              setCalendarSelectedEvent(event);
-            }
-          }}
-        />
+        <div className="mt-4">
+          <WeekCalendar
+            key={calendarRefreshKey}
+            candidateIds={candidateIds}
+            onEventClick={(event) => {
+              if (
+                event.candidateId &&
+                Array.isArray(candidateIds) &&
+                candidateIds.includes(event.candidateId)
+              ) {
+                setCalendarSelectedEvent(event);
+              }
+            }}
+          />
+        </div>
       </div>
       {/* Calendar slot details popup (candidate calendar, only own slots) */}
       {calendarSelectedEvent && (

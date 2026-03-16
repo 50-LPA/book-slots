@@ -883,7 +883,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
     'Manual Testing',
     'Automation Testing',
     'DevOps (AWS)',
-    'DevOps(Azure)',
+    'DevOps (Azure)',
     'Data Analysts',
     'AEM',
     'Power BI',
@@ -1908,16 +1908,10 @@ function AdminSlotsTable({
   // Default to this week (dropdown default), matching your request
   const [timeRange, setTimeRange] = useState('thisWeek');
   const [companyFilter, setCompanyFilter] = useState('');
-  const [technologyFilter, setTechnologyFilter] = useState('');
-  const [roundFilter, setRoundFilter] = useState('');
   const [hrFilter, setHrFilter] = useState('');
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
-  const [showTechnologyDropdown, setShowTechnologyDropdown] = useState(false);
-  const [showRoundDropdown, setShowRoundDropdown] = useState(false);
   const [showHrDropdown, setShowHrDropdown] = useState(false);
   const [companySearch, setCompanySearch] = useState('');
-  const [technologySearch, setTechnologySearch] = useState('');
-  const [roundSearch, setRoundSearch] = useState('');
   const [hrSearch, setHrSearch] = useState('');
   const [confirmDeleteSlotId, setConfirmDeleteSlotId] = useState(null);
   const [confirmDeleteSlotName, setConfirmDeleteSlotName] = useState('');
@@ -1928,26 +1922,6 @@ function AdminSlotsTable({
       const company = String(slot.company || slot.companyName || '').trim();
       if (!company) return;
       set.add(company);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [slots]);
-
-  const technologyOptions = useMemo(() => {
-    const set = new Set();
-    slots.forEach((slot) => {
-      const tech = String(slot.technology || '').trim();
-      if (!tech) return;
-      set.add(tech);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [slots]);
-
-  const roundOptions = useMemo(() => {
-    const set = new Set();
-    slots.forEach((slot) => {
-      const round = normaliseRoundLabelAdmin(slot.round);
-      if (!round) return;
-      set.add(round);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [slots]);
@@ -1968,8 +1942,6 @@ function AdminSlotsTable({
     const handleClickOutside = (event) => {
       if (filtersRef.current && !filtersRef.current.contains(event.target)) {
         setShowCompanyDropdown(false);
-        setShowTechnologyDropdown(false);
-        setShowRoundDropdown(false);
         setShowHrDropdown(false);
       }
     };
@@ -1986,18 +1958,6 @@ function AdminSlotsTable({
     if (!q) return companyOptions;
     return companyOptions.filter((c) => c.toLowerCase().includes(q));
   }, [companyOptions, companySearch]);
-
-  const filteredTechnologyOptions = useMemo(() => {
-    const q = technologySearch.trim().toLowerCase();
-    if (!q) return technologyOptions;
-    return technologyOptions.filter((t) => t.toLowerCase().includes(q));
-  }, [technologyOptions, technologySearch]);
-
-  const filteredRoundOptions = useMemo(() => {
-    const q = roundSearch.trim().toLowerCase();
-    if (!q) return roundOptions;
-    return roundOptions.filter((r) => r.toLowerCase().includes(q));
-  }, [roundOptions, roundSearch]);
 
   const filteredHrOptions = useMemo(() => {
     const q = hrSearch.trim().toLowerCase();
@@ -2026,8 +1986,6 @@ function AdminSlotsTable({
 
     return slots.filter((slot) => {
       const company = String(slot.company || slot.companyName || '').trim();
-      const tech = String(slot.technology || '').trim();
-      const round = normaliseRoundLabelAdmin(slot.round);
       const hrName = String(slot.hrName || '').trim();
 
       if (timeRange === 'thisWeek' || timeRange === 'lastWeek') {
@@ -2047,12 +2005,10 @@ function AdminSlotsTable({
       }
 
       if (companyFilter && company !== companyFilter) return false;
-      if (technologyFilter && tech !== technologyFilter) return false;
-      if (roundFilter && round !== roundFilter) return false;
       if (hrFilter && hrName !== hrFilter) return false;
       return true;
     });
-  }, [slots, companyFilter, technologyFilter, roundFilter, hrFilter, timeRange]);
+  }, [slots, companyFilter, hrFilter, timeRange]);
 
   const approvedFilteredSlots = useMemo(
     () => dropdownFilteredSlots.filter((slot) => slot.status === 'Approved'),
@@ -2108,12 +2064,8 @@ function AdminSlotsTable({
               onChangeSearch('');
               setTimeRange('thisWeek');
               setCompanyFilter('');
-              setTechnologyFilter('');
-              setRoundFilter('');
               setHrFilter('');
               setCompanySearch('');
-              setTechnologySearch('');
-              setRoundSearch('');
               setHrSearch('');
             }}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
@@ -2134,9 +2086,9 @@ function AdminSlotsTable({
         </div>
       )}
 
-      {/* Metrics + Filters: always two rows — counts (row 1) and filters (row 2) */}
-      <div className="mb-4 flex flex-col gap-3">
-        {/* Left: metrics - stacked number + label like screenshot */}
+      {/* Metrics + Filters: single row */}
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        {/* Left: metrics */}
         <div className="flex flex-wrap gap-6 text-xs sm:text-sm text-slate-700">
           <div className="flex flex-col items-center">
             <span className="text-sm sm:text-base font-semibold text-slate-800">
@@ -2171,10 +2123,7 @@ function AdminSlotsTable({
         </div>
 
         {/* Right: filters */}
-        <div
-          className="flex flex-wrap items-center justify-end gap-2 sm:gap-3"
-          ref={filtersRef}
-        >
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 ml-auto" ref={filtersRef}>
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
@@ -2192,8 +2141,6 @@ function AdminSlotsTable({
               type="button"
               onClick={() => {
                 setShowCompanyDropdown((v) => !v);
-                setShowTechnologyDropdown(false);
-                setShowRoundDropdown(false);
                 setShowHrDropdown(false);
               }}
               className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
@@ -2259,152 +2206,6 @@ function AdminSlotsTable({
             )}
           </div>
 
-          {/* Technology searchable dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setShowTechnologyDropdown((v) => !v);
-                setShowCompanyDropdown(false);
-                setShowRoundDropdown(false);
-                setShowHrDropdown(false);
-              }}
-              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
-              aria-label="Filter by technology"
-            >
-              <span className="truncate">
-                {technologyFilter ? toTitleCase(technologyFilter) : 'Technology'}
-              </span>
-              <span className="flex items-center gap-1 ml-2">
-                {technologyFilter && (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setTechnologyFilter('');
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setTechnologyFilter('');
-                      }
-                    }}
-                    className="inline-flex items-center justify-center w-6 h-6 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 text-base font-semibold cursor-pointer"
-                    aria-label="Clear technology filter"
-                  >
-                    ×
-                  </span>
-                )}
-                <i className="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true" />
-              </span>
-            </button>
-            {showTechnologyDropdown && (
-              <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
-                <div className="px-2 py-1 border-b border-slate-100 bg-slate-50">
-                  <input
-                    type="text"
-                    value={technologySearch}
-                    onChange={(e) => setTechnologySearch(e.target.value)}
-                    placeholder="Search tech..."
-                    className="w-full rounded border border-slate-200 px-2 py-1 text-[11px] sm:text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
-                  />
-                </div>
-                {filteredTechnologyOptions.map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => {
-                      setTechnologyFilter(opt);
-                      setShowTechnologyDropdown(false);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 ${
-                      technologyFilter === opt
-                        ? 'bg-sky-100 text-slate-900'
-                        : 'hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    {toTitleCase(opt)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Round searchable dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setShowRoundDropdown((v) => !v);
-                setShowCompanyDropdown(false);
-                setShowTechnologyDropdown(false);
-                setShowHrDropdown(false);
-              }}
-              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
-              aria-label="Filter by round"
-            >
-              <span className="truncate">
-                {roundFilter ? toTitleCase(roundFilter) : 'Round'}
-              </span>
-              <span className="flex items-center gap-1 ml-2">
-                {roundFilter && (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setRoundFilter('');
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setRoundFilter('');
-                      }
-                    }}
-                    className="inline-flex items-center justify-center w-6 h-6 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 text-base font-semibold cursor-pointer"
-                    aria-label="Clear round filter"
-                  >
-                    ×
-                  </span>
-                )}
-                <i className="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true" />
-              </span>
-            </button>
-            {showRoundDropdown && (
-              <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
-                <div className="px-2 py-1 border-b border-slate-100 bg-slate-50">
-                  <input
-                    type="text"
-                    value={roundSearch}
-                    onChange={(e) => setRoundSearch(e.target.value)}
-                    placeholder="Search round..."
-                    className="w-full rounded border border-slate-200 px-2 py-1 text-[11px] sm:text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
-                  />
-                </div>
-                {filteredRoundOptions.map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => {
-                      setRoundFilter(opt);
-                      setShowRoundDropdown(false);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 ${
-                      roundFilter === opt
-                        ? 'bg-sky-100 text-slate-900'
-                        : 'hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    {toTitleCase(opt)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* HR searchable dropdown */}
           <div className="relative">
             <button
@@ -2412,8 +2213,6 @@ function AdminSlotsTable({
               onClick={() => {
                 setShowHrDropdown((v) => !v);
                 setShowCompanyDropdown(false);
-                setShowTechnologyDropdown(false);
-                setShowRoundDropdown(false);
               }}
               className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
               aria-label="Filter by HR"
@@ -5555,7 +5354,7 @@ export default function AdminDashboard() {
           <AdminLeavesTable onBackToHome={() => setActiveTab('home')} />
         ) : (
           <>
-            <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm px-4 py-6">
+            <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm border border-slate-300 px-4 py-6">
               {/* Admin calendar header */}
               <div className="border-b border-slate-200 pb-3 sm:pb-4">
                 {/* Mobile: match screenshot layout (all centered, stacked) */}
@@ -5656,12 +5455,14 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <WeekCalendar
-                  key={calendarRefreshKey}
-                  onEventClick={(event) => {
-                    setCalendarSelectedEvent(event);
-                  }}
-                />
+                <div className="mt-4">
+                  <WeekCalendar
+                    key={calendarRefreshKey}
+                    onEventClick={(event) => {
+                      setCalendarSelectedEvent(event);
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </>
