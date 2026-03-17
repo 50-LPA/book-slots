@@ -2693,7 +2693,6 @@ function AdminSlotsTable({
 
 function AdminHRsTable({
   hrs,
-  totalCount,
   search,
   onBackToHome,
   onChangeSearch,
@@ -2936,7 +2935,7 @@ function AdminHRsTable({
         {/* Left: total HRs */}
         <div className="flex flex-col items-center leading-snug">
           <span className="text-base font-semibold text-slate-800">
-            {totalCount}
+            {filteredRows.length}
           </span>
           <span className="text-[11px] text-slate-500">Total HRs</span>
         </div>
@@ -3322,6 +3321,16 @@ function AdminHRsTable({
                     const addedByRaw = String(hr.addedBy || '').trim();
                     if (!addedByRaw) return '–';
 
+                    // Hide internal ids/uids/mobiles in "Added By" column
+                    const looksLikeIdOrMobile = (val) => {
+                      const s = String(val || '').trim();
+                      if (!s) return false;
+                      if (/^\d{8,}$/.test(s)) return true; // mobile-like
+                      if (/^[A-Za-z0-9_-]{15,}$/.test(s) && !/\s/.test(s)) return true; // uid/firestore-like
+                      return false;
+                    };
+                    if (looksLikeIdOrMobile(addedByRaw)) return '–';
+
                     const isAdminAdded = addedByRaw.toLowerCase() === 'admin';
                     const hasCandidate =
                       !isAdminAdded &&
@@ -3332,11 +3341,8 @@ function AdminHRsTable({
                       return addedByRaw;
                     }
 
-                    if (!hasCandidate) {
-                      return '–';
-                    }
-
-                    if (onOpenCandidateView) {
+                    // If it's a known candidate, allow opening candidate view.
+                    if (hasCandidate && onOpenCandidateView) {
                       return (
                         <button
                           type="button"
@@ -5231,7 +5237,6 @@ export default function AdminDashboard() {
           ) : (
             <AdminHRsTable
               hrs={filteredHRs}
-              totalCount={hrs.length}
               search={hrSearch}
               onBackToHome={() => setActiveTab(hrBackTab)}
               onChangeSearch={setHrSearch}

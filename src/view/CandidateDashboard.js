@@ -1429,6 +1429,25 @@ export default function CandidateDashboard() {
       if (!addedByName && currentUser?.email) addedByName = currentUser.email.split('@')[0];
       if (!addedByName) addedByName = 'Candidate';
 
+      // IMPORTANT: Admin dashboard resolves "Added By" using candidate Firestore id or mobile,
+      // not Firebase Auth uid. So store an identifier that the admin can look up.
+      let sbSessionRaw = '';
+      let sbSession = null;
+      try {
+        sbSessionRaw = sessionStorage.getItem('sb_user') || '';
+        sbSession = sbSessionRaw ? JSON.parse(sbSessionRaw) : null;
+      } catch {
+        sbSessionRaw = '';
+        sbSession = null;
+      }
+      const sessionCandidateId = String(sbSession?.id || '').trim();
+      const sessionMobile = String(sbSession?.mobile || '').trim();
+      const addedByIdForAdmin =
+        (Array.isArray(candidateIds) && candidateIds[0] ? String(candidateIds[0]).trim() : '') ||
+        sessionCandidateId ||
+        sessionMobile ||
+        null;
+
       const docRef = await addDoc(collection(db, 'hrs'), {
         name: hr.name || '',
         email: hr.email || '',
@@ -1437,7 +1456,7 @@ export default function CandidateDashboard() {
         technology: hr.technology || '',
         jobType: hr.jobType || '',
         addedBy: addedByName,
-        addedById: currentUser?.uid || null,
+        addedById: addedByIdForAdmin || null,
         createdAt: serverTimestamp(),
       });
 
