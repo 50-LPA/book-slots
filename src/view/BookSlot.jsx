@@ -191,6 +191,7 @@ export default function BookSlot({
     return dayOnly < todayStart;
   };
   const isSundayDate = (d) => d && d.getDay() === 0;
+  const isSaturdayDate = (d) => d && d.getDay() === 6;
   const isLeaveDayDate = (d) => {
     if (!d) return false;
     const y = d.getFullYear();
@@ -242,6 +243,11 @@ export default function BookSlot({
     const d = new Date(dateStr + 'T12:00:00');
     return d.getDay() === 0; // 0 = Sunday
   };
+  const isSaturday = (dateStr) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.getDay() === 6; // 6 = Saturday
+  };
 
   const isLeaveDay = (dateStr) => {
     if (!dateStr) return false;
@@ -261,6 +267,11 @@ export default function BookSlot({
     if (isSunday(form.date)) {
       setAvailabilityState('unavailable');
       setAvailabilityMessage('Slot cannot be booked on Sunday.');
+      return;
+    }
+    if (isSaturday(form.date)) {
+      setAvailabilityState('unavailable');
+      setAvailabilityMessage('Slot cannot be booked on Saturday.');
       return;
     }
     if (isLeaveDay(form.date)) {
@@ -331,6 +342,12 @@ export default function BookSlot({
       setAvailabilityState('unavailable');
       setAvailabilityMessage('Slot cannot be booked on Sunday.');
       alert('Slot cannot be booked on Sunday. Please choose a different day.');
+      return;
+    }
+    if (isSaturday(form.date)) {
+      setAvailabilityState('unavailable');
+      setAvailabilityMessage('Slot cannot be booked on Saturday.');
+      alert('Slot cannot be booked on Saturday. Please choose a different day.');
       return;
     }
     if (isLeaveDay(form.date)) {
@@ -601,9 +618,9 @@ export default function BookSlot({
                             <button
                               key={i}
                               type="button"
-                              disabled={!day || isSundayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)}
+                              disabled={!day || isSundayDate(day) || isSaturdayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)}
                               onClick={() => {
-                                if (day && !isSundayDate(day) && !isLeaveDayDate(day)) {
+                                if (day && !isSundayDate(day) && !isSaturdayDate(day) && !isLeaveDayDate(day)) {
                                   const yyyymmdd = formatDateForInput(day);
                                   setForm((f) => ({ ...f, date: yyyymmdd, dateDisplay: formatDateForDisplay(yyyymmdd) }));
                                   setShowCalendar(false);
@@ -612,7 +629,7 @@ export default function BookSlot({
                               className={`py-1.5 rounded text-sm ${
                                 !day
                                   ? 'invisible'
-                                  : isSundayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)
+                                  : isSundayDate(day) || isSaturdayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)
                                   ? 'text-gray-300 cursor-not-allowed'
                                   : isSameDay(day, form.date ? new Date(form.date + 'T12:00:00') : null)
                                   ? 'bg-purple-600 text-white'
@@ -979,9 +996,9 @@ export default function BookSlot({
                           <button
                             key={i}
                             type="button"
-                            disabled={!day || isSundayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)}
+                            disabled={!day || isSundayDate(day) || isSaturdayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)}
                             onClick={() => {
-                              if (day && !isSundayDate(day) && !isLeaveDayDate(day)) {
+                              if (day && !isSundayDate(day) && !isSaturdayDate(day) && !isLeaveDayDate(day)) {
                                 const yyyymmdd = formatDateForInput(day);
                                 setForm((f) => ({ ...f, date: yyyymmdd, dateDisplay: formatDateForDisplay(yyyymmdd) }));
                                 setShowCalendar(false);
@@ -990,7 +1007,7 @@ export default function BookSlot({
                             className={`py-1.5 rounded text-sm ${
                               !day
                                 ? 'invisible'
-                                : isSundayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)
+                                : isSundayDate(day) || isSaturdayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)
                                 ? 'text-gray-300 cursor-not-allowed'
                                 : isSameDay(day, form.date ? new Date(form.date + 'T12:00:00') : null)
                                 ? 'bg-purple-600 text-white'
