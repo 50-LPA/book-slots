@@ -27,6 +27,7 @@ import { useAuth } from '../context/AuthContext';
 
 // Normalise legacy round labels for candidate views (calendar + lists)
 const ROUND_LABELS = [
+  'Screening Round',
   'Technical Round 1',
   'Technical Round 2',
   'Technical Round 3',
@@ -39,6 +40,7 @@ function normaliseRoundLabel(raw) {
   const r = String(raw || '').trim();
   if (!r) return '';
   const lower = r.toLowerCase();
+  if (lower === 'screening' || lower === 'screening round') return 'Screening Round';
   if (lower === 'round 1') return 'Technical Round 1';
   if (lower === 'round 2') return 'Technical Round 2';
   if (lower === 'round 3') return 'Technical Round 3';
