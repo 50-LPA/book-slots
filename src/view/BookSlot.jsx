@@ -760,6 +760,7 @@ export default function BookSlot({
                       className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
                     >
                       <option value="">Select Round</option>
+                  <option>Screening Round</option>
                       <option>Technical Round 1</option>
                       <option>Technical Round 2</option>
                       <option>Technical Round 3</option>
@@ -1141,6 +1142,7 @@ export default function BookSlot({
                     className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
                   >
                     <option value="">Select Round</option>
+                    <option>Screening Round</option>
                     <option>Technical Round 1</option>
                     <option>Technical Round 2</option>
                     <option>Technical Round 3</option>
@@ -1367,17 +1369,18 @@ export default function BookSlot({
                     <select
                       name="round"
                       value={form.round}
-                  onChange={handleChange}
-                  className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
-                >
+                      onChange={handleChange}
+                      className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
+                    >
                       <option value="">Select Round</option>
+                      <option>Screening Round</option>
                       <option>Technical Round 1</option>
                       <option>Technical Round 2</option>
                       <option>Technical Round 3</option>
                       <option>Manageral Round</option>
                       <option>HR Round</option>
                       <option>Task Assesment</option>
-                </select>
+                    </select>
                     {errors.round && <p className="text-xs text-red-500 mt-1">{errors.round}</p>}
                   </div>
                 </div>
@@ -1449,6 +1452,7 @@ export default function BookSlot({
                   className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
                 >
                   <option value="">Select Round</option>
+                  <option>Screening Round</option>
                   <option>Technical Round 1</option>
                   <option>Technical Round 2</option>
                   <option>Technical Round 3</option>

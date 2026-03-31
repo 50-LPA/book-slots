@@ -352,7 +352,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
               className="inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-xs font-semibold shadow"
             >
               <i className="fa-solid fa-cloud-arrow-down w-3 h-3" aria-hidden="true" />
-              <span>Download Personal Detail Form</span>
+              <span>Download Personal Detail Form 3.0</span>
             </button>
             <div className="flex w-full max-w-xs gap-2">
               <button
@@ -406,7 +406,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                 className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1 inline-flex"
               >
                 <i className="fa-solid fa-cloud-arrow-down w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Download Personal Detail Form</span>
+                <span className="hidden sm:inline">Download Personal Detail Form 3.0</span>
                 <span className="sm:hidden">Download</span>
               </button>
               <button

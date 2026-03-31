@@ -26,18 +26,10 @@ export default function CalendarPage() {
     const syncToToday = () => {
       const now = new Date();
       setToday(now);
-      setWeekStart(getWeekStart(now));
     };
+    // Keep week navigation stable: do a one-time sync.
     syncToToday();
-    const interval = setInterval(syncToToday, 5000);
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') syncToToday();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
+    return undefined;
   }, []);
 
   const weekEnd = useMemo(() => getWeekDays(weekStart, 6)[5], [weekStart]);
