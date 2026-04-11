@@ -24,15 +24,15 @@ export function getWeekStart(date) {
   return new Date(d.getTime() - diffToMonday * MS_IN_DAY);
 }
 
-export function getWeekDays(weekStart, count = 6) {
+export function getWeekDays(weekStart, count = 5) {
   const start = startOfDay(weekStart);
   return Array.from({ length: count }, (_, idx) => {
     return new Date(start.getTime() + idx * MS_IN_DAY);
   });
 }
 
-/** End of the visible week (start of day after last visible day). Use with eventDate < end for inclusive Saturday. */
-export function getWeekEndExclusive(weekStart, dayCount = 6) {
+/** End of the visible week (start of day after last visible day). Use with eventDate < end for inclusive Friday. */
+export function getWeekEndExclusive(weekStart, dayCount = 5) {
   const days = getWeekDays(weekStart, dayCount);
   const lastDay = days[days.length - 1];
   const end = new Date(lastDay.getTime() + MS_IN_DAY);

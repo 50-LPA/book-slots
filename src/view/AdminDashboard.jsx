@@ -4170,10 +4170,72 @@ function AdminLeavesTable({ onBackToHome }) {
 // Bar graph for Statistics tab – Y-axis rotated "Total Slots", fixed 0–80 scale, grid, x-axis month labels
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const CHART_BODY_HEIGHT = 320;
-const Y_AXIS_MAX = 80; // Fixed scale 0–80 so axis always matches requested range
+const Y_AXIS_MAX = 80; // Fixed scale 0–80 when showing all candidates
 const Y_TICKS = [0, 20, 40, 60, 80];
 
+function statsSlotCandidateKey(slot) {
+  const id = String(slot.candidateId || '').trim();
+  if (id) return `id:${id}`;
+  const name = String(slot.candidateName || slot.name || '').trim();
+  if (!name) return '';
+  return `name:${name.toLowerCase()}`;
+}
+
 function AdminStatisticsChart({ slots = [], onReload }) {
+  const [statsCandidateKey, setStatsCandidateKey] = useState('');
+  const [candidatePickerOpen, setCandidatePickerOpen] = useState(false);
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
+  const statsCandidatePickerRef = useRef(null);
+
+  useEffect(() => {
+    const onDocDown = (e) => {
+      if (!statsCandidatePickerRef.current?.contains(e.target)) {
+        setCandidatePickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocDown);
+    return () => document.removeEventListener('mousedown', onDocDown);
+  }, []);
+
+  const candidateOptions = useMemo(() => {
+    const byKey = new Map();
+    for (const s of slots) {
+      const key = statsSlotCandidateKey(s);
+      if (!key) continue;
+      const id = String(s.candidateId || '').trim();
+      const name = String(s.candidateName || s.name || '').trim() || 'Unknown';
+      if (!byKey.has(key)) {
+        byKey.set(key, { key, name, id });
+      } else {
+        const cur = byKey.get(key);
+        if (cur.name === 'Unknown' && name !== 'Unknown') cur.name = name;
+      }
+    }
+    return Array.from(byKey.values()).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+    );
+  }, [slots]);
+
+  const selectedCandidate = useMemo(
+    () => candidateOptions.find((c) => c.key === statsCandidateKey) || null,
+    [candidateOptions, statsCandidateKey],
+  );
+
+  const filteredCandidateOptions = useMemo(() => {
+    const q = candidateSearchQuery.trim().toLowerCase();
+    if (!q) return candidateOptions;
+    return candidateOptions.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.id && c.id.toLowerCase().includes(q)),
+    );
+  }, [candidateOptions, candidateSearchQuery]);
+
+  const chartSlots = useMemo(() => {
+    if (!statsCandidateKey) return slots;
+    return slots.filter((s) => statsSlotCandidateKey(s) === statsCandidateKey);
+  }, [slots, statsCandidateKey]);
+
   const monthlyStats = useMemo(() => {
     const getSlotDate = (slot) => {
       const raw = slot.date;
@@ -4187,7 +4249,7 @@ function AdminStatisticsChart({ slots = [], onReload }) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = d.getFullYear();
       const month = d.getMonth();
-      const count = slots.filter((s) => {
+      const count = chartSlots.filter((s) => {
         const slotD = getSlotDate(s);
         return slotD && slotD.getFullYear() === year && slotD.getMonth() === month;
       }).length;
@@ -4197,7 +4259,27 @@ function AdminStatisticsChart({ slots = [], onReload }) {
       });
     }
     return months;
-  }, [slots]);
+  }, [chartSlots]);
+
+  const peak = useMemo(() => Math.max(0, ...monthlyStats.map((m) => m.value)), [monthlyStats]);
+  const isCandidateFiltered = Boolean(statsCandidateKey);
+  const yAxisMax = useMemo(() => {
+    if (!isCandidateFiltered) return Y_AXIS_MAX;
+    if (peak === 0) return 8;
+    return Math.max(8, Math.ceil((peak * 1.15) / 4) * 4);
+  }, [isCandidateFiltered, peak]);
+
+  const yTicks = useMemo(() => {
+    if (!isCandidateFiltered) return Y_TICKS;
+    const n = 4;
+    return Array.from({ length: n + 1 }, (_, i) => Math.round((yAxisMax * i) / n));
+  }, [isCandidateFiltered, yAxisMax]);
+
+  const searchFieldValue = candidatePickerOpen
+    ? candidateSearchQuery
+    : selectedCandidate
+      ? selectedCandidate.name
+      : '';
 
   const [hoveredIndex, setHoveredIndex] = useState(null);
 
@@ -4219,9 +4301,103 @@ function AdminStatisticsChart({ slots = [], onReload }) {
         )}
       </div>
 
+      <div className="mt-4 max-w-lg mx-auto w-full relative" ref={statsCandidatePickerRef}>
+        <label htmlFor="stats-candidate-search" className="block text-xs font-medium text-slate-600 mb-1">
+          Candidate
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="stats-candidate-search"
+            type="text"
+            autoComplete="off"
+            value={searchFieldValue}
+            onChange={(e) => {
+              setCandidateSearchQuery(e.target.value);
+              setCandidatePickerOpen(true);
+            }}
+            onFocus={() => {
+              setCandidatePickerOpen(true);
+              setCandidateSearchQuery(selectedCandidate ? selectedCandidate.name : '');
+            }}
+            placeholder="Search candidate, then pick a name…"
+            className="flex-1 min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            aria-expanded={candidatePickerOpen}
+            aria-controls="stats-candidate-listbox"
+            aria-autocomplete="list"
+          />
+          {statsCandidateKey ? (
+            <button
+              type="button"
+              onClick={() => {
+                setStatsCandidateKey('');
+                setCandidateSearchQuery('');
+                setCandidatePickerOpen(false);
+              }}
+              className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              All
+            </button>
+          ) : null}
+        </div>
+        {candidatePickerOpen && (
+          <ul
+            id="stats-candidate-listbox"
+            role="listbox"
+            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          >
+            <li role="presentation">
+              <button
+                type="button"
+                role="option"
+                aria-selected={!statsCandidateKey}
+                className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50"
+                onClick={() => {
+                  setStatsCandidateKey('');
+                  setCandidateSearchQuery('');
+                  setCandidatePickerOpen(false);
+                }}
+              >
+                All candidates
+              </button>
+            </li>
+            {filteredCandidateOptions.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-slate-500">No matches</li>
+            ) : (
+              filteredCandidateOptions.map((c) => (
+                <li key={c.key} role="presentation">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={statsCandidateKey === c.key}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 ${
+                      statsCandidateKey === c.key ? 'bg-indigo-50 font-medium text-indigo-900' : 'text-slate-800'
+                    }`}
+                    onClick={() => {
+                      setStatsCandidateKey(c.key);
+                      setCandidateSearchQuery(c.name);
+                      setCandidatePickerOpen(false);
+                    }}
+                  >
+                    {c.name}
+                    {c.id ? <span className="ml-2 text-xs text-slate-400 tabular-nums">{c.id}</span> : null}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+        {selectedCandidate ? (
+          <p className="mt-2 text-center text-xs text-slate-600">
+            Showing slots booked for <span className="font-semibold text-slate-800">{selectedCandidate.name}</span>
+          </p>
+        ) : (
+          <p className="mt-2 text-center text-xs text-slate-500">All candidates — bar chart uses every slot</p>
+        )}
+      </div>
+
       <div className="mt-5 overflow-x-auto">
         <div className="min-w-[720px] flex gap-0">
-          {/* Y-axis: rotated "Total Slots" + tick labels 0, 10, 20, ... 60 */}
+          {/* Y-axis: rotated "Total Slots" + tick labels */}
           <div
             className="flex items-stretch shrink-0 pr-2"
             style={{ height: CHART_BODY_HEIGHT }}
@@ -4241,12 +4417,11 @@ function AdminStatisticsChart({ slots = [], onReload }) {
                 Total Slots
               </span>
             </div>
-            {/* Tick labels aligned with grid: 0, 10, 20, 30, 40, 50, 60 */}
             <div
               className="flex flex-col justify-between py-0 shrink-0 pl-1"
               style={{ height: CHART_BODY_HEIGHT }}
             >
-              {[...Y_TICKS].reverse().map((tick) => (
+              {[...yTicks].reverse().map((tick) => (
                 <span key={tick} className="text-[10px] text-slate-500 tabular-nums">
                   {tick}
                 </span>
@@ -4260,38 +4435,37 @@ function AdminStatisticsChart({ slots = [], onReload }) {
               className="relative rounded-r-lg overflow-visible"
               style={{ height: CHART_BODY_HEIGHT }}
             >
-              {/* Horizontal grid lines at 0, 10, 20, 30, 40, 50, 60 – light grey across full width */}
               <div className="absolute inset-0 flex flex-col pointer-events-none">
-                {Y_TICKS.slice(1).reverse().map((_, i) => (
+                {yTicks.slice(1).reverse().map((_, i) => (
                   <div key={i} className="flex-1 border-t border-slate-200" />
                 ))}
                 <div className="flex-shrink-0 border-t border-slate-200" style={{ height: 0 }} />
               </div>
 
-              {/* Bars – height scaled to fixed 0..60 scale + hover tooltip */}
               <div
                 className="relative z-10 flex h-full items-end gap-0.5 w-full"
                 style={{ height: CHART_BODY_HEIGHT }}
               >
                 {monthlyStats.map((item, index) => {
                   const barHeight =
-                    Y_AXIS_MAX > 0
-                      ? (item.value / Y_AXIS_MAX) * CHART_BODY_HEIGHT
+                    yAxisMax > 0
+                      ? (item.value / yAxisMax) * CHART_BODY_HEIGHT
                       : 0;
                   const isHovered = hoveredIndex === index;
                 return (
                   <div
                     key={item.label}
-                      className="flex-1 min-w-0 flex flex-col items-center justify-end relative group"
-                      onMouseEnter={() => setHoveredIndex(index)}
-                      onMouseLeave={() => setHoveredIndex(null)}
-                    >
+                    className="flex-1 min-w-0 flex flex-col items-center justify-end relative group"
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                  >
                       {isHovered && (
                         <div
                           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-1.5 rounded-md bg-slate-800/95 text-white text-xs font-medium whitespace-nowrap z-50 shadow-lg pointer-events-none"
                           role="tooltip"
                         >
                           {item.label}: {item.value} slot{item.value !== 1 ? 's' : ''}
+                          {selectedCandidate ? ` · ${selectedCandidate.name}` : ''}
                         </div>
                       )}
                       <div

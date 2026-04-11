@@ -28,8 +28,8 @@ function WeekCalendar({ candidateIds = [], onEventClick }) {
     getLeaves().then((list) => setLeaveDates(list.map((l) => l.date).filter(Boolean)));
   }, []);
 
-  const weekEnd = useMemo(() => getWeekDays(weekStart, 6)[5], [weekStart]);
-  const weekEndExclusive = useMemo(() => getWeekEndExclusive(weekStart, 6), [weekStart]);
+  const weekEnd = useMemo(() => getWeekDays(weekStart, 5)[4], [weekStart]);
+  const weekEndExclusive = useMemo(() => getWeekEndExclusive(weekStart, 5), [weekStart]);
 
   const rangeLabel = useMemo(
     () => formatWeekRangeLabel(weekStart, weekEnd),

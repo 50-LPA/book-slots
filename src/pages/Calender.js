@@ -215,7 +215,7 @@ const Calender = () => {
                       nowIndicator
                       slotMinTime="11:00:00"
                       slotMaxTime="20:00:00"
-                      hiddenDays={[0]}
+                      hiddenDays={[0, 6]}
                       headerToolbar={{
                         left: 'next today',
                         center: 'title',

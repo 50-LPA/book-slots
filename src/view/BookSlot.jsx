@@ -9,6 +9,22 @@ function normaliseKey(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+/** Minutes as string values for the meeting duration <select> */
+const MEETING_DURATION_OPTIONS = [
+  { value: '15', label: '15 minutes' },
+  { value: '30', label: '30 minutes' },
+  { value: '45', label: '45 minutes' },
+  { value: '60', label: '1 hour' },
+  { value: '75', label: '1 hour 15 min' },
+  { value: '90', label: '1 hour 30 min' },
+  { value: '105', label: '1 hour 45 min' },
+  { value: '120', label: '2 hours' },
+  { value: '135', label: '2 hours 15 min' },
+  { value: '150', label: '2 hours 30 min' },
+  { value: '165', label: '2 hours 45 min' },
+  { value: '180', label: '3 hours' },
+];
+
 export default function BookSlot({
   onClose,
   onOpenAddHR,
@@ -157,6 +173,9 @@ export default function BookSlot({
     } else if (type === 'next3') {
       targetDate = new Date(today);
       targetDate.setDate(today.getDate() + 3);
+    } else if (type === 'next4') {
+      targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + 4);
     }
 
     if (targetDate) {
@@ -170,6 +189,8 @@ export default function BookSlot({
   dateIn2Days.setDate(today.getDate() + 2);
   const dateIn3Days = new Date(today);
   dateIn3Days.setDate(today.getDate() + 3);
+  const dateIn4Days = new Date(today);
+  dateIn4Days.setDate(today.getDate() + 4);
 
   // Small calendar popover helpers
   const getCalendarDays = (year, month) => {
@@ -644,11 +665,12 @@ export default function BookSlot({
                     </>
                   )}
                 </div>
-                <div className="mt-2 text-xs text-purple-600 flex gap-3">
-                  <button type="button" onClick={() => handleDateShortcut('today')} className="text-purple-600 hover:text-purple-800 cursor-pointer">Today</button>
-                  <button type="button" onClick={() => handleDateShortcut('tomorrow')} className="text-purple-600 hover:text-purple-800 cursor-pointer">Tomorrow</button>
-                  <button type="button" onClick={() => handleDateShortcut('next2')} className="text-purple-600 hover:text-purple-800 cursor-pointer">{formatShortcutDate(dateIn2Days)}</button>
-                  <button type="button" onClick={() => handleDateShortcut('next3')} className="text-purple-600 hover:text-purple-800 cursor-pointer">{formatShortcutDate(dateIn3Days)}</button>
+                <div className="mt-2 text-xs text-purple-600 flex flex-wrap gap-x-3 gap-y-1">
+                  <button type="button" onClick={() => handleDateShortcut('today')} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">Today</button>
+                  <button type="button" onClick={() => handleDateShortcut('tomorrow')} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">Tomorrow</button>
+                  <button type="button" onClick={() => handleDateShortcut('next2')} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">{formatShortcutDate(dateIn2Days)}</button>
+                  <button type="button" onClick={() => handleDateShortcut('next3')} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">{formatShortcutDate(dateIn3Days)}</button>
+                  <button type="button" onClick={() => handleDateShortcut('next4')} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">{formatShortcutDate(dateIn4Days)}</button>
                 </div>
               </div>
               <div className="min-w-0">
@@ -708,12 +730,11 @@ export default function BookSlot({
                   className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
                 >
                   <option value="">Select Duration</option>
-                  <option value="15">15 Minutes</option>
-                  <option value="30">30 Minutes</option>
-                  <option value="60">1 Hour</option>
-                  <option value="120">2 Hours</option>
-                  <option value="180">3 Hours</option>
-                  <option value="240">4 Hours</option>
+                  {MEETING_DURATION_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
                 {errors.duration && <p className="text-xs text-red-500 mt-1">{errors.duration}</p>}
               </div>
@@ -1022,35 +1043,42 @@ export default function BookSlot({
                   </>
                   )}
                 </div>
-                {/* Quick date links - now clickable */}
-                <div className="mt-2 text-xs text-purple-600 flex gap-3">
-                  <button 
-                    type="button" 
+                {/* Quick date links */}
+                <div className="mt-2 text-xs text-purple-600 flex flex-wrap gap-x-3 gap-y-1">
+                  <button
+                    type="button"
                     onClick={() => handleDateShortcut('today')}
-                    className="text-purple-600 hover:text-purple-800 cursor-pointer"
+                    className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline"
                   >
                     Today
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => handleDateShortcut('tomorrow')}
-                    className="text-purple-600 hover:text-purple-800 cursor-pointer"
+                    className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline"
                   >
                     Tomorrow
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDateShortcut('next2')}
-                    className="text-purple-600 hover:text-purple-800 cursor-pointer"
+                    className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline"
                   >
                     {formatShortcutDate(dateIn2Days)}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDateShortcut('next3')}
-                    className="text-purple-600 hover:text-purple-800 cursor-pointer"
+                    className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline"
                   >
                     {formatShortcutDate(dateIn3Days)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDateShortcut('next4')}
+                    className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline"
+                  >
+                    {formatShortcutDate(dateIn4Days)}
                   </button>
                 </div>
               </div>
@@ -1186,12 +1214,11 @@ export default function BookSlot({
                   className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
                 >
                   <option value="">Select Duration</option>
-                  <option value="15">15 Minutes</option>
-                  <option value="30">30 Minutes</option>
-                  <option value="60">1 Hour</option>
-                  <option value="120">2 Hours</option>
-                  <option value="180">3 Hours</option>
-                  <option value="240">4 Hours</option>
+                  {MEETING_DURATION_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
                 {errors.duration && <p className="text-xs text-red-500 mt-1">{errors.duration}</p>}
               </div>

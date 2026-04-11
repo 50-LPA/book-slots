@@ -32,8 +32,8 @@ export default function CalendarPage() {
     return undefined;
   }, []);
 
-  const weekEnd = useMemo(() => getWeekDays(weekStart, 6)[5], [weekStart]);
-  const weekEndExclusive = useMemo(() => getWeekEndExclusive(weekStart, 6), [weekStart]);
+  const weekEnd = useMemo(() => getWeekDays(weekStart, 5)[4], [weekStart]);
+  const weekEndExclusive = useMemo(() => getWeekEndExclusive(weekStart, 5), [weekStart]);
 
   const rangeLabel = useMemo(
     () => formatWeekRangeLabel(weekStart, weekEnd),

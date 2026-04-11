@@ -28,7 +28,7 @@ function SlotCalendar({
 }) {
   const today = todayProp ?? new Date();
   const todayString = today.toDateString();
-  const days = useMemo(() => getWeekDays(weekStart, 6), [weekStart]);
+  const days = useMemo(() => getWeekDays(weekStart, 5), [weekStart]);
   const leaveSet = useMemo(() => new Set(leaveDates), [leaveDates]);
 
   const eventsByDay = useMemo(() => {
