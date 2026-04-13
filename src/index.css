@@ -80,15 +80,9 @@ input[type="date"]::-moz-clear {
 
 .sb-placed-marquee-track {
   animation: sb-marquee-scroll 14s linear infinite;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sb-placed-marquee-track {
-    animation: none;
-  }
-
-  .sb-placed-marquee-fade {
-    overflow-x: auto;
-  }
-}
+/* Keep marquee running across browsers/devices; do not disable via reduced-motion here. */
 

@@ -39,7 +39,7 @@ export default function PlacedCandidatesMarquee({ className = '', speedSeconds =
 
   return (
     <section
-      className={`relative left-1/2 w-screen -translate-x-1/2 mb-3 sm:mb-4 ${className}`.trim()}
+      className={`relative w-full mb-3 sm:mb-4 ${className}`.trim()}
       aria-label="Placement highlights"
     >
       <div className="sb-placed-marquee-fade relative w-full overflow-hidden py-2">
