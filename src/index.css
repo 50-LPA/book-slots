@@ -82,10 +82,6 @@ input[type="date"]::-moz-clear {
   animation: sb-marquee-scroll 14s linear infinite;
 }
 
-.sb-placed-marquee-track:hover {
-  animation-play-state: paused;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .sb-placed-marquee-track {
     animation: none;
