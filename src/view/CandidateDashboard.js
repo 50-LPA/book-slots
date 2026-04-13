@@ -158,7 +158,7 @@ function getInitials(name) {
 }
 
 // Header Component with mobile sidebar nav (like Admin)
-function Header({ userName, onLogout, activeNav, onChangeNav }) {
+function Header({ userName, onLogout, activeNav, onChangeNav, onDownloadForm }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const initials = useMemo(() => getInitials(userName), [userName]);
@@ -194,16 +194,7 @@ function Header({ userName, onLogout, activeNav, onChangeNav }) {
           </h1>
         </div>
 
-        {/* Center Section - domain (hidden on small screens) */}
-        <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
-          <a
-            href="https://virajkadam.in"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
-          >
-            VirajKadam.in
-          </a>
+                <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
         </div>
 
         {/* Right Section: user info */}
@@ -302,6 +293,19 @@ function Header({ userName, onLogout, activeNav, onChangeNav }) {
                   <span>{item.label}</span>
                 </button>
               ))}
+              {typeof onDownloadForm === 'function' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDownloadForm();
+                    setNavOpen(false);
+                  }}
+                  className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-left bg-blue-500 hover:bg-blue-600 text-white"
+                >
+                  <i className="fa-solid fa-cloud-arrow-down w-4 h-4" aria-hidden="true" />
+                  <span>Download Personal Detail Form 3.0</span>
+                </button>
+              )}
             </nav>
           </div>
         </div>
@@ -335,7 +339,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
           {/* Title + reload */}
           <div className="flex items-center justify-center gap-2">
             {/* Mobile heading without 'Calendar' */}
-            <h2 className="text-sm font-semibold text-purple-600">
+            <h2 className="text-sm font-semibold text-slate-900">
               Slot Booking
             </h2>
             <button
@@ -347,30 +351,24 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
               <i className="fa-solid fa-rotate-right text-xs" aria-hidden="true" />
             </button>
           </div>
-          {/* Download + actions stacked */}
+          {/* Actions stacked */}
           <div className="w-full flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')}
-              className="inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-xs font-semibold shadow"
-            >
-              <i className="fa-solid fa-cloud-arrow-down w-3 h-3" aria-hidden="true" />
-              <span>Download Personal Detail Form 3.0</span>
-            </button>
             <div className="flex w-full max-w-xs gap-2">
               <button
                 type="button"
                 onClick={onOpenAddHR}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap"
               >
-                + Add New HR
+                <i className="fa-solid fa-square-plus w-3 h-3" aria-hidden="true" />
+                <span>Create Hr</span>
               </button>
               <button
                 type="button"
                 onClick={onOpenBookSlot}
-                className="flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
               >
-                + Book New Slot
+                <i className="fa-solid fa-square-plus w-3 h-3" aria-hidden="true" />
+                <span>Create Slot</span>
               </button>
             </div>
           </div>
@@ -388,7 +386,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
 
             {/* Center: Title + reload - iPad: static; desktop: absolute */}
             <div className="absolute md:relative md:left-0 md:translate-x-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 flex items-center gap-2 md:justify-center">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-purple-600 whitespace-nowrap">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 whitespace-nowrap">
                 Slot Booking
               </h2>
               <button
@@ -405,26 +403,19 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
             <div className="flex flex-wrap gap-2 sm:gap-3 ml-auto md:ml-0 md:justify-center lg:ml-auto">
               <button
                 type="button"
-                onClick={() => downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1 inline-flex"
-              >
-                <i className="fa-solid fa-cloud-arrow-down w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Download Personal Detail Form 3.0</span>
-                <span className="sm:hidden">Download</span>
-              </button>
-              <button
-                type="button"
                 onClick={onOpenAddHR}
-                className="bg-green-600 hover:bg-green-700 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap"
               >
-                + Add New HR
+                <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+                <span>Create Hr</span>
               </button>
               <button
                 type="button"
                 onClick={onOpenBookSlot}
-                className="px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
+                className="inline-flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
               >
-                + Book New Slot
+                <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+                <span>Create Slot</span>
               </button>
             </div>
           </div>
@@ -814,7 +805,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
 
         {/* Center: title + reload button */}
         <div className="flex-1 flex items-center justify-center gap-2">
-          <h2 className="text-sm sm:text-base font-semibold text-purple-600">
+          <h2 className="text-sm sm:text-base font-semibold text-slate-900">
             My Slots
           </h2>
           <button
@@ -834,8 +825,8 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
             onClick={onBookNewSlot}
             className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold shadow whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
           >
-            <span className="text-lg">+</span>
-            <span>Book New Slot</span>
+            <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+            <span>Create Slot</span>
           </button>
         </div>
       </div>
@@ -1261,11 +1252,27 @@ function CandidateHrsList({
   error = null,
   onAddNewHR,
   onBackToHome,
+  onReload,
 }) {
+  const formatCreatedOn = (value) => {
+    if (!value) return '-';
+    try {
+      const d = value?.toDate ? value.toDate() : new Date(value);
+      if (Number.isNaN(d.getTime())) return '-';
+      return d.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return '-';
+    }
+  };
+
   return (
     <div className="rounded-lg sm:rounded-2xl border border-slate-300 bg-white shadow-md p-3 sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onBackToHome}
@@ -1274,15 +1281,26 @@ function CandidateHrsList({
           >
             <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
           </button>
-          <h2 className="text-base sm:text-lg font-bold text-slate-800">My Added HRs</h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex-1 flex items-center justify-center gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-slate-800">My Added HRs</h2>
+          <button
+            type="button"
+            onClick={onReload}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
+            aria-label="Reload HR list"
+          >
+            <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="flex items-center gap-2 justify-end">
           <button
             type="button"
             onClick={onAddNewHR}
-            className="rounded-md bg-green-600 hover:bg-green-700 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white"
+            className="inline-flex items-center gap-1.5 rounded-full bg-green-600 hover:bg-green-700 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white"
           >
-            + Add New HR
+            <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+            <span>Create Hr</span>
           </button>
         </div>
       </div>
@@ -1298,25 +1316,29 @@ function CandidateHrsList({
           <table className="min-w-full text-xs sm:text-sm">
             <thead>
               <tr className="text-left border-b border-slate-200 text-slate-600">
-                <th className="py-2 pr-3 font-semibold">Name</th>
+                <th className="py-2 pr-3 font-semibold">Sr. No</th>
+                <th className="py-2 pr-3 font-semibold">Hr Name</th>
+                <th className="py-2 pr-3 font-semibold">Hr Mobile</th>
+                <th className="py-2 pr-3 font-semibold">Hr Email</th>
                 <th className="py-2 pr-3 font-semibold">Company</th>
                 <th className="py-2 pr-3 font-semibold">Technology</th>
-                <th className="py-2 pr-3 font-semibold">Email</th>
-                <th className="py-2 pr-3 font-semibold">Mobile</th>
-                <th className="py-2 pr-3 font-semibold">Added By</th>
-                <th className="py-2 pr-3 font-semibold">Added By ID</th>
+                <th className="py-2 pr-3 font-semibold">Job Type</th>
+                <th className="py-2 pr-3 font-semibold">Interview Count</th>
+                <th className="py-2 pr-3 font-semibold">Created On</th>
               </tr>
             </thead>
             <tbody>
-              {hrs.map((hr) => (
+              {hrs.map((hr, idx) => (
                 <tr key={hr.id} className="border-b border-slate-100 text-slate-800">
+                  <td className="py-2 pr-3 tabular-nums">{idx + 1}</td>
                   <td className="py-2 pr-3">{hr.name || '-'}</td>
+                  <td className="py-2 pr-3">{hr.mobile || '-'}</td>
+                  <td className="py-2 pr-3">{hr.email || '-'}</td>
                   <td className="py-2 pr-3">{hr.company || '-'}</td>
                   <td className="py-2 pr-3">{hr.technology || '-'}</td>
-                  <td className="py-2 pr-3">{hr.email || '-'}</td>
-                  <td className="py-2 pr-3">{hr.mobile || '-'}</td>
-                  <td className="py-2 pr-3">{hr.addedBy || '-'}</td>
-                  <td className="py-2 pr-3 font-mono text-[11px]">{hr.addedById || '-'}</td>
+                  <td className="py-2 pr-3">{hr.jobType || '-'}</td>
+                  <td className="py-2 pr-3 tabular-nums">{hr.interviewCount ?? 0}</td>
+                  <td className="py-2 pr-3">{formatCreatedOn(hr.createdAt)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1386,6 +1408,7 @@ export default function CandidateDashboard() {
   const [hrList, setHrList] = useState([]);
   const [hrsLoading, setHrsLoading] = useState(true);
   const [hrsError, setHrsError] = useState(null);
+  const [hrsRefreshKey, setHrsRefreshKey] = useState(0);
 
   // Fetch HRs from Firestore "hrs" collection
   useEffect(() => {
@@ -1395,6 +1418,17 @@ export default function CandidateDashboard() {
         setHrsError(null);
         const q = collection(db, 'hrs');
         const querySnapshot = await getDocs(q);
+        const eventSnap = await getDocs(collection(db, 'events'));
+        const candidateIdSet = new Set((candidateIds || []).map((id) => String(id || '').trim()).filter(Boolean));
+        const hrInterviewCountById = {};
+        eventSnap.forEach((evDoc) => {
+          const ev = evDoc.data() || {};
+          const evHrId = String(ev.hrId || '').trim();
+          const evCandidateId = String(ev.candidateId || '').trim();
+          if (!evHrId) return;
+          if (candidateIdSet.size > 0 && !candidateIdSet.has(evCandidateId)) return;
+          hrInterviewCountById[evHrId] = (hrInterviewCountById[evHrId] || 0) + 1;
+        });
         const hrsData = querySnapshot.docs.map((doc) => ({
           id: doc.id, // Store Firestore document ID
           name: doc.data().name || '',
@@ -1405,6 +1439,8 @@ export default function CandidateDashboard() {
           jobType: doc.data().jobType || '',
           addedBy: doc.data().addedBy || '',
           addedById: doc.data().addedById || '',
+          createdAt: doc.data().createdAt || null,
+          interviewCount: hrInterviewCountById[doc.id] || 0,
         }));
         setHrList(hrsData);
       } catch (err) {
@@ -1417,7 +1453,7 @@ export default function CandidateDashboard() {
     };
 
     fetchHRs();
-  }, [activeNav]);
+  }, [activeNav, hrsRefreshKey]);
 
   useEffect(() => {
     const normaliseTechnologies = (data) => {
@@ -1576,6 +1612,8 @@ export default function CandidateDashboard() {
           technology: hr.technology || '',
           mobile: hr.mobile || '',
           jobType: hr.jobType || '',
+          createdAt: new Date().toISOString(),
+          interviewCount: 0,
         },
         ...prev,
       ]);
@@ -1679,6 +1717,9 @@ export default function CandidateDashboard() {
         userName={userName}
         activeNav={activeNav}
         onChangeNav={handleNavClick}
+        onDownloadForm={() =>
+          downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')
+        }
         onLogout={() => {
           sessionStorage.removeItem('sb_user');
           navigate('/login', { replace: true });
@@ -1688,15 +1729,24 @@ export default function CandidateDashboard() {
         onOpenAddHR={() => {
           setActiveNav('hrs');
         }}
+        onDownloadForm={() =>
+          downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')
+        }
         onNavChange={handleNavClick}
         activeNav={activeNav}
       />
       {!showBookSlot && activeNav === 'home' && (
-        <div className="px-2 sm:px-4 md:px-8 pt-2">
-          <PlacedCandidatesMarquee />
+        <div className="px-2 sm:px-4 md:px-8">
+          <PlacedCandidatesMarquee className="mb-0" />
         </div>
       )}
-      <main className="p-2 sm:p-4 md:p-8">
+      <main
+        className={`px-2 pb-2 sm:px-4 sm:pb-4 md:px-8 md:pb-8 ${
+          !showBookSlot && activeNav === 'home'
+            ? 'pt-0 sm:pt-0 md:pt-0'
+            : 'pt-2 sm:pt-4 md:pt-6'
+        }`}
+      >
         {showBookSlot ? (
           <BookSlot
             onClose={() => setShowBookSlot(false)}
@@ -1721,6 +1771,7 @@ export default function CandidateDashboard() {
             error={hrsError}
             onAddNewHR={() => setShowAddHR(true)}
             onBackToHome={() => setActiveNav('home')}
+            onReload={() => setHrsRefreshKey((k) => k + 1)}
           />
         ) : (
           <CandidateCalendarArea

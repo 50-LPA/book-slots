@@ -545,7 +545,7 @@ export default function BookSlot({
             >
               <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
             </button>
-            <h2 className="mx-auto text-purple-600 font-semibold text-sm md:text-base">Book Slot</h2>
+            <h2 className="mx-auto text-purple-600 font-semibold text-sm md:text-base">Create Slot</h2>
           </div>
 
           {/* Tab view only (768px–1023px): reordered layout */}
@@ -869,7 +869,7 @@ export default function BookSlot({
                           </ul>
                         )}
                       </div>
-                      <button type="button" onClick={onOpenAddHR} className="inline-flex items-center gap-2 px-3 py-2 rounded bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0">+ Add New HR</button>
+                      <button type="button" onClick={onOpenAddHR} className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0"><i className="fa-solid fa-square-plus w-3 h-3" aria-hidden="true" /><span>Create Hr</span></button>
                     </div>
                     {errors.hr && <p className="text-xs text-red-500 mt-1">{errors.hr}</p>}
                     <div className="mt-1">
@@ -1339,8 +1339,9 @@ export default function BookSlot({
                       </ul>
                       )}
                     </div>
-                    <button type="button" onClick={onOpenAddHR} className="inline-flex items-center gap-2 px-3 py-2 rounded bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0">
-                      + Add New HR
+                    <button type="button" onClick={onOpenAddHR} className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0">
+                      <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+                      <span>Create Hr</span>
                     </button>
                   </div>
 
@@ -1600,9 +1601,10 @@ export default function BookSlot({
                   <button
                     type="button"
                     onClick={onOpenAddHR}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0"
                   >
-                    + Add New HR
+                    <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+                    <span>Create Hr</span>
                   </button>
                 </div>
                 {errors.hr && <p className="text-xs text-red-500 mt-1">{errors.hr}</p>}

@@ -49,7 +49,7 @@ function CalendarToolbar({
 
       {/* Center - Date Range with reload */}
       {/* Desktop/tablet: absolute center; iPad (md-lg): static for stacked layout */}
-      <div className="hidden sm:flex md:relative md:left-0 md:translate-x-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 items-center gap-1 md:justify-center">
+      <div className="hidden sm:flex md:relative md:left-0 md:translate-x-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 items-center gap-1 md:justify-center z-20">
         <span className="pointer-events-none text-[10px] sm:text-xs md:text-sm font-semibold text-slate-800 whitespace-nowrap">
           {rangeLabel}
         </span>
@@ -66,7 +66,7 @@ function CalendarToolbar({
       </div>
 
       {/* Mobile: date, next week, today, reload all in one line */}
-      <div className="flex sm:hidden flex-1 items-center justify-center gap-2 order-2 sm:order-none">
+      <div className="flex sm:hidden flex-1 items-center justify-center gap-2 order-2 sm:order-none z-20">
         <button
           type="button"
           onClick={

@@ -19,16 +19,7 @@ function Header({ fullWidth = false }) {
             </span>
           </div>
 
-          {/* Center: VirajKadam.in hyperlink */}
-          <div className="flex-1 flex items-center justify-center">
-            <a
-              href="https://virajkadam.in"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] sm:text-sm font-semibold text-slate-700 hover:text-slate-900 underline-offset-2 hover:underline"
-            >
-              VirajKadam.in
-            </a>
+                    <div className="flex-1 flex items-center justify-center">
           </div>
 
           {/* Right: Login button */}

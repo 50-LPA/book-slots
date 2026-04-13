@@ -79,6 +79,12 @@ export default function CalendarPage() {
   );
 
   const handleToday = () => setWeekStart(getWeekStart(new Date()));
+  const handleReload = () => {
+    const now = new Date();
+    setToday(now);
+    setWeekStart(getWeekStart(now));
+    setCalendarRefreshKey((k) => k + 1);
+  };
   const handleNextWeek = () => {
     setWeekStart((prev) => {
       const next = new Date(prev);
@@ -101,11 +107,12 @@ export default function CalendarPage() {
             onToday={handleToday}
             todaysSlotsCount={todaysSlotsCount}
             weeklySlotsCount={weeklySlotsCount}
-            onReload={() => setCalendarRefreshKey((k) => k + 1)}
+            onReload={handleReload}
           />
           <div className="mt-4 overflow-x-auto">
             <div className="min-w-[720px]">
               <SlotCalendar
+                key={calendarRefreshKey}
                 today={today}
                 weekStart={weekStart}
                 events={displayWeekEvents}

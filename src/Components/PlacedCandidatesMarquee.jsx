@@ -28,13 +28,13 @@ function LogoPlacedCard({ item }) {
 /**
  * Marquee tab + scrolling row of partner logos with “placed N” under each (home calendar mockup).
  */
-export default function PlacedCandidatesMarquee() {
+export default function PlacedCandidatesMarquee({ className = '' }) {
   const loop = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
 
   return (
-    <section className="mb-3 sm:mb-4" aria-label="Placement highlights">
+    <section className={`mb-3 sm:mb-4 w-full ${className}`.trim()} aria-label="Placement highlights">
       <div className="sb-placed-marquee-fade relative overflow-hidden py-2">
-        <div className="sb-placed-marquee-track flex w-max items-center gap-4 px-0 sm:gap-6 sm:px-0">
+        <div className="sb-placed-marquee-track flex w-max items-center gap-3 px-0 sm:gap-6 sm:px-0">
           {loop.map((item, idx) => (
             <LogoPlacedCard key={`${item.id}-${idx}`} item={item} />
           ))}

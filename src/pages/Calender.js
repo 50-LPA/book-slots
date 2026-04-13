@@ -178,14 +178,6 @@ const Calender = () => {
                     <h5 className="text-base font-semibold mb-0">Today: {formatDate(currentDate)}</h5>
                   </div>
                   <div className="flex items-center justify-center" style={{ width: '33%' }}>
-                    <a
-                      href="https://virajkadam.in"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="no-underline text-slate-800 font-semibold"
-                    >
-                      virajkadam.in
-                    </a>
                   </div>
                   <div className="flex items-center justify-end" style={{ width: '33%' }}>
                     <div className="flex items-center me-3">

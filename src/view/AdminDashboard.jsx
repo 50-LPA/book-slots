@@ -199,16 +199,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
         </h1>
       </div>
 
-        {/* Center Section - domain (hidden on small screens like screenshot) */}
-      <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
-        <a
-          href="https://virajkadam.in"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
-        >
-          VirajKadam.in
-        </a>
+              <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
       </div>
 
         {/* Right Section: user info */}

@@ -220,15 +220,6 @@ export default function Login() {
           </button>
         </form>
       </div>
-
-      <a
-        href="https://virajkadam.in"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-4 text-sm font-semibold text-slate-700 hover:text-slate-900 underline-offset-2 hover:underline"
-      >
-        VirajKadam.in
-      </a>
     </div>
   );
 }
