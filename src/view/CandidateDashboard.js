@@ -359,15 +359,15 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                 onClick={onOpenAddHR}
                 className="flex-1 inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap"
               >
-                <i className="fa-solid fa-square-plus w-3 h-3" aria-hidden="true" />
-                <span>Create Hr</span>
+                <i className="fa-regular fa-square-plus w-3 h-3" aria-hidden="true" />
+                <span>Create HR</span>
               </button>
               <button
                 type="button"
                 onClick={onOpenBookSlot}
                 className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
               >
-                <i className="fa-solid fa-square-plus w-3 h-3" aria-hidden="true" />
+                <i className="fa-regular fa-square-plus w-3 h-3" aria-hidden="true" />
                 <span>Create Slot</span>
               </button>
             </div>
@@ -406,15 +406,15 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                 onClick={onOpenAddHR}
                 className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap"
               >
-                <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
-                <span>Create Hr</span>
+                <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+                <span>Create HR</span>
               </button>
               <button
                 type="button"
                 onClick={onOpenBookSlot}
                 className="inline-flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
               >
-                <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+                <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
                 <span>Create Slot</span>
               </button>
             </div>
@@ -825,7 +825,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
             onClick={onBookNewSlot}
             className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold shadow whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
           >
-            <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+            <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
             <span>Create Slot</span>
           </button>
         </div>
@@ -1249,6 +1249,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
 function CandidateHrsList({
   hrs = [],
   loading = false,
+  refreshing = false,
   error = null,
   onAddNewHR,
   onBackToHome,
@@ -1287,10 +1288,12 @@ function CandidateHrsList({
           <button
             type="button"
             onClick={onReload}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 ${
+              refreshing ? 'opacity-80' : ''
+            }`}
             aria-label="Reload HR list"
           >
-            <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
+            <i className={`fa-solid fa-rotate-right text-sm ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
           </button>
         </div>
         <div className="flex items-center gap-2 justify-end">
@@ -1299,8 +1302,8 @@ function CandidateHrsList({
             onClick={onAddNewHR}
             className="inline-flex items-center gap-1.5 rounded-full bg-green-600 hover:bg-green-700 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white"
           >
-            <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
-            <span>Create Hr</span>
+            <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+            <span>Create HR</span>
           </button>
         </div>
       </div>
@@ -1344,6 +1347,9 @@ function CandidateHrsList({
             </tbody>
           </table>
         </div>
+      )}
+      {!loading && refreshing && (
+        <p className="mt-2 text-xs text-slate-500">Refreshing data...</p>
       )}
     </div>
   );
@@ -1407,6 +1413,7 @@ export default function CandidateDashboard() {
   // HR list shared state - fetched from Firestore
   const [hrList, setHrList] = useState([]);
   const [hrsLoading, setHrsLoading] = useState(true);
+  const [hrsRefreshing, setHrsRefreshing] = useState(false);
   const [hrsError, setHrsError] = useState(null);
   const [hrsRefreshKey, setHrsRefreshKey] = useState(0);
 
@@ -1414,7 +1421,12 @@ export default function CandidateDashboard() {
   useEffect(() => {
     const fetchHRs = async () => {
       try {
-        setHrsLoading(true);
+        const hasExistingRows = Array.isArray(hrList) && hrList.length > 0;
+        if (hasExistingRows) {
+          setHrsRefreshing(true);
+        } else {
+          setHrsLoading(true);
+        }
         setHrsError(null);
         const q = collection(db, 'hrs');
         const querySnapshot = await getDocs(q);
@@ -1449,6 +1461,7 @@ export default function CandidateDashboard() {
         setHrsError('Failed to load HR list. Please try again.');
       } finally {
         setHrsLoading(false);
+        setHrsRefreshing(false);
       }
     };
 
@@ -1737,7 +1750,7 @@ export default function CandidateDashboard() {
       />
       {!showBookSlot && activeNav === 'home' && (
         <div className="px-2 sm:px-4 md:px-8">
-          <PlacedCandidatesMarquee className="mb-0" />
+          <PlacedCandidatesMarquee className="mb-0 sm:mb-0" speedSeconds={15} />
         </div>
       )}
       <main
@@ -1768,6 +1781,7 @@ export default function CandidateDashboard() {
           <CandidateHrsList
             hrs={myHrList}
             loading={hrsLoading}
+            refreshing={hrsRefreshing}
             error={hrsError}
             onAddNewHR={() => setShowAddHR(true)}
             onBackToHome={() => setActiveNav('home')}

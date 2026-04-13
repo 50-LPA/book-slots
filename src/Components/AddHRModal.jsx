@@ -170,7 +170,7 @@ export default function AddHRModal({
       {/* modal */}
       <div className="relative bg-white rounded-lg shadow-xl w-full max-w-xl mx-4 z-10">
         <div className="px-6 py-4 border-b flex items-center justify-between relative">
-          <h3 className="text-base font-semibold text-gray-800">Create Hr</h3>
+          <h3 className="text-base font-semibold text-gray-800">Create HR</h3>
           <button
             type="button"
             onClick={onClose}
@@ -324,8 +324,8 @@ export default function AddHRModal({
               type="submit"
               className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap inline-flex items-center gap-2 h-9"
             >
-              <i className="fa-solid fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
-              <span>Create Hr</span>
+              <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+              <span>Create HR</span>
             </button>
           </div>
         </form>

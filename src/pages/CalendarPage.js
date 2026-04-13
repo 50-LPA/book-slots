@@ -97,7 +97,7 @@ export default function CalendarPage() {
     <div className="min-h-screen bg-slate-100 text-slate-900 antialiased">
       <Header fullWidth />
       <main className="w-full mt-2 px-4 pb-6 sm:pb-10">
-        <PlacedCandidatesMarquee />
+        <PlacedCandidatesMarquee speedSeconds={8} />
 
         <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm border border-slate-300 px-4 py-6">
           <CalendarToolbar
