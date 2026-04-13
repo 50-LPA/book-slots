@@ -90,11 +90,7 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 antialiased">
       <Header fullWidth />
-      <main className="w-full mt-2 px-4 pb-6 sm:pb-10 max-w-[1600px] mx-auto">
-        <h1 className="mb-3 text-left text-lg font-bold text-slate-900 sm:text-xl">
-          Slot Booking
-        </h1>
-
+      <main className="w-full mt-2 px-4 pb-6 sm:pb-10">
         <PlacedCandidatesMarquee />
 
         <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm border border-slate-300 px-4 py-6">

@@ -16,6 +16,7 @@ import Navbar from '../Components/Navbar';
 import AddHRModal from '../Components/AddHRModal';
 import BookSlot from './BookSlot';
 import WeekCalendar from '../Components/WeekCalendar';
+import PlacedCandidatesMarquee from '../Components/PlacedCandidatesMarquee';
 import { db } from '../firebase/firebase';
 import { formatDateDDMMYYYY } from '../firebase/slotsService';
 import { parseISOToDate } from '../calendar';
@@ -1254,6 +1255,78 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
   );
 }
 
+function CandidateHrsList({
+  hrs = [],
+  loading = false,
+  error = null,
+  onAddNewHR,
+  onBackToHome,
+}) {
+  return (
+    <div className="rounded-lg sm:rounded-2xl border border-slate-300 bg-white shadow-md p-3 sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBackToHome}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+            aria-label="Back to home"
+          >
+            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
+          </button>
+          <h2 className="text-base sm:text-lg font-bold text-slate-800">My Added HRs</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onAddNewHR}
+            className="rounded-md bg-green-600 hover:bg-green-700 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white"
+          >
+            + Add New HR
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-slate-500">Loading HRs...</p>
+      ) : error ? (
+        <p className="text-sm text-red-600">{error}</p>
+      ) : hrs.length === 0 ? (
+        <p className="text-sm text-slate-500">No HRs added by you yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-xs sm:text-sm">
+            <thead>
+              <tr className="text-left border-b border-slate-200 text-slate-600">
+                <th className="py-2 pr-3 font-semibold">Name</th>
+                <th className="py-2 pr-3 font-semibold">Company</th>
+                <th className="py-2 pr-3 font-semibold">Technology</th>
+                <th className="py-2 pr-3 font-semibold">Email</th>
+                <th className="py-2 pr-3 font-semibold">Mobile</th>
+                <th className="py-2 pr-3 font-semibold">Added By</th>
+                <th className="py-2 pr-3 font-semibold">Added By ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hrs.map((hr) => (
+                <tr key={hr.id} className="border-b border-slate-100 text-slate-800">
+                  <td className="py-2 pr-3">{hr.name || '-'}</td>
+                  <td className="py-2 pr-3">{hr.company || '-'}</td>
+                  <td className="py-2 pr-3">{hr.technology || '-'}</td>
+                  <td className="py-2 pr-3">{hr.email || '-'}</td>
+                  <td className="py-2 pr-3">{hr.mobile || '-'}</td>
+                  <td className="py-2 pr-3">{hr.addedBy || '-'}</td>
+                  <td className="py-2 pr-3 font-mono text-[11px]">{hr.addedById || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Main Dashboard Component
 export default function CandidateDashboard() {
   const navigate = useNavigate();
@@ -1274,6 +1347,8 @@ export default function CandidateDashboard() {
   });
   const [userName, setUserName] = useState('');
   const [candidateTechnologies, setCandidateTechnologies] = useState([]);
+  const [hrOwnerIds, setHrOwnerIds] = useState([]);
+  const [hrOwnerNames, setHrOwnerNames] = useState([]);
 
   // Candidate ids for calendar: derive directly from current sb_user session
   const candidateIds = (() => {
@@ -1328,6 +1403,8 @@ export default function CandidateDashboard() {
           technology: doc.data().technology || '',
           mobile: doc.data().mobile || '',
           jobType: doc.data().jobType || '',
+          addedBy: doc.data().addedBy || '',
+          addedById: doc.data().addedById || '',
         }));
         setHrList(hrsData);
       } catch (err) {
@@ -1340,7 +1417,7 @@ export default function CandidateDashboard() {
     };
 
     fetchHRs();
-  }, []);
+  }, [activeNav]);
 
   useEffect(() => {
     const normaliseTechnologies = (data) => {
@@ -1365,24 +1442,39 @@ export default function CandidateDashboard() {
         const raw = sessionStorage.getItem('sb_user');
         const parsed = raw ? JSON.parse(raw) : null;
         const cachedName = (parsed?.name || '').trim();
+        // Always seed owner keys first, even if we early-return on cached profile.
+        const ownerIds = new Set(
+          [parsed?.id, parsed?.mobile, currentUser?.uid, currentUser?.email]
+            .map((v) => String(v || '').trim())
+            .filter(Boolean),
+        );
+        const ownerNames = new Set(
+          [cachedName, currentUser?.displayName]
+            .map((v) => String(v || '').trim())
+            .filter(Boolean),
+        );
         const cachedTechs = Array.isArray(parsed?.technologies)
           ? parsed.technologies.map((t) => String(t || '').trim()).filter(Boolean)
           : [];
         if (cachedTechs.length) setCandidateTechnologies(cachedTechs);
         if (cachedName) {
           setUserName(cachedName);
-          if (cachedTechs.length) return;
+          setHrOwnerIds([...ownerIds]);
+          setHrOwnerNames([...ownerNames]);
         }
 
         const mobile = String(parsed?.mobile || '').trim();
         if (!mobile) return;
-
         // Prefer candidates profile (this is where technologies are assigned).
         let data = null;
         try {
           const candQ = query(collection(db, 'candidates'), where('mobile', '==', mobile));
           const candSnap = await getDocs(candQ);
-          if (!candSnap.empty) data = candSnap.docs[0].data();
+          if (!candSnap.empty) {
+            data = candSnap.docs[0].data();
+            ownerIds.add(candSnap.docs[0].id); // Firestore doc id sometimes used in addedById
+            ownerNames.add(String(candSnap.docs[0].data()?.name || '').trim());
+          }
         } catch {
           // ignore and fall back
         }
@@ -1391,15 +1483,27 @@ export default function CandidateDashboard() {
         if (!data) {
           const q = query(collection(db, 'users'), where('mobile', '==', mobile));
           const snap = await getDocs(q);
-          if (!snap.empty) data = snap.docs[0].data();
+          if (!snap.empty) {
+            data = snap.docs[0].data();
+            ownerIds.add(snap.docs[0].id);
+            ownerNames.add(String(snap.docs[0].data()?.name || '').trim());
+          }
         }
 
-        if (!data) return;
+        if (!data) {
+          // Even without profile doc, keep baseline owner keys.
+          setHrOwnerIds([...ownerIds]);
+          setHrOwnerNames([...ownerNames]);
+          return;
+        }
 
         const name = String(data?.name || '').trim();
         const techs = normaliseTechnologies(data);
         if (name) setUserName(name);
+        if (name) ownerNames.add(name);
         if (techs.length) setCandidateTechnologies(techs);
+        setHrOwnerIds([...ownerIds]);
+        setHrOwnerNames([...ownerNames]);
 
         sessionStorage.setItem(
           'sb_user',
@@ -1412,7 +1516,7 @@ export default function CandidateDashboard() {
     };
 
     loadUserName();
-  }, []);
+  }, [currentUser]);
 
   const handleAddHR = async (hr) => {
     try {
@@ -1493,12 +1597,81 @@ export default function CandidateDashboard() {
 
   const handleNavClick = (navId) => {
     setActiveNav(navId);
-    if (navId === 'hrs') {
-      setShowAddHR(true);
-    } else if (navId === 'home') {
+    if (navId === 'home') {
       setShowBookSlot(false);
     }
   };
+
+  const myHrList = useMemo(() => {
+    if (!Array.isArray(hrList) || hrList.length === 0) return [];
+    const norm = (v) => String(v || '').trim().toLowerCase();
+    const digits = (v) => String(v || '').replace(/\D/g, '');
+
+    // Support multiple historical identifiers used in addedById.
+    let sbUser = null;
+    try {
+      const raw = sessionStorage.getItem('sb_user');
+      sbUser = raw ? JSON.parse(raw) : null;
+    } catch {
+      sbUser = null;
+    }
+
+    const myIds = new Set(
+      [
+        ...(candidateIds || []),
+        ...hrOwnerIds,
+        sbUser?.id,
+        sbUser?.mobile,
+        currentUser?.uid,
+        currentUser?.email,
+      ]
+        .map((v) => String(v || '').trim())
+        .filter(Boolean),
+    );
+    const myIdNorms = new Set([...myIds].map(norm).filter(Boolean));
+    const myIdDigits = new Set([...myIds].map(digits).filter(Boolean));
+
+    const myNames = new Set(
+      [userName, sbUser?.name, currentUser?.displayName, ...hrOwnerNames]
+        .map(norm)
+        .filter(Boolean),
+    );
+    const myNameList = [...myNames];
+    const myMobileDigits = digits(sbUser?.mobile);
+
+    return hrList.filter((hr) => {
+      const addedById = String(hr.addedById || '').trim();
+      const addedByName = norm(hr.addedBy);
+      const addedByIdDigits = digits(addedById);
+      const addedByIdNorm = norm(addedById);
+      const addedByNameDigits = digits(hr.addedBy);
+
+      // 1) Exact id/email/uid/mobile match
+      if (addedById && myIds.has(addedById)) return true;
+      // 1b) Partial id match for legacy mixed formats
+      for (const id of myIds) {
+        const idNorm = norm(id);
+        if (!idNorm) continue;
+        if (!addedByIdNorm) continue;
+        if (addedByIdNorm.includes(idNorm) || idNorm.includes(addedByIdNorm)) return true;
+      }
+      // 1c) addedBy stored as id/email/mobile in some old rows
+      if (addedByName && myIdNorms.has(addedByName)) return true;
+      // 2) Numeric mobile-style match (for old data formats)
+      if (myMobileDigits && addedByIdDigits && myMobileDigits === addedByIdDigits) return true;
+      if (addedByIdDigits && myIdDigits.has(addedByIdDigits)) return true;
+      if (addedByNameDigits && myIdDigits.has(addedByNameDigits)) return true;
+      // 3) Name-based fallback (exact normalized name only)
+      if (addedByName && myNames.has(addedByName)) return true;
+      // 3b) Name contains match for legacy value formats
+      for (const nm of myNameList) {
+        if (!nm) continue;
+        if (!addedByName) continue;
+        if (addedByName.includes(nm) || nm.includes(addedByName)) return true;
+      }
+      return false;
+    });
+  }, [hrList, candidateIds, userName, currentUser, hrOwnerIds, hrOwnerNames]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1514,11 +1687,15 @@ export default function CandidateDashboard() {
       <Navbar 
         onOpenAddHR={() => {
           setActiveNav('hrs');
-          setShowAddHR(true);
         }}
         onNavChange={handleNavClick}
         activeNav={activeNav}
       />
+      {!showBookSlot && activeNav === 'home' && (
+        <div className="px-2 sm:px-4 md:px-8 pt-2">
+          <PlacedCandidatesMarquee />
+        </div>
+      )}
       <main className="p-2 sm:p-4 md:p-8">
         {showBookSlot ? (
           <BookSlot
@@ -1536,6 +1713,14 @@ export default function CandidateDashboard() {
             onBookNewSlot={() => setShowBookSlot(true)}
             onBackToHome={() => setActiveNav('home')}
             hrList={hrList}
+          />
+        ) : activeNav === 'hrs' ? (
+          <CandidateHrsList
+            hrs={myHrList}
+            loading={hrsLoading}
+            error={hrsError}
+            onAddNewHR={() => setShowAddHR(true)}
+            onBackToHome={() => setActiveNav('home')}
           />
         ) : (
           <CandidateCalendarArea

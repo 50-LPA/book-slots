@@ -11,15 +11,15 @@ const MARQUEE_ITEMS = [
 
 function LogoPlacedCard({ item }) {
   return (
-    <div className="flex w-[132px] shrink-0 flex-col items-center justify-center rounded-md border border-slate-300 bg-white px-2 py-2.5 shadow-sm sm:w-[148px] sm:px-3 sm:py-3">
+    <div className="flex w-[132px] shrink-0 flex-col items-center justify-center rounded-md border border-slate-300 bg-white shadow-sm sm:w-[148px] overflow-hidden">
       <img
         src={item.logoSrc}
         alt={`${item.alt} logo`}
-        className="h-8 w-auto max-w-[120px] object-contain sm:h-9"
+        className="h-16 w-full object-cover sm:h-20"
         loading="lazy"
       />
       <p className="mt-2 text-center text-[11px] font-medium tracking-wide text-slate-800 sm:text-xs">
-        placed <span className="font-bold tabular-nums">{item.placed}</span>
+        Placed {item.placed}
       </p>
     </div>
   );
@@ -33,24 +33,11 @@ export default function PlacedCandidatesMarquee() {
 
   return (
     <section className="mb-3 sm:mb-4" aria-label="Placement highlights">
-      <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
-        {/* Tab strip — “Marquee” as active tab */}
-        <div className="flex items-end gap-0 border-b border-slate-200 bg-slate-50/80 px-2 pt-1">
-          <div
-            className="rounded-t-md border border-b-0 border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-[0_-1px_0_0_white] sm:text-sm sm:px-4 sm:py-2"
-            role="tab"
-            aria-selected="true"
-          >
-            Marquee
-          </div>
-        </div>
-
-        <div className="sb-placed-marquee-fade relative overflow-hidden bg-slate-50 py-3 sm:py-4">
-          <div className="sb-placed-marquee-track flex w-max items-center gap-4 px-4 sm:gap-6 sm:px-6">
-            {loop.map((item, idx) => (
-              <LogoPlacedCard key={`${item.id}-${idx}`} item={item} />
-            ))}
-          </div>
+      <div className="sb-placed-marquee-fade relative overflow-hidden py-2">
+        <div className="sb-placed-marquee-track flex w-max items-center gap-4 px-0 sm:gap-6 sm:px-0">
+          {loop.map((item, idx) => (
+            <LogoPlacedCard key={`${item.id}-${idx}`} item={item} />
+          ))}
         </div>
       </div>
     </section>

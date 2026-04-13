@@ -4181,7 +4181,50 @@ function statsSlotCandidateKey(slot) {
   return `name:${name.toLowerCase()}`;
 }
 
-function AdminStatisticsChart({ slots = [], onReload }) {
+function statsCandidateRecordKey(candidate) {
+  const id = String(candidate?.firestoreId || candidate?.id || '').trim();
+  if (id) return `id:${id}`;
+  const name = String(candidate?.name || '').trim();
+  if (!name) return '';
+  return `name:${name.toLowerCase()}`;
+}
+
+function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
+  const int = (v) => {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const parseAnyDate = (value) => {
+    if (!value) return null;
+    try {
+      if (value?.toDate) {
+        const d = value.toDate();
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+    } catch {
+      // ignore
+    }
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    // Supports yyyy-mm-dd, mm/dd/yyyy, dd/mm/yyyy (best-effort)
+    const iso = new Date(raw);
+    if (!Number.isNaN(iso.getTime())) return iso;
+    const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (m) {
+      const a = int(m[1]);
+      const b = int(m[2]);
+      const y = int(m[3]);
+      // If day > 12, treat as dd/mm/yyyy; else default to mm/dd/yyyy
+      const isDMY = a > 12;
+      const mm = isDMY ? b : a;
+      const dd = isDMY ? a : b;
+      const d = new Date(y, mm - 1, dd);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  };
   const [statsCandidateKey, setStatsCandidateKey] = useState('');
   const [candidatePickerOpen, setCandidatePickerOpen] = useState(false);
   const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
@@ -4231,11 +4274,6 @@ function AdminStatisticsChart({ slots = [], onReload }) {
     );
   }, [candidateOptions, candidateSearchQuery]);
 
-  const chartSlots = useMemo(() => {
-    if (!statsCandidateKey) return slots;
-    return slots.filter((s) => statsSlotCandidateKey(s) === statsCandidateKey);
-  }, [slots, statsCandidateKey]);
-
   const monthlyStats = useMemo(() => {
     const getSlotDate = (slot) => {
       const raw = slot.date;
@@ -4249,39 +4287,56 @@ function AdminStatisticsChart({ slots = [], onReload }) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = d.getFullYear();
       const month = d.getMonth();
-      const count = chartSlots.filter((s) => {
+      const totalSlots = slots.filter((s) => {
         const slotD = getSlotDate(s);
         return slotD && slotD.getFullYear() === year && slotD.getMonth() === month;
       }).length;
+
+      // Selected candidates count is based on candidate.selectedDate (from Selected view)
+      const selectedCandidates = candidates.filter((c) => {
+        const isSelected = !!(c?.selected || c?.isSelected);
+        if (!isSelected) return false;
+        if (statsCandidateKey && statsCandidateRecordKey(c) !== statsCandidateKey) return false;
+        const sd = parseAnyDate(c?.selectedDate);
+        return sd && sd.getFullYear() === year && sd.getMonth() === month;
+      }).length;
+
       months.push({
         label: `${MONTH_LABELS[month]} ${year}`,
-        value: count,
+        totalSlots,
+        selectedCandidates,
       });
     }
     return months;
-  }, [chartSlots]);
+  }, [slots, candidates, statsCandidateKey]);
 
-  const peak = useMemo(() => Math.max(0, ...monthlyStats.map((m) => m.value)), [monthlyStats]);
-  const isCandidateFiltered = Boolean(statsCandidateKey);
+  const peak = useMemo(
+    () =>
+      Math.max(
+        0,
+        ...monthlyStats.map((m) => Math.max(m.totalSlots, m.selectedCandidates)),
+      ),
+    [monthlyStats],
+  );
   const yAxisMax = useMemo(() => {
-    if (!isCandidateFiltered) return Y_AXIS_MAX;
-    if (peak === 0) return 8;
-    return Math.max(8, Math.ceil((peak * 1.15) / 4) * 4);
-  }, [isCandidateFiltered, peak]);
+    if (peak === 0) return Y_AXIS_MAX;
+    const dynamic = Math.max(8, Math.ceil((peak * 1.15) / 4) * 4);
+    return Math.max(Y_AXIS_MAX, dynamic);
+  }, [peak]);
 
   const yTicks = useMemo(() => {
-    if (!isCandidateFiltered) return Y_TICKS;
     const n = 4;
     return Array.from({ length: n + 1 }, (_, i) => Math.round((yAxisMax * i) / n));
-  }, [isCandidateFiltered, yAxisMax]);
+  }, [yAxisMax]);
 
   const searchFieldValue = candidatePickerOpen
     ? candidateSearchQuery
     : selectedCandidate
       ? selectedCandidate.name
-      : '';
+      : 'All candidates';
 
   const [hoveredIndex, setHoveredIndex] = useState(null);
+  const [hoveredGreenIndex, setHoveredGreenIndex] = useState(null);
 
   return (
     <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-5 sm:px-6 sm:py-6">
@@ -4305,7 +4360,7 @@ function AdminStatisticsChart({ slots = [], onReload }) {
         <label htmlFor="stats-candidate-search" className="block text-xs font-medium text-slate-600 mb-1">
           Candidate
         </label>
-        <div className="flex gap-2">
+        <div className="relative">
           <input
             id="stats-candidate-search"
             type="text"
@@ -4320,12 +4375,12 @@ function AdminStatisticsChart({ slots = [], onReload }) {
               setCandidateSearchQuery(selectedCandidate ? selectedCandidate.name : '');
             }}
             placeholder="Search candidate, then pick a name…"
-            className="flex-1 min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 pr-9 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             aria-expanded={candidatePickerOpen}
             aria-controls="stats-candidate-listbox"
             aria-autocomplete="list"
           />
-          {statsCandidateKey ? (
+          {(statsCandidateKey || candidateSearchQuery) && (
             <button
               type="button"
               onClick={() => {
@@ -4333,11 +4388,12 @@ function AdminStatisticsChart({ slots = [], onReload }) {
                 setCandidateSearchQuery('');
                 setCandidatePickerOpen(false);
               }}
-              className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              aria-label="Clear candidate filter"
             >
-              All
+              <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
             </button>
-          ) : null}
+          )}
         </div>
         {candidatePickerOpen && (
           <ul
@@ -4408,7 +4464,7 @@ function AdminStatisticsChart({ slots = [], onReload }) {
               style={{ width: 28 }}
             >
               <span
-                className="text-[11px] text-slate-600 font-medium whitespace-nowrap"
+                className="text-xs sm:text-sm text-slate-600 font-semibold whitespace-nowrap"
                 style={{
                   transform: 'rotate(-90deg)',
                   transformOrigin: 'center center',
@@ -4422,7 +4478,7 @@ function AdminStatisticsChart({ slots = [], onReload }) {
               style={{ height: CHART_BODY_HEIGHT }}
             >
               {[...yTicks].reverse().map((tick) => (
-                <span key={tick} className="text-[10px] text-slate-500 tabular-nums">
+                <span key={tick} className="text-xs sm:text-sm text-slate-500 tabular-nums">
                   {tick}
                 </span>
               ))}
@@ -4447,10 +4503,10 @@ function AdminStatisticsChart({ slots = [], onReload }) {
                 style={{ height: CHART_BODY_HEIGHT }}
               >
                 {monthlyStats.map((item, index) => {
-                  const barHeight =
-                    yAxisMax > 0
-                      ? (item.value / yAxisMax) * CHART_BODY_HEIGHT
-                      : 0;
+                  const totalBarHeight =
+                    yAxisMax > 0 ? (item.totalSlots / yAxisMax) * CHART_BODY_HEIGHT : 0;
+                  const selectedBarHeight =
+                    yAxisMax > 0 ? (item.selectedCandidates / yAxisMax) * CHART_BODY_HEIGHT : 0;
                   const isHovered = hoveredIndex === index;
                 return (
                   <div
@@ -4459,19 +4515,45 @@ function AdminStatisticsChart({ slots = [], onReload }) {
                     onMouseEnter={() => setHoveredIndex(index)}
                     onMouseLeave={() => setHoveredIndex(null)}
                   >
-                      {isHovered && (
+                      {isHovered && hoveredGreenIndex !== index && (
                         <div
                           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-1.5 rounded-md bg-slate-800/95 text-white text-xs font-medium whitespace-nowrap z-50 shadow-lg pointer-events-none"
                           role="tooltip"
                         >
-                          {item.label}: {item.value} slot{item.value !== 1 ? 's' : ''}
-                          {selectedCandidate ? ` · ${selectedCandidate.name}` : ''}
+                          {item.label}: {item.totalSlots} slot{item.totalSlots !== 1 ? 's' : ''}
+                          {item.selectedCandidates
+                            ? ` · Selected candidates: ${item.selectedCandidates}`
+                            : ''}
                         </div>
                       )}
                       <div
-                        className={`w-full max-w-[22px] rounded-t bg-indigo-500 ${isHovered ? 'ring-2 ring-indigo-300 ring-offset-1' : ''}`}
-                        style={{ height: `${Math.max(2, barHeight)}px`, minWidth: 14 }}
-                      />
+                        className="w-full max-w-[22px] flex flex-col-reverse"
+                        style={{ minWidth: 14 }}
+                      >
+                        {/* Blue = slots */}
+                        <div
+                          className={`w-full rounded-t bg-indigo-500 ${isHovered ? 'ring-2 ring-indigo-300 ring-offset-1' : ''}`}
+                          style={{ height: `${Math.max(2, totalBarHeight)}px` }}
+                        />
+                        {/* Green = selected candidates (from selectedDate) shown ABOVE blue */}
+                        {item.selectedCandidates > 0 ? (
+                          <div
+                            className="mb-[2px] w-full rounded-t bg-green-500"
+                            style={{ height: `${Math.max(3, selectedBarHeight)}px` }}
+                            title={`Selected candidates: ${item.selectedCandidates}`}
+                            onMouseEnter={() => setHoveredGreenIndex(index)}
+                            onMouseLeave={() => setHoveredGreenIndex(null)}
+                          />
+                        ) : null}
+                      </div>
+                      {hoveredGreenIndex === index && (
+                        <div
+                          className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[120%] px-2 py-1 rounded-md bg-green-600 text-white text-xs font-semibold whitespace-nowrap z-50 shadow-lg pointer-events-none"
+                          role="tooltip"
+                        >
+                          Selected candidates: {item.selectedCandidates}
+                        </div>
+                      )}
                   </div>
                 );
               })}
@@ -4483,7 +4565,7 @@ function AdminStatisticsChart({ slots = [], onReload }) {
               {monthlyStats.map((item) => (
                 <div
                   key={item.label}
-                  className="flex-1 min-w-0 text-[10px] text-slate-500 text-center whitespace-nowrap"
+                  className="flex-1 min-w-0 text-xs sm:text-sm text-slate-500 text-center whitespace-nowrap"
                   style={{ minWidth: 14 }}
                 >
                   {item.label}
@@ -5534,7 +5616,11 @@ export default function AdminDashboard() {
           />
           )
         ) : activeTab === 'stats' ? (
-          <AdminStatisticsChart slots={slots} onReload={() => setStatsRefreshKey((k) => k + 1)} />
+          <AdminStatisticsChart
+            slots={slots}
+            candidates={candidates}
+            onReload={() => setStatsRefreshKey((k) => k + 1)}
+          />
         ) : activeTab === 'leaves' ? (
           <AdminLeavesTable onBackToHome={() => setActiveTab('home')} />
         ) : (
