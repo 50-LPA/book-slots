@@ -56,6 +56,26 @@ function normaliseTechLabelAdmin(raw) {
   return v;
 }
 
+function startOfLocalDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getRelativeSlotDayLabel(slotDateValue) {
+  const slotDate =
+    slotDateValue instanceof Date ? slotDateValue : parseISOToDate(String(slotDateValue || ''));
+  if (!(slotDate instanceof Date) || Number.isNaN(slotDate.getTime())) return '';
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const diffDays = Math.round(
+    (startOfLocalDay(slotDate).getTime() - startOfLocalDay(new Date()).getTime()) / dayMs,
+  );
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === -1) return 'Yesterday';
+  if (diffDays === 1) return 'Tommarow';
+  return '';
+}
+
 // Reusable pagination bar: left = count label, right = « < pages > » + per-page selector
 function PaginationBar({
   totalItems,
@@ -2369,9 +2389,7 @@ function AdminSlotsTable({
                   ? 'Rejected by Admin'
                   : 'Pending (Admin)';
 
-                const slotDateStr =
-                  slot.date instanceof Date ? slot.date.toISOString().slice(0, 10) : '';
-                const isToday = slotDateStr === new Date().toISOString().slice(0, 10);
+                const relativeDayLabel = getRelativeSlotDayLabel(slot.date);
 
                 const createdExactRaw = String(slot.createdAtExactLabel || '');
                 const createdParts = createdExactRaw.split(',');
@@ -2523,10 +2541,10 @@ function AdminSlotsTable({
                       <div className="flex flex-col">
                         <span>
                           {slot.dateExactLabel || slot.dateLabel || '-'}
-                          {isToday && (
+                          {relativeDayLabel && (
                             <span className="text-emerald-600 font-semibold ml-1">
-                              (Today)
-                          </span>
+                              ({relativeDayLabel})
+                            </span>
                           )}
                         </span>
                         {slot.timeLabel && (
@@ -4279,6 +4297,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
       const year = d.getFullYear();
       const month = d.getMonth();
       const totalSlots = slots.filter((s) => {
+        if (statsCandidateKey && statsSlotCandidateKey(s) !== statsCandidateKey) return false;
         const slotD = getSlotDate(s);
         return slotD && slotD.getFullYear() === year && slotD.getMonth() === month;
       }).length;
@@ -4305,9 +4324,9 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
     () =>
       Math.max(
         0,
-        ...monthlyStats.map((m) => Math.max(m.totalSlots, m.selectedCandidates)),
+        ...monthlyStats.map((m) => (statsCandidateKey ? m.totalSlots : Math.max(m.totalSlots, m.selectedCandidates))),
       ),
-    [monthlyStats],
+    [monthlyStats, statsCandidateKey],
   );
   const yAxisMax = useMemo(() => {
     if (peak === 0) return Y_AXIS_MAX;
@@ -4499,6 +4518,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
                   const selectedBarHeight =
                     yAxisMax > 0 ? (item.selectedCandidates / yAxisMax) * CHART_BODY_HEIGHT : 0;
                   const isHovered = hoveredIndex === index;
+                  const showSelectedCandidatesBar = !statsCandidateKey;
                 return (
                   <div
                     key={item.label}
@@ -4512,7 +4532,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
                           role="tooltip"
                         >
                           {item.label}: {item.totalSlots} slot{item.totalSlots !== 1 ? 's' : ''}
-                          {item.selectedCandidates
+                          {showSelectedCandidatesBar && item.selectedCandidates
                             ? ` · Selected candidates: ${item.selectedCandidates}`
                             : ''}
                         </div>
@@ -4527,7 +4547,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
                           style={{ height: `${Math.max(2, totalBarHeight)}px` }}
                         />
                         {/* Green = selected candidates (from selectedDate) shown ABOVE blue */}
-                        {item.selectedCandidates > 0 ? (
+                        {showSelectedCandidatesBar && item.selectedCandidates > 0 ? (
                           <div
                             className="mb-[2px] w-full rounded-t bg-green-500"
                             style={{ height: `${Math.max(3, selectedBarHeight)}px` }}
@@ -4537,7 +4557,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
                           />
                         ) : null}
                       </div>
-                      {hoveredGreenIndex === index && (
+                      {showSelectedCandidatesBar && hoveredGreenIndex === index && (
                         <div
                           className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[120%] px-2 py-1 rounded-md bg-green-600 text-white text-xs font-semibold whitespace-nowrap z-50 shadow-lg pointer-events-none"
                           role="tooltip"
