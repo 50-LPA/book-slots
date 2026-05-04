@@ -376,7 +376,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
 
         {/* Desktop / tablet layout (unchanged) */}
         <div className="hidden sm:block">
-          <div className="flex md:flex-col lg:flex-row sm:items-center sm:justify-between md:justify-center lg:justify-between gap-3 mb-4 relative">
+          <div className="flex md:flex-col lg:flex-row sm:items-center sm:justify-between md:justify-center lg:justify-between gap-3 mb-0 relative">
             {/* Left: Today's date */}
             <div className="flex items-center gap-2 md:justify-center">
               <span className="text-xs sm:text-sm text-gray-700 font-medium">
@@ -421,7 +421,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-0">
           <WeekCalendar
             key={calendarRefreshKey}
             candidateIds={candidateIds}
@@ -1750,7 +1750,7 @@ export default function CandidateDashboard() {
       />
       {!showBookSlot && activeNav === 'home' && (
         <div className="px-2 sm:px-4 md:px-8">
-          <PlacedCandidatesMarquee className="mb-0 sm:mb-0 !mb-0" speedSeconds={20} />
+          <PlacedCandidatesMarquee className="mb-2 sm:mb-2 !mb-2" speedSeconds={20} />
         </div>
       )}
       <main

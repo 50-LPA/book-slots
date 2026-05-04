@@ -44,7 +44,7 @@ export default function PlacedCandidatesMarquee({ className = '', speedSeconds =
       className={`relative w-full mb-2 sm:mb-3 ${className}`.trim()}
       aria-label="Placement highlights"
     >
-      <div className="sb-placed-marquee-fade relative w-full overflow-hidden py-2">
+      <div className="sb-placed-marquee-fade relative w-full overflow-hidden py-0">
         <div
           className="sb-placed-marquee-track flex w-max items-center gap-3 px-0 sm:gap-5 sm:px-0"
           style={{ animationDuration: `${speedSeconds}s` }}

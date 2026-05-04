@@ -12,7 +12,7 @@ function CalendarToolbar({
   onReload,
 }) {
   return (
-    <div className="relative flex flex-col sm:flex-row md:flex-col lg:flex-row sm:items-center md:items-center lg:items-center sm:justify-between md:justify-center lg:justify-between border-b border-slate-200 bg-white px-1 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 gap-1 sm:gap-2 md:gap-3 min-h-12 sm:min-h-14">
+    <div className="relative flex flex-col sm:flex-row md:flex-col lg:flex-row sm:items-center md:items-center lg:items-center sm:justify-between md:justify-center lg:justify-between bg-white px-1 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 gap-1 sm:gap-2 md:gap-3 min-h-12 sm:min-h-14">
       {/* Left Navigation Controls (next only) – desktop/tablet only */}
       <div className="hidden sm:flex md:flex lg:flex items-center gap-2 flex-shrink-0 z-10 justify-start md:justify-center w-auto order-3 sm:order-none">
         <button

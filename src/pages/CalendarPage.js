@@ -99,7 +99,7 @@ export default function CalendarPage() {
       <main className="w-full mt-2 px-4 pb-6 sm:pb-10">
         <PlacedCandidatesMarquee className="mb-0 sm:mb-0" speedSeconds={20} />
 
-        <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm border border-slate-300 px-4 py-6">
+        <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm border border-slate-300 px-4 pt-0 pb-6">
           <CalendarToolbar
             today={today}
             rangeLabel={rangeLabel}

@@ -74,7 +74,7 @@ function WeekCalendar({ candidateIds = [], onEventClick }) {
 
   return (
     <>
-      <div className="mt-3">
+      <div className="mt-0">
         <CalendarToolbar
           today={today}
           rangeLabel={rangeLabel}
@@ -84,7 +84,7 @@ function WeekCalendar({ candidateIds = [], onEventClick }) {
           weeklySlotsCount={weeklySlotsCount}
         />
       </div>
-      <div className="mt-4 overflow-x-auto">
+      <div className="mt-0 overflow-x-auto">
         <div className="min-w-[720px]">
           <SlotCalendar
             today={today}
