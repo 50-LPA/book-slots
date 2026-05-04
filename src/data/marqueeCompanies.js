@@ -28,6 +28,10 @@ const MARQUEE_COMPANIES = [
   { id: 'expleo', alt: 'Expleo Solutions', placed: 10 },
   { id: 'dataart', alt: 'DataArt', placed: 8 },
   { id: 'yash', alt: 'Yash Technologies', placed: 14 },
+  { id: 'bitwise', alt: 'Bitwise', placed: 9 },
+  { id: 'ibm', alt: 'IBM', placed: 21 },
+  { id: 'bmc', alt: 'BMC', placed: 11 },
+  { id: 'genpact', alt: 'Genpact', placed: 12 },
   { id: 'brillio', alt: 'Brillio', placed: 9 },
   { id: 'altimetrik', alt: 'Altimetrik', placed: 16 },
   { id: 'quickheal', alt: 'Quick Heal', placed: 7 },
@@ -45,6 +49,13 @@ const AVAILABLE_LOGO_IDS = new Set([
   'hcl',
   'techmahindra',
   'persistent',
+  'bitwise',
+  'yash',
+  'genpact',
+  'ibm',
+  'bmc',
+  'quickheal',
+  'ltimindtree',
 ]);
 
 export default MARQUEE_COMPANIES

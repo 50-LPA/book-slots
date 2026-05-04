@@ -1750,7 +1750,7 @@ export default function CandidateDashboard() {
       />
       {!showBookSlot && activeNav === 'home' && (
         <div className="px-2 sm:px-4 md:px-8">
-          <PlacedCandidatesMarquee className="mb-0 sm:mb-0" speedSeconds={15} />
+          <PlacedCandidatesMarquee className="mb-0 sm:mb-0 !mb-0" speedSeconds={20} />
         </div>
       )}
       <main

@@ -6,24 +6,26 @@ function LogoPlacedCard({ item }) {
   const [logoFailed, setLogoFailed] = useState(false);
 
   return (
-    <div className="flex w-[132px] shrink-0 flex-col items-center justify-center rounded-md border border-slate-300 bg-white shadow-sm sm:w-[148px] overflow-hidden">
-      {!logoFailed ? (
-        <img
-          src={logoSrc}
-          alt={`${item.alt} logo`}
-          className="h-16 w-full object-contain bg-white p-1 sm:h-20"
-          loading="lazy"
-          onError={() => {
-            // Logos are local first; when missing, show company name badge.
-            setLogoFailed(true);
-          }}
-        />
-      ) : (
-        <div className="h-16 w-full sm:h-20 flex items-center justify-center bg-slate-100 px-2 text-center text-[10px] font-semibold text-slate-700">
-          {item.alt}
-        </div>
-      )}
-      <p className="mt-2 text-center text-[11px] font-medium tracking-wide text-slate-800 sm:text-xs">
+    <div className="flex w-[220px] shrink-0 flex-col items-center rounded-md border border-slate-300 bg-white shadow-sm sm:w-[260px] overflow-hidden">
+      <div className="w-full">
+        {!logoFailed ? (
+          <img
+            src={logoSrc}
+            alt={`${item.alt} logo`}
+            className="h-16 w-full object-contain bg-white sm:h-20"
+            loading="lazy"
+            onError={() => {
+              // Logos are local first; when missing, show company name badge.
+              setLogoFailed(true);
+            }}
+          />
+        ) : (
+          <div className="h-16 w-full sm:h-20 flex items-center justify-center bg-slate-100 px-2 text-center text-[10px] font-semibold text-slate-700">
+            {item.alt}
+          </div>
+        )}
+      </div>
+      <p className="mt-2 px-2 pb-2 text-center text-[11px] font-medium tracking-wide text-slate-800 sm:text-xs">
         Placed {item.placed}
       </p>
     </div>
@@ -39,7 +41,7 @@ export default function PlacedCandidatesMarquee({ className = '', speedSeconds =
 
   return (
     <section
-      className={`relative w-full mb-3 sm:mb-4 ${className}`.trim()}
+      className={`relative w-full mb-2 sm:mb-3 ${className}`.trim()}
       aria-label="Placement highlights"
     >
       <div className="sb-placed-marquee-fade relative w-full overflow-hidden py-2">
