@@ -4605,7 +4605,7 @@ export default function AdminDashboard() {
   // Default to showing Unselected candidates, matching your other project
   const [candidateSelectionFilter, setCandidateSelectionFilter] = useState('unselected'); // 'selected' | 'unselected'
   const [candidateReferredByFilter, setCandidateReferredByFilter] = useState('all'); // 'all' | 'anil_sir' | 'viraj_sir' | 'nilesh_sir' | 'vishal_sir'
-  const [candidateStatusFilter, setCandidateStatusFilter] = useState('all'); // 'all' | 'active' | 'inactive'
+  const [candidateStatusFilter, setCandidateStatusFilter] = useState('active'); // 'all' | 'active' | 'inactive'
   const [candidateSearch, setCandidateSearch] = useState('');
   const [candidates, setCandidates] = useState(MOCK_CANDIDATES);
   const candidateByIdCacheRef = useRef(new Map());
