@@ -545,7 +545,7 @@ export default function BookSlot({
             >
               <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
             </button>
-            <h2 className="mx-auto text-purple-600 font-semibold text-sm md:text-base">Create Slot</h2>
+            <h2 className="flex-1 text-center text-purple-600 font-semibold text-sm md:text-base">Create Slot</h2>
           </div>
 
           {/* Tab view only (768px–1023px): reordered layout */}

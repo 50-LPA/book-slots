@@ -1,0 +1,228 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { db } from '../firebase/firebase';
+
+function normaliseTechs(value) {
+  return String(value || '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+export default function CandidateProfileEdit() {
+  const navigate = useNavigate();
+  const session = useMemo(() => {
+    try {
+      const raw = sessionStorage.getItem('sb_user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const role = String(session?.role || '').trim().toLowerCase();
+  const mobile = String(session?.mobile || '').trim();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [candidateDocId, setCandidateDocId] = useState('');
+  const [form, setForm] = useState({
+    name: '',
+    mobile: mobile || '',
+    experience: '',
+    technologyInput: '',
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProfile = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        if (!mobile) return;
+
+        const q = query(collection(db, 'candidates'), where('mobile', '==', mobile));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          if (!cancelled) setError('Candidate profile not found.');
+          return;
+        }
+
+        const d = snap.docs[0];
+        const data = d.data() || {};
+        const techs = Array.isArray(data.technologies)
+          ? data.technologies
+          : Array.isArray(data.technology)
+            ? data.technology
+            : String(data.technology || '')
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean);
+
+        if (!cancelled) {
+          setCandidateDocId(d.id);
+          setForm({
+            name: String(data.name || session?.name || '').trim(),
+            mobile: String(data.mobile || mobile || '').trim(),
+            experience: String(data.experience || '').trim(),
+            technologyInput: techs.join(', '),
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setError(err?.message || 'Failed to load profile.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [mobile, session?.name]);
+
+  if (!session?.mobile) return <Navigate to="/login" replace />;
+  if (role === 'admin') return <Navigate to="/admin-dashboard" replace />;
+
+  const onSave = async (e) => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      setError('');
+      setSuccess('');
+      if (!candidateDocId) throw new Error('Candidate profile not found.');
+      if (!form.name.trim()) throw new Error('Name is required.');
+
+      const technologies = normaliseTechs(form.technologyInput);
+      await updateDoc(doc(db, 'candidates', candidateDocId), {
+        name: form.name.trim(),
+        experience: form.experience.trim(),
+        technologies,
+        technology: technologies.join(', '),
+      });
+
+      try {
+        sessionStorage.setItem(
+          'sb_user',
+          JSON.stringify({
+            ...session,
+            name: form.name.trim(),
+            technologies,
+          }),
+        );
+      } catch {
+        // ignore session write errors
+      }
+
+      setSuccess('Profile updated successfully.');
+      setTimeout(() => {
+        navigate('/candidate-dashboard', { replace: true });
+      }, 450);
+    } catch (err) {
+      setError(err?.message || 'Failed to update profile.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100 px-3 py-4 sm:px-5">
+      <form
+        onSubmit={onSave}
+        class="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6"
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => navigate('/candidate-dashboard')}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            aria-label="Back to dashboard"
+          >
+            <i className="fa-solid fa-arrow-left text-xs" aria-hidden="true" />
+          </button>
+          <h1 className="text-sm sm:text-base font-semibold text-purple-600 text-center">
+            Edit {form.name || 'Candidate'}
+          </h1>
+          <div className="w-8" />
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-slate-600">Loading profile...</p>
+        ) : (
+          <>
+            {error ? <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+            {success ? <p className="mb-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</p> : null}
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4 mt-10">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                  <span className="text-red-500">*</span> Name of Candidate
+                </label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                  <span className="text-red-500">*</span> Mobile
+                </label>
+                <input
+                  type="text"
+                  value={form.mobile}
+                  disabled
+                  className="w-full rounded border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                  <span className="text-red-500">*</span> Technology
+                </label>
+                <input
+                  type="text"
+                  value={form.technologyInput}
+                  onChange={(e) => setForm((prev) => ({ ...prev, technologyInput: e.target.value }))}
+                  className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                />
+              </div>
+
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                  <span className="text-red-500">*</span> Experience
+                </label>
+                <input
+                  type="text"
+                  value={form.experience}
+                  onChange={(e) => setForm((prev) => ({ ...prev, experience: e.target.value }))}
+                  className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={saving || loading}
+                className="inline-flex items-center gap-1.5 rounded-full bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <i className="fa-solid fa-pen-to-square text-[11px]" aria-hidden="true" />
+                {saving ? 'Updating...' : 'Update Candidate'}
+              </button>
+            </div>
+          </>
+        )}
+      </form>
+    </div>
+  );
+}
+

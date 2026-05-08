@@ -9,6 +9,7 @@ const AdminRouteGuard = React.lazy(() => import(/* webpackChunkName: "dashboards
 const CandidateRouteGuard = React.lazy(() => import(/* webpackChunkName: "dashboards" */ './Components/CandidateRouteGuard'));
 const CalendarPage = React.lazy(() => import(/* webpackChunkName: "calendar" */ './pages/CalendarPage'));
 const Calender = React.lazy(() => import(/* webpackChunkName: "calendar" */ './pages/Calender'));
+const CandidateProfileEdit = React.lazy(() => import(/* webpackChunkName: "dashboards" */ './pages/CandidateProfileEdit'));
 
 // When a logged-in user lands on "/", send them to the correct dashboard
 function RootRoute() {
@@ -68,6 +69,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/admin-dashboard" element={<AdminRouteGuard />} />
             <Route path="/candidate-dashboard" element={<CandidateRouteGuard />} />
+            <Route path="/candidate-profile-edit" element={<CandidateProfileEdit />} />
             <Route path="/candidate-event-list" element={<CandidateRouteGuard />} />
             <Route path="/" element={<RootRoute />} />
             <Route path="/calender" element={<Calender />} />

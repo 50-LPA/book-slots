@@ -6,6 +6,7 @@ export default function Navbar({
   onNavChange,
   activeNav: activeNavProp,
   onDownloadForm,
+  onEditProfile,
 }) {
   const [active, setActive] = useState(activeNavProp || 'home');
 
@@ -52,6 +53,16 @@ export default function Navbar({
               <span className="font-medium text-xs sm:text-sm">{item.label}</span>
             </button>
           ))}
+        {typeof onEditProfile === 'function' && (
+          <button
+            type="button"
+            onClick={onEditProfile}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 text-xs sm:text-sm font-semibold"
+          >
+            <i className="fa-solid fa-pen-to-square w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+            <span>Edit Profile</span>
+          </button>
+        )}
         {typeof onDownloadForm === 'function' && (
           <button
             type="button"

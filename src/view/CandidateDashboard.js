@@ -158,7 +158,7 @@ function getInitials(name) {
 }
 
 // Header Component with mobile sidebar nav (like Admin)
-function Header({ userName, onLogout, activeNav, onChangeNav, onDownloadForm }) {
+function Header({ userName, onLogout, activeNav, onChangeNav, onDownloadForm, onEditProfile }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const initials = useMemo(() => getInitials(userName), [userName]);
@@ -240,6 +240,16 @@ function Header({ userName, onLogout, activeNav, onChangeNav, onDownloadForm }) 
                   </p>
                   <p className="text-[11px] text-slate-500">Candidate</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onEditProfile?.();
+                  }}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-2"
+                >
+                  Edit Profile
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -371,6 +381,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                 <span>Create Slot</span>
               </button>
             </div>
+
           </div>
         </div>
 
@@ -417,6 +428,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
                 <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
                 <span>Create Slot</span>
               </button>
+
             </div>
           </div>
         </div>
@@ -1730,6 +1742,7 @@ export default function CandidateDashboard() {
         userName={userName}
         activeNav={activeNav}
         onChangeNav={handleNavClick}
+        onEditProfile={() => navigate('/candidate-profile-edit')}
         onDownloadForm={() =>
           downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')
         }
@@ -1745,6 +1758,7 @@ export default function CandidateDashboard() {
         onDownloadForm={() =>
           downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')
         }
+        onEditProfile={() => navigate('/candidate-profile-edit')}
         onNavChange={handleNavClick}
         activeNav={activeNav}
       />
