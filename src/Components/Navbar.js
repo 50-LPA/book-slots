@@ -57,10 +57,10 @@ export default function Navbar({
           <button
             type="button"
             onClick={onEditProfile}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 text-xs sm:text-sm font-semibold"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all text-gray-600 hover:text-gray-800 hover:bg-purple-50"
           >
-            <i className="fa-solid fa-pen-to-square w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
-            <span>Edit Profile</span>
+            <i className="fa-solid fa-user w-4 h-4" aria-hidden="true" />
+            <span className="font-medium text-xs sm:text-sm">Profile</span>
           </button>
         )}
         {typeof onDownloadForm === 'function' && (

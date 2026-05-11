@@ -29,8 +29,6 @@ export default function CandidateProfileEdit() {
   const [success, setSuccess] = useState('');
   const [candidateDocId, setCandidateDocId] = useState('');
   const [form, setForm] = useState({
-    name: '',
-    mobile: mobile || '',
     experience: '',
     technologyInput: '',
   });
@@ -65,8 +63,6 @@ export default function CandidateProfileEdit() {
         if (!cancelled) {
           setCandidateDocId(d.id);
           setForm({
-            name: String(data.name || session?.name || '').trim(),
-            mobile: String(data.mobile || mobile || '').trim(),
             experience: String(data.experience || '').trim(),
             technologyInput: techs.join(', '),
           });
@@ -94,11 +90,9 @@ export default function CandidateProfileEdit() {
       setError('');
       setSuccess('');
       if (!candidateDocId) throw new Error('Candidate profile not found.');
-      if (!form.name.trim()) throw new Error('Name is required.');
 
       const technologies = normaliseTechs(form.technologyInput);
       await updateDoc(doc(db, 'candidates', candidateDocId), {
-        name: form.name.trim(),
         experience: form.experience.trim(),
         technologies,
         technology: technologies.join(', '),
@@ -109,7 +103,6 @@ export default function CandidateProfileEdit() {
           'sb_user',
           JSON.stringify({
             ...session,
-            name: form.name.trim(),
             technologies,
           }),
         );
@@ -132,7 +125,7 @@ export default function CandidateProfileEdit() {
     <div className="min-h-screen bg-slate-100 px-3 py-4 sm:px-5">
       <form
         onSubmit={onSave}
-        class="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6"
+        className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6"
       >
         <div className="mb-3 flex items-center justify-between">
           <button
@@ -157,31 +150,7 @@ export default function CandidateProfileEdit() {
             {success ? <p className="mb-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</p> : null}
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-4 mt-10">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                  <span className="text-red-500">*</span> Name of Candidate
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                  <span className="text-red-500">*</span> Mobile
-                </label>
-                <input
-                  type="text"
-                  value={form.mobile}
-                  disabled
-                  className="w-full rounded border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 md:col-span-1">
                 <label className="text-xs sm:text-sm font-semibold text-slate-700">
                   <span className="text-red-500">*</span> Technology
                 </label>
@@ -192,11 +161,7 @@ export default function CandidateProfileEdit() {
                   className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
                 />
               </div>
-
-            </div>
-
-            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 md:col-span-1">
                 <label className="text-xs sm:text-sm font-semibold text-slate-700">
                   <span className="text-red-500">*</span> Experience
                 </label>

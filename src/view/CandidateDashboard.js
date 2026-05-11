@@ -246,9 +246,10 @@ function Header({ userName, onLogout, activeNav, onChangeNav, onDownloadForm, on
                     setMenuOpen(false);
                     onEditProfile?.();
                   }}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-2"
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-2 inline-flex items-center justify-center gap-2"
                 >
-                  Edit Profile
+                  <i className="fa-solid fa-user text-xs" aria-hidden="true" />
+                  Profile
                 </button>
                 <button
                   type="button"
