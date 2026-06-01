@@ -31,6 +31,8 @@ export default function BookSlot({
   onBookSuccess,
   hrList = [],
   candidateTechnologies = [],
+  selectHrId = null,
+  onSelectHrApplied = null,
 }) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -224,6 +226,38 @@ export default function BookSlot({
   // HR search state for searchable dropdown
   const [hrQuery, setHrQuery] = useState('');
   const [showHrDropdown, setShowHrDropdown] = useState(false);
+
+  const pickTechnologyForHr = (hrTechnology) => {
+    const tech = String(hrTechnology || '').trim();
+    if (!tech) return '';
+    if (!isTechnologyRestricted) return tech;
+    const match = techOptions.find((t) => normaliseKey(t) === normaliseKey(tech));
+    return match || techOptions[0] || '';
+  };
+
+  useEffect(() => {
+    if (!selectHrId) return;
+    const hr = hrList.find((h) => String(h.id) === String(selectHrId));
+    if (!hr) return;
+
+    const tech = pickTechnologyForHr(hr.technology);
+    setForm((f) => ({
+      ...f,
+      hr: hr.id,
+      ...(tech ? { technology: tech } : {}),
+    }));
+    setHrQuery('');
+    setShowHrDropdown(false);
+    setErrors((prev) => {
+      if (!prev.hr && !prev.technology) return prev;
+      const next = { ...prev };
+      delete next.hr;
+      if (tech) delete next.technology;
+      return next;
+    });
+    onSelectHrApplied?.();
+  }, [selectHrId, hrList, isTechnologyRestricted, techOptions, onSelectHrApplied]);
+
   const hrDropdownRefDesktop = useRef(null);
   const hrDropdownRefTab = useRef(null);
   const hrDropdownRefMobile = useRef(null);

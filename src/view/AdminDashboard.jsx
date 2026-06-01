@@ -24,9 +24,12 @@ import {
   deleteLeave as deleteLeaveFromFirestore,
   formatDateDDMMYYYY,
 } from '../firebase/slotsService';
+import { getHrDuplicateFieldErrors } from '../firebase/hrService';
 import { parseISOToDate } from '../calendar';
 import WeekCalendar from '../Components/WeekCalendar';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 // Normalise legacy round labels to new naming
 function normaliseRoundLabelAdmin(raw) {
@@ -2846,7 +2849,53 @@ function AdminHRsTable({
     });
   };
 
-  const handleSubmit = (e) => {
+  const formatHrCreatedAt = (createdAt) => {
+    if (!createdAt) return '';
+    try {
+      let d;
+      if (typeof createdAt?.toDate === 'function') d = createdAt.toDate();
+      else if (typeof createdAt?.toMillis === 'function') d = new Date(createdAt.toMillis());
+      else if (createdAt?.seconds) d = new Date(createdAt.seconds * 1000);
+      else d = new Date(createdAt);
+      if (Number.isNaN(d.getTime())) return '';
+      return formatDateDDMMYYYY(d);
+    } catch {
+      return '';
+    }
+  };
+
+  const handleDownloadExcel = () => {
+    if (!filteredRows.length) {
+      window.alert('No HR data found to export');
+      return;
+    }
+
+    const sheetRows = filteredRows.map((hr, index) => ({
+      'Sr No': index + 1,
+      'HR Name': String(hr.name || '').trim(),
+      Email: String(hr.email || '').trim(),
+      Mobile: String(hr.mobile || '').trim(),
+      Company: String(hr.company || '').trim(),
+      Designation: String(hr.designation || hr.jobType || '').trim(),
+      City: String(hr.city || '').trim(),
+      Status: String(
+        hr.status ||
+          (hr.isActive === false ? 'Inactive' : hr.isActive === true ? 'Active' : ''),
+      ).trim(),
+      'Created At': formatHrCreatedAt(hr.createdAt),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(sheetRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'HRs');
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    saveAs(blob, 'hr-data.xlsx');
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errors = {};
     const name = String(form.name || '').trim();
@@ -2870,21 +2919,53 @@ function AdminHRsTable({
     }
     setHrFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
-    if (modalMode === 'edit' && onUpdateHR && editingId != null) {
-      onUpdateHR(editingId, form);
-    } else if (onAddHR) {
-      onAddHR(form);
+
+    const excludeFirestoreId =
+      modalMode === 'edit' && editingId != null
+        ? String(hrs.find((h) => h.id === editingId)?.firestoreId || '').trim() || null
+        : null;
+
+    try {
+      const duplicateErrors = await getHrDuplicateFieldErrors({
+        email,
+        mobile,
+        excludeFirestoreId,
+      });
+      if (Object.keys(duplicateErrors).length > 0) {
+        setHrFormErrors((prev) => ({ ...prev, ...duplicateErrors }));
+        return;
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to verify HR duplicates:', err);
+      setHrFormErrors((prev) => ({
+        ...prev,
+        email: prev.email || 'Could not verify HR details. Please try again.',
+      }));
+      return;
     }
-    setForm({
-      name: '',
-      email: '',
-      mobile: '',
-      company: '',
-      technology: '',
-      jobType: '',
-    });
-    setEditingId(null);
-    setShowAddModal(false);
+
+    try {
+      if (modalMode === 'edit' && onUpdateHR && editingId != null) {
+        await onUpdateHR(editingId, form);
+      } else if (onAddHR) {
+        await onAddHR(form);
+      }
+      setForm({
+        name: '',
+        email: '',
+        mobile: '',
+        company: '',
+        technology: '',
+        jobType: '',
+      });
+      setEditingId(null);
+      setShowAddModal(false);
+    } catch (err) {
+      if (err?.fieldErrors) {
+        setHrFormErrors((prev) => ({ ...prev, ...err.fieldErrors }));
+      }
+    }
   };
 
   return (
@@ -3261,6 +3342,15 @@ function AdminHRsTable({
               className="w-full rounded-full border border-slate-200 bg-white pl-7 pr-3 py-1.5 text-[11px] sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={handleDownloadExcel}
+            className="inline-flex items-center gap-2 h-8 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-[11px] sm:text-xs font-semibold text-emerald-700 hover:bg-emerald-100 whitespace-nowrap"
+          >
+            <i className="fa-solid fa-file-excel text-emerald-600" aria-hidden="true" />
+            Download Excel
+          </button>
         </div>
       </div>
 
@@ -5531,6 +5621,16 @@ export default function AdminDashboard() {
                 }
               }}
               onAddHR={async (data) => {
+              const duplicateErrors = await getHrDuplicateFieldErrors({
+                email: data.email,
+                mobile: data.mobile,
+              });
+              if (Object.keys(duplicateErrors).length > 0) {
+                const err = new Error('Duplicate HR');
+                err.fieldErrors = duplicateErrors;
+                throw err;
+              }
+
               const nextId = hrs.length
                 ? Math.max(...hrs.map((h) => (typeof h.id === 'number' ? h.id : 0))) + 1
                 : 1;
@@ -5588,6 +5688,18 @@ export default function AdminDashboard() {
               }
             }}
             onUpdateHR={async (id, data) => {
+              const current = hrs.find((h) => h.id === id);
+              const duplicateErrors = await getHrDuplicateFieldErrors({
+                email: data.email,
+                mobile: data.mobile,
+                excludeFirestoreId: current?.firestoreId || null,
+              });
+              if (Object.keys(duplicateErrors).length > 0) {
+                const err = new Error('Duplicate HR');
+                err.fieldErrors = duplicateErrors;
+                throw err;
+              }
+
               setHrs((prev) =>
                 prev.map((hr) =>
                   hr.id === id
@@ -5606,7 +5718,6 @@ export default function AdminDashboard() {
 
               // Persist changes to Firestore when possible
               try {
-                const current = hrs.find((h) => h.id === id);
                 const firestoreId = current?.firestoreId;
                 if (firestoreId) {
                   const payload = {

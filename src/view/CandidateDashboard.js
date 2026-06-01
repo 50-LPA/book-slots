@@ -19,6 +19,7 @@ import WeekCalendar from '../Components/WeekCalendar';
 import PlacedCandidatesMarquee from '../Components/PlacedCandidatesMarquee';
 import { db } from '../firebase/firebase';
 import { formatDateDDMMYYYY } from '../firebase/slotsService';
+import { checkHrDuplicates } from '../firebase/hrService';
 import { parseISOToDate } from '../calendar';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
 // import { formatDayHeader } from '../calendar';
@@ -1375,6 +1376,7 @@ export default function CandidateDashboard() {
   const { currentUser } = useAuth();
   const [showAddHR, setShowAddHR] = useState(false);
   const [showBookSlot, setShowBookSlot] = useState(false);
+  const [bookSlotSelectHrId, setBookSlotSelectHrId] = useState(null);
   // Remember last opened tab across refreshes for candidate.
   // If coming from a successful booking with openSlots, prefer "slots" once.
   const [activeNav, setActiveNav] = useState(() => {
@@ -1580,8 +1582,30 @@ export default function CandidateDashboard() {
     loadUserName();
   }, [currentUser]);
 
+  const handleUseExistingHrOnBookSlot = (existingHr) => {
+    const hrId = String(existingHr?.id || '').trim();
+    if (!hrId) return;
+    setShowAddHR(false);
+    setShowBookSlot(true);
+    setActiveNav('slots');
+    setBookSlotSelectHrId(hrId);
+  };
+
   const handleAddHR = async (hr) => {
     try {
+      const { errors: duplicateErrors, existingHrForEmail, existingHrForMobile } =
+        await checkHrDuplicates({
+          email: hr.email,
+          mobile: hr.mobile,
+        });
+      if (Object.keys(duplicateErrors).length > 0) {
+        const err = new Error('Duplicate HR');
+        err.fieldErrors = duplicateErrors;
+        err.existingHrForEmail = existingHrForEmail;
+        err.existingHrForMobile = existingHrForMobile;
+        throw err;
+      }
+
       // Resolve candidate name at save time so admin "Added By" shows who added the HR
       let addedByName = userName?.trim();
       if (!addedByName) {
@@ -1785,6 +1809,8 @@ export default function CandidateDashboard() {
             }}
             hrList={hrList}
             candidateTechnologies={candidateTechnologies}
+            selectHrId={bookSlotSelectHrId}
+            onSelectHrApplied={() => setBookSlotSelectHrId(null)}
           />
         ) : activeNav === 'slots' ? (
           <MySlots
@@ -1827,6 +1853,7 @@ export default function CandidateDashboard() {
           }
         }}
         onAdd={handleAddHR}
+        onUseExistingHR={showBookSlot ? handleUseExistingHrOnBookSlot : null}
         technologyOptions={candidateTechnologies}
       />
     </div>

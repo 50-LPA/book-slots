@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { checkHrDuplicates } from '../firebase/hrService';
 
 function formatTechLabel(value) {
   const s = String(value || '').trim();
@@ -8,10 +9,32 @@ function formatTechLabel(value) {
   return s;
 }
 
+function DuplicateFieldMessage({ message, existingHr, onUseExistingHR }) {
+  if (!message) return null;
+  return (
+    <p className="mt-1 text-xs text-red-500">
+      {message}
+      {existingHr && onUseExistingHR ? (
+        <>
+          {' '}
+          <button
+            type="button"
+            className="text-purple-600 underline font-medium hover:text-purple-800"
+            onClick={() => onUseExistingHR(existingHr)}
+          >
+            Use this HR
+          </button>
+        </>
+      ) : null}
+    </p>
+  );
+}
+
 export default function AddHRModal({
   isOpen,
   onClose,
   onAdd,
+  onUseExistingHR = null,
   technologyOptions = null,
 }) {
   const [form, setForm] = useState({
@@ -24,6 +47,9 @@ export default function AddHRModal({
   });
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [errors, setErrors] = useState({});
+  const [existingHrForEmail, setExistingHrForEmail] = useState(null);
+  const [existingHrForMobile, setExistingHrForMobile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const techOptions = useMemo(() => {
     const opts = Array.isArray(technologyOptions)
@@ -40,6 +66,8 @@ export default function AddHRModal({
       if (!f.technology) return f;
       return techOptions.includes(f.technology) ? f : { ...f, technology: '' };
     });
+    setExistingHrForEmail(null);
+    setExistingHrForMobile(null);
   }, [isOpen, techOptions]);
 
   // Escape key + scroll lock
@@ -75,6 +103,8 @@ export default function AddHRModal({
       delete next[name];
       return next;
     });
+    if (name === 'email') setExistingHrForEmail(null);
+    if (name === 'mobile') setExistingHrForMobile(null);
   };
 
   const validate = () => {
@@ -104,56 +134,75 @@ export default function AddHRModal({
     e.preventDefault();
     if (!validate()) return;
 
-    // Call parent handler if provided
-    if (onAdd) {
-      try {
-        // create an id for the HR
-        const newHR = {
-          id: Date.now(),
-          ...form,
-          name: String(form.name || '').trim(),
-          email: String(form.email || '').trim(),
-          company: String(form.company || '').trim(),
-          technology: String(form.technology || '').trim(),
-          jobType: String(form.jobType || '').trim(),
-          mobile: String(form.mobile || '').trim(),
-        };
-        await onAdd(newHR);
-        
-        // Show success toast in form header
-        setShowSuccessToast(true);
-        
-        // Hide toast after 2 seconds and close modal
-        setTimeout(() => {
-          setShowSuccessToast(false);
-          // reset form
-          setForm({
-            name: '',
-            email: '',
-            technology: '',
-            mobile: '',
-            jobType: '',
-            company: '',
-          });
-          onClose();
-        }, 2000);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to add HR:', err);
+    setSubmitting(true);
+    try {
+      const { errors: duplicateErrors, existingHrForEmail: hrByEmail, existingHrForMobile: hrByMobile } =
+        await checkHrDuplicates({
+          email: form.email,
+          mobile: form.mobile,
+        });
+      if (Object.keys(duplicateErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...duplicateErrors }));
+        setExistingHrForEmail(hrByEmail);
+        setExistingHrForMobile(hrByMobile);
+        return;
       }
-    } else {
+      setExistingHrForEmail(null);
+      setExistingHrForMobile(null);
+
+      if (!onAdd) {
+        setForm({
+          name: '',
+          email: '',
+          technology: '',
+          mobile: '',
+          jobType: '',
+          company: '',
+        });
+        onClose();
+        return;
+      }
+
+      const newHR = {
+        id: Date.now(),
+        ...form,
+        name: String(form.name || '').trim(),
+        email: String(form.email || '').trim(),
+        company: String(form.company || '').trim(),
+        technology: String(form.technology || '').trim(),
+        jobType: String(form.jobType || '').trim(),
+        mobile: String(form.mobile || '').trim(),
+      };
+      await onAdd(newHR);
+
+      setShowSuccessToast(true);
+      setTimeout(() => {
+        setShowSuccessToast(false);
+        setForm({
+          name: '',
+          email: '',
+          technology: '',
+          mobile: '',
+          jobType: '',
+          company: '',
+        });
+        onClose();
+      }, 2000);
+    } catch (err) {
       // eslint-disable-next-line no-console
-      console.log('Add HR', form);
-      // reset form (optional)
-      setForm({
-        name: '',
-        email: '',
-        technology: '',
-        mobile: '',
-        jobType: '',
-        company: '',
-      });
-      onClose();
+      console.error('Failed to add HR:', err);
+      if (err?.fieldErrors) {
+        setErrors((prev) => ({ ...prev, ...err.fieldErrors }));
+        if (err.existingHrForEmail) setExistingHrForEmail(err.existingHrForEmail);
+        if (err.existingHrForMobile) setExistingHrForMobile(err.existingHrForMobile);
+      } else if (!err?.fieldErrors) {
+        setErrors((prev) => ({
+          ...prev,
+          email: prev.email || 'Could not save HR. Please try again.',
+        }));
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -233,7 +282,11 @@ export default function AddHRModal({
                   className="mt-1 block w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white h-9"
                   placeholder="Enter Email"
                 />
-                {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+                <DuplicateFieldMessage
+                  message={errors.email}
+                  existingHr={existingHrForEmail}
+                  onUseExistingHR={onUseExistingHR}
+                />
               </div>
 
               <div>
@@ -300,7 +353,11 @@ export default function AddHRModal({
                   className="mt-1 block w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white h-9"
                   placeholder="Enter 10 digit number"
                 />
-                {errors.mobile && <p className="mt-1 text-xs text-red-500">{errors.mobile}</p>}
+                <DuplicateFieldMessage
+                  message={errors.mobile}
+                  existingHr={existingHrForMobile}
+                  onUseExistingHR={onUseExistingHR}
+                />
                 <ul className="mt-2 text-xs text-red-500 list-disc list-inside">
                   <li>Don't include +91</li>
                   <li>Don't use your own mobile number.</li>
@@ -322,7 +379,8 @@ export default function AddHRModal({
 
             <button
               type="submit"
-              className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap inline-flex items-center gap-2 h-9"
+              disabled={submitting}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap inline-flex items-center gap-2 h-9 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
               <span>Create HR</span>
