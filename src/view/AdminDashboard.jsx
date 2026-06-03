@@ -28,8 +28,13 @@ import { getHrDuplicateFieldErrors } from '../firebase/hrService';
 import { parseISOToDate } from '../calendar';
 import WeekCalendar from '../Components/WeekCalendar';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
-import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+
+function escapeCsvCell(value) {
+  const s = String(value ?? '');
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
 
 // Normalise legacy round labels to new naming
 function normaliseRoundLabelAdmin(raw) {
@@ -2849,50 +2854,30 @@ function AdminHRsTable({
     });
   };
 
-  const formatHrCreatedAt = (createdAt) => {
-    if (!createdAt) return '';
-    try {
-      let d;
-      if (typeof createdAt?.toDate === 'function') d = createdAt.toDate();
-      else if (typeof createdAt?.toMillis === 'function') d = new Date(createdAt.toMillis());
-      else if (createdAt?.seconds) d = new Date(createdAt.seconds * 1000);
-      else d = new Date(createdAt);
-      if (Number.isNaN(d.getTime())) return '';
-      return formatDateDDMMYYYY(d);
-    } catch {
-      return '';
-    }
-  };
-
-  const handleDownloadExcel = () => {
+  const handleDownloadCsv = () => {
     if (!filteredRows.length) {
       window.alert('No HR data found to export');
       return;
     }
 
-    const sheetRows = filteredRows.map((hr, index) => ({
-      'Sr No': index + 1,
-      'HR Name': String(hr.name || '').trim(),
-      Email: String(hr.email || '').trim(),
-      Mobile: String(hr.mobile || '').trim(),
-      Company: String(hr.company || '').trim(),
-      Designation: String(hr.designation || hr.jobType || '').trim(),
-      City: String(hr.city || '').trim(),
-      Status: String(
-        hr.status ||
-          (hr.isActive === false ? 'Inactive' : hr.isActive === true ? 'Active' : ''),
-      ).trim(),
-      'Created At': formatHrCreatedAt(hr.createdAt),
-    }));
+    const headers = ['Sr No', 'HR Name', 'Email', 'Mobile', 'Company', 'Technology'];
+    const rows = filteredRows.map((hr, index) => [
+      index + 1,
+      String(hr.name || '').trim(),
+      String(hr.email || '').trim(),
+      String(hr.mobile || '').trim(),
+      String(hr.company || '').trim(),
+      String(hr.technology || '').trim(),
+    ]);
 
-    const worksheet = XLSX.utils.json_to_sheet(sheetRows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'HRs');
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    const csvLines = [
+      headers.map(escapeCsvCell).join(','),
+      ...rows.map((row) => row.map(escapeCsvCell).join(',')),
+    ];
+    const blob = new Blob([`\uFEFF${csvLines.join('\n')}`], {
+      type: 'text/csv;charset=utf-8',
     });
-    saveAs(blob, 'hr-data.xlsx');
+    saveAs(blob, 'hr-data.csv');
   };
 
   const handleSubmit = async (e) => {
@@ -3345,11 +3330,11 @@ function AdminHRsTable({
 
           <button
             type="button"
-            onClick={handleDownloadExcel}
+            onClick={handleDownloadCsv}
             className="inline-flex items-center gap-2 h-8 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-[11px] sm:text-xs font-semibold text-emerald-700 hover:bg-emerald-100 whitespace-nowrap"
           >
-            <i className="fa-solid fa-file-excel text-emerald-600" aria-hidden="true" />
-            Download Excel
+            <i className="fa-solid fa-file-csv text-emerald-600" aria-hidden="true" />
+            Download CSV
           </button>
         </div>
       </div>

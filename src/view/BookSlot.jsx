@@ -25,6 +25,57 @@ const MEETING_DURATION_OPTIONS = [
   { value: '180', label: '3 hours' },
 ];
 
+/** Wednesday–Friday: booking window 4 PM–7 PM only */
+function isWedThuFri(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(`${dateStr}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return false;
+  const day = d.getDay();
+  return day === 3 || day === 4 || day === 5;
+}
+
+function getBookingTimeWindow(dateStr) {
+  if (isWedThuFri(dateStr)) {
+    return { min: '16:00', max: '19:00', hint: 'Book slots between 4 PM to 7 PM (Wed–Fri)' };
+  }
+  return { min: '11:00', max: '19:00', hint: 'Book slots between 11 AM to 7 PM' };
+}
+
+function getAllowedBookingHours(dateStr) {
+  const { min, max } = getBookingTimeWindow(dateStr);
+  const minH = parseInt(min.split(':')[0], 10);
+  const maxH = parseInt(max.split(':')[0], 10);
+  const hours = [];
+  for (let hh = minH; hh <= maxH; hh += 1) hours.push(hh);
+  return hours;
+}
+
+function timeToMinutes(hour, minute) {
+  const hh = parseInt(hour, 10);
+  const mm = parseInt(minute, 10);
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+  return hh * 60 + mm;
+}
+
+function isStartTimeInBookingWindow(hour, minute, dateStr) {
+  if (!hour || minute == null || !dateStr) return false;
+  const hh = String(hour).padStart(2, '0');
+  const mm = String(minute).padStart(2, '0');
+  const time = `${hh}:${mm}`;
+  const { min, max } = getBookingTimeWindow(dateStr);
+  return time >= min && time <= max;
+}
+
+function isMeetingEndWithinBookingWindow(hour, minute, durationMins, dateStr) {
+  const startMins = timeToMinutes(hour, minute);
+  const dur = parseInt(durationMins, 10);
+  if (startMins == null || Number.isNaN(dur) || !dateStr) return false;
+  const { max } = getBookingTimeWindow(dateStr);
+  const [maxH, maxM] = max.split(':').map((v) => parseInt(v, 10));
+  const maxEndMins = maxH * 60 + maxM;
+  return startMins + dur <= maxEndMins;
+}
+
 export default function BookSlot({
   onClose,
   onOpenAddHR,
@@ -71,6 +122,24 @@ export default function BookSlot({
     return [...new Set(list)];
   }, [candidateTechnologies]);
   const isTechnologyRestricted = techOptions.length > 0;
+
+  const bookingTimeHint = useMemo(
+    () => getBookingTimeWindow(form.date).hint,
+    [form.date],
+  );
+
+  const allowedBookingHours = useMemo(() => {
+    if (!form.date) return getAllowedBookingHours('');
+    return getAllowedBookingHours(form.date);
+  }, [form.date]);
+
+  useEffect(() => {
+    if (!form.date || !form.hour) return;
+    const allowed = allowedBookingHours.map((h) => String(h).padStart(2, '0'));
+    if (!allowed.includes(form.hour)) {
+      setForm((f) => ({ ...f, hour: '' }));
+    }
+  }, [form.date, form.hour, allowedBookingHours]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -506,14 +575,6 @@ export default function BookSlot({
     }
   };
 
-  function isTimeInRange(hour, minute, min = '11:00', max = '19:00') {
-    if (!hour || minute == null) return false;
-    const hh = String(hour).padStart(2, '0');
-    const mm = String(minute).padStart(2, '0');
-    const time = `${hh}:${mm}`;
-    return time >= min && time <= max;
-  }
-
   function validate(fields = []) {
     const e = {};
     const require = (name) => {
@@ -525,8 +586,24 @@ export default function BookSlot({
         // require both hour and minute if either is in the list
         if (!form.hour) e.hour = 'Hour is required';
         if (!form.minute) e.minute = 'Minute is required';
-        if (form.hour && form.minute && !isTimeInRange(form.hour, form.minute)) {
-          e.time = 'Time must be between 11:00 and 19:00';
+        if (form.date && form.hour && form.minute) {
+          if (!isStartTimeInBookingWindow(form.hour, form.minute, form.date)) {
+            e.time = isWedThuFri(form.date)
+              ? 'On Wednesday, Thursday and Friday, start time must be between 4 PM and 7 PM.'
+              : 'Time must be between 11:00 AM and 7:00 PM.';
+          } else if (
+            form.duration &&
+            !isMeetingEndWithinBookingWindow(
+              form.hour,
+              form.minute,
+              form.duration,
+              form.date,
+            )
+          ) {
+            e.time = isWedThuFri(form.date)
+              ? 'Meeting must end by 7 PM on Wednesday, Thursday and Friday.'
+              : 'Meeting must end by 7 PM.';
+          }
         }
       } else {
         require(f);
@@ -719,8 +796,7 @@ export default function BookSlot({
                     className="flex-1 min-w-0 border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
                   >
                     <option value="">Hour</option>
-                    {Array.from({ length: 9 }).map((_, i) => {
-                      const hh = 11 + i;
+                    {allowedBookingHours.map((hh) => {
                       const displayHour = hh % 12 === 0 ? 12 : hh % 12;
                       return (
                         <option key={hh} value={String(hh).padStart(2, '0')}>
@@ -747,7 +823,7 @@ export default function BookSlot({
                 {errors.time && <p className="text-xs text-red-500 mt-1">{errors.time}</p>}
                 {errors.hour && <p className="text-xs text-red-500 mt-1">{errors.hour}</p>}
                 {errors.minute && <p className="text-xs text-red-500 mt-1">{errors.minute}</p>}
-                <p className="text-xs text-red-500 mt-1">Book slots between 11 AM to 7 PM</p>
+                <p className="text-xs text-red-500 mt-1">{bookingTimeHint}</p>
               </div>
             </div>
 
@@ -1174,8 +1250,7 @@ export default function BookSlot({
                     className="flex-1 min-w-0 border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
                   >
                     <option value="">Hour</option>
-                    {Array.from({ length: 9 }).map((_, i) => {
-                      const hh = 11 + i; // 11..19
+                    {allowedBookingHours.map((hh) => {
                       const displayHour = hh % 12 === 0 ? 12 : hh % 12;
                       return (
                         <option key={hh} value={String(hh).padStart(2, '0')}>
@@ -1205,7 +1280,7 @@ export default function BookSlot({
                 {errors.time && <p className="text-xs text-red-500 mt-1">{errors.time}</p>}
                 {errors.hour && <p className="text-xs text-red-500 mt-1">{errors.hour}</p>}
                 {errors.minute && <p className="text-xs text-red-500 mt-1">{errors.minute}</p>}
-                <p className="text-xs text-red-500 mt-1">Book slots between 11 AM to 7 PM</p>
+                <p className="text-xs text-red-500 mt-1">{bookingTimeHint}</p>
               </div>
 
               {/* Round dropdown - visible only after availability confirmed (desktop lg only; iPad gets it in row below) */}
