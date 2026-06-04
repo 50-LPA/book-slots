@@ -25,24 +25,19 @@ const MEETING_DURATION_OPTIONS = [
   { value: '180', label: '3 hours' },
 ];
 
-/** Wednesday–Friday: booking window 4 PM–7 PM only */
-function isWedThuFri(dateStr) {
-  if (!dateStr) return false;
-  const d = new Date(`${dateStr}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return false;
-  const day = d.getDay();
-  return day === 3 || day === 4 || day === 5;
+/** Mon–Fri booking window: 11 AM – 7 PM (same for Wed, Thu, Fri) */
+const BOOKING_TIME_WINDOW = {
+  min: '11:00',
+  max: '19:00',
+  hint: 'Book slots between 11 AM to 7 PM',
+};
+
+function getBookingTimeWindow() {
+  return BOOKING_TIME_WINDOW;
 }
 
-function getBookingTimeWindow(dateStr) {
-  if (isWedThuFri(dateStr)) {
-    return { min: '16:00', max: '19:00', hint: 'Book slots between 4 PM to 7 PM (Wed–Fri)' };
-  }
-  return { min: '11:00', max: '19:00', hint: 'Book slots between 11 AM to 7 PM' };
-}
-
-function getAllowedBookingHours(dateStr) {
-  const { min, max } = getBookingTimeWindow(dateStr);
+function getAllowedBookingHours() {
+  const { min, max } = getBookingTimeWindow();
   const minH = parseInt(min.split(':')[0], 10);
   const maxH = parseInt(max.split(':')[0], 10);
   const hours = [];
@@ -62,7 +57,7 @@ function isStartTimeInBookingWindow(hour, minute, dateStr) {
   const hh = String(hour).padStart(2, '0');
   const mm = String(minute).padStart(2, '0');
   const time = `${hh}:${mm}`;
-  const { min, max } = getBookingTimeWindow(dateStr);
+  const { min, max } = getBookingTimeWindow();
   return time >= min && time <= max;
 }
 
@@ -70,7 +65,7 @@ function isMeetingEndWithinBookingWindow(hour, minute, durationMins, dateStr) {
   const startMins = timeToMinutes(hour, minute);
   const dur = parseInt(durationMins, 10);
   if (startMins == null || Number.isNaN(dur) || !dateStr) return false;
-  const { max } = getBookingTimeWindow(dateStr);
+  const { max } = getBookingTimeWindow();
   const [maxH, maxM] = max.split(':').map((v) => parseInt(v, 10));
   const maxEndMins = maxH * 60 + maxM;
   return startMins + dur <= maxEndMins;
@@ -123,15 +118,9 @@ export default function BookSlot({
   }, [candidateTechnologies]);
   const isTechnologyRestricted = techOptions.length > 0;
 
-  const bookingTimeHint = useMemo(
-    () => getBookingTimeWindow(form.date).hint,
-    [form.date],
-  );
+  const bookingTimeHint = BOOKING_TIME_WINDOW.hint;
 
-  const allowedBookingHours = useMemo(() => {
-    if (!form.date) return getAllowedBookingHours('');
-    return getAllowedBookingHours(form.date);
-  }, [form.date]);
+  const allowedBookingHours = useMemo(() => getAllowedBookingHours(), []);
 
   useEffect(() => {
     if (!form.date || !form.hour) return;
@@ -588,9 +577,7 @@ export default function BookSlot({
         if (!form.minute) e.minute = 'Minute is required';
         if (form.date && form.hour && form.minute) {
           if (!isStartTimeInBookingWindow(form.hour, form.minute, form.date)) {
-            e.time = isWedThuFri(form.date)
-              ? 'On Wednesday, Thursday and Friday, start time must be between 4 PM and 7 PM.'
-              : 'Time must be between 11:00 AM and 7:00 PM.';
+            e.time = 'Time must be between 11:00 AM and 7:00 PM.';
           } else if (
             form.duration &&
             !isMeetingEndWithinBookingWindow(
@@ -600,9 +587,7 @@ export default function BookSlot({
               form.date,
             )
           ) {
-            e.time = isWedThuFri(form.date)
-              ? 'Meeting must end by 7 PM on Wednesday, Thursday and Friday.'
-              : 'Meeting must end by 7 PM.';
+            e.time = 'Meeting must end by 7 PM.';
           }
         }
       } else {
