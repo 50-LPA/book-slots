@@ -36,6 +36,18 @@ function escapeCsvCell(value) {
   return s;
 }
 
+/** Digits only, max 10, must start with 6–9 */
+function sanitizeCandidateMobileInput(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (!/^[6-9]/.test(digits)) return '';
+  return digits.slice(0, 10);
+}
+
+function isValidCandidateMobile(mobile) {
+  return /^[6-9]\d{9}$/.test(String(mobile || '').trim());
+}
+
 // Normalise legacy round labels to new naming
 function normaliseRoundLabelAdmin(raw) {
   const r = String(raw || '').trim();
@@ -912,7 +924,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
   const handleChange = (field) => (e) => {
     let value = e.target.value;
     if (field === 'mobile') {
-      value = value.replace(/\D/g, '');
+      value = sanitizeCandidateMobileInput(value);
     } else if (field === 'password') {
       // Allow digits and symbols, max 6 characters (no letters)
       value = value.replace(/[a-zA-Z]/g, '').slice(0, 6);
@@ -998,7 +1010,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       setError('Mobile number is required.');
       return;
     }
-    if (!/^[6-9]\d{9}$/.test(trimmedMobile)) {
+    if (!isValidCandidateMobile(trimmedMobile)) {
       setError('Enter valid 10-digit mobile number starting with 6-9.');
       return;
     }
@@ -1176,9 +1188,11 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
           </label>
           <input
             type="tel"
+            inputMode="numeric"
+            maxLength={10}
             value={form.mobile}
             onChange={handleChange('mobile')}
-            placeholder="Enter mobile number"
+            placeholder="10 digit number (6-9)"
             className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </div>
@@ -1430,7 +1444,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
   const handleChange = (field) => (e) => {
     let value = e.target.value;
     if (field === 'mobile') {
-      value = value.replace(/\D/g, '');
+      value = sanitizeCandidateMobileInput(value);
     } else if (field === 'password') {
       // Allow digits and symbols, max 6 characters (no letters)
       value = value.replace(/[a-zA-Z]/g, '').slice(0, 6);
@@ -1463,6 +1477,16 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    const trimmedMobile = form.mobile.trim();
+    if (!trimmedMobile) {
+      setError('Mobile number is required.');
+      return;
+    }
+    if (!isValidCandidateMobile(trimmedMobile)) {
+      setError('Enter valid 10-digit mobile number starting with 6-9.');
+      return;
+    }
 
     const trimmedPassword = form.password?.trim();
     if (!trimmedPassword) {
@@ -1622,9 +1646,11 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
           </label>
           <input
             type="tel"
+            inputMode="numeric"
+            maxLength={10}
             value={form.mobile}
             onChange={handleChange('mobile')}
-            placeholder="Enter mobile number"
+            placeholder="10 digit number (6-9)"
             className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </div>
