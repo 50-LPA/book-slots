@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
 import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 
@@ -10,8 +9,7 @@ function normaliseTechs(value) {
     .filter(Boolean);
 }
 
-export default function CandidateProfileEdit() {
-  const navigate = useNavigate();
+export function CandidateProfileEditForm({ userName = '', onBack }) {
   const session = useMemo(() => {
     try {
       const raw = sessionStorage.getItem('sb_user');
@@ -20,8 +18,8 @@ export default function CandidateProfileEdit() {
       return null;
     }
   }, []);
-  const role = String(session?.role || '').trim().toLowerCase();
   const mobile = String(session?.mobile || '').trim();
+  const displayName = userName || session?.name || 'Candidate';
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -80,9 +78,6 @@ export default function CandidateProfileEdit() {
     };
   }, [mobile, session?.name]);
 
-  if (!session?.mobile) return <Navigate to="/login" replace />;
-  if (role === 'admin') return <Navigate to="/admin-dashboard" replace />;
-
   const onSave = async (e) => {
     e.preventDefault();
     try {
@@ -111,9 +106,6 @@ export default function CandidateProfileEdit() {
       }
 
       setSuccess('Profile updated successfully.');
-      setTimeout(() => {
-        navigate('/candidate-dashboard', { replace: true });
-      }, 450);
     } catch (err) {
       setError(err?.message || 'Failed to update profile.');
     } finally {
@@ -122,72 +114,81 @@ export default function CandidateProfileEdit() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 px-3 py-4 sm:px-5">
-      <form
-        onSubmit={onSave}
-        className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6"
-      >
-        <div className="mb-3 flex items-center justify-between">
+    <form
+      onSubmit={onSave}
+      className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6"
+    >
+      <div className="mb-3 flex items-center justify-between">
+        {typeof onBack === 'function' ? (
           <button
             type="button"
-            onClick={() => navigate('/candidate-dashboard')}
+            onClick={onBack}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             aria-label="Back to dashboard"
           >
             <i className="fa-solid fa-arrow-left text-xs" aria-hidden="true" />
           </button>
-          <h1 className="text-sm sm:text-base font-semibold text-purple-600 text-center">
-            Edit {form.name || 'Candidate'}
-          </h1>
-          <div className="w-8" />
-        </div>
-
-        {loading ? (
-          <p className="text-sm text-slate-600">Loading profile...</p>
         ) : (
-          <>
-            {error ? <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-            {success ? <p className="mb-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</p> : null}
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-4 mt-10">
-              <div className="flex flex-col gap-1 md:col-span-1">
-                <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                  <span className="text-red-500">*</span> Technology
-                </label>
-                <input
-                  type="text"
-                  value={form.technologyInput}
-                  onChange={(e) => setForm((prev) => ({ ...prev, technologyInput: e.target.value }))}
-                  className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1 md:col-span-1">
-                <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                  <span className="text-red-500">*</span> Experience
-                </label>
-                <input
-                  type="text"
-                  value={form.experience}
-                  onChange={(e) => setForm((prev) => ({ ...prev, experience: e.target.value }))}
-                  className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                />
-              </div>
-            </div>
-
-            <div className="mt-3 flex justify-end">
-              <button
-                type="submit"
-                disabled={saving || loading}
-                className="inline-flex items-center gap-1.5 rounded-full bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <i className="fa-solid fa-pen-to-square text-[11px]" aria-hidden="true" />
-                {saving ? 'Updating...' : 'Update Candidate'}
-              </button>
-            </div>
-          </>
+          <div className="w-8" />
         )}
-      </form>
-    </div>
+        <h1 className="text-sm sm:text-base font-semibold text-purple-600 text-center">
+          Edit {displayName}
+        </h1>
+        <div className="w-8" />
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-slate-600">Loading profile...</p>
+      ) : (
+        <>
+          {error ? <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+          {success ? <p className="mb-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</p> : null}
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4 mt-10">
+            <div className="flex flex-col gap-1 md:col-span-1">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                <span className="text-red-500">*</span> Technology
+              </label>
+              <input
+                type="text"
+                value={form.technologyInput}
+                onChange={(e) => setForm((prev) => ({ ...prev, technologyInput: e.target.value }))}
+                className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              />
+            </div>
+            <div className="flex flex-col gap-1 md:col-span-1">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                <span className="text-red-500">*</span> Experience
+              </label>
+              <input
+                type="text"
+                value={form.experience}
+                onChange={(e) => setForm((prev) => ({ ...prev, experience: e.target.value }))}
+                className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 flex justify-end">
+            <button
+              type="submit"
+              disabled={saving || loading}
+              className="inline-flex items-center gap-1.5 rounded-full bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <i className="fa-solid fa-pen-to-square text-[11px]" aria-hidden="true" />
+              {saving ? 'Updating...' : 'Update Candidate'}
+            </button>
+          </div>
+        </>
+      )}
+    </form>
   );
 }
 
+export default function CandidateProfileEdit() {
+  return (
+    <div className="min-h-screen bg-slate-100 px-3 py-4 sm:px-5">
+      <CandidateProfileEditForm />
+    </div>
+  );
+}

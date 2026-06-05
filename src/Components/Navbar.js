@@ -57,7 +57,11 @@ export default function Navbar({
           <button
             type="button"
             onClick={onEditProfile}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all text-gray-600 hover:text-gray-800 hover:bg-purple-50"
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all ${
+              activeNavProp === 'profile'
+                ? 'bg-purple-100 text-purple-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-purple-50'
+            }`}
           >
             <i className="fa-solid fa-user w-4 h-4" aria-hidden="true" />
             <span className="font-medium text-xs sm:text-sm">Profile</span>

@@ -22,6 +22,7 @@ import { formatDateDDMMYYYY } from '../firebase/slotsService';
 import { checkHrDuplicates } from '../firebase/hrService';
 import { parseISOToDate } from '../calendar';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
+import { CandidateProfileEditForm } from '../pages/CandidateProfileEdit';
 // import { formatDayHeader } from '../calendar';
 import { useAuth } from '../context/AuthContext';
 
@@ -1381,11 +1382,12 @@ export default function CandidateDashboard() {
   // If coming from a successful booking with openSlots, prefer "slots" once.
   const [activeNav, setActiveNav] = useState(() => {
     try {
+      if (location.state?.openProfile) return 'profile';
       const stored = sessionStorage.getItem('sb_candidate_active_nav');
       if (stored) return stored;
       return location.state?.openSlots ? 'slots' : 'home';
     } catch {
-      return location.state?.openSlots ? 'slots' : 'home';
+      return location.state?.openProfile ? 'profile' : location.state?.openSlots ? 'slots' : 'home';
     }
   });
   const [userName, setUserName] = useState('');
@@ -1674,6 +1676,13 @@ export default function CandidateDashboard() {
     }
   };
 
+  useEffect(() => {
+    if (location.state?.openProfile) {
+      setActiveNav('profile');
+      navigate('/candidate-dashboard', { replace: true, state: {} });
+    }
+  }, [location.state?.openProfile, navigate]);
+
   // Persist candidate active nav so refresh keeps the same section
   useEffect(() => {
     try {
@@ -1767,7 +1776,7 @@ export default function CandidateDashboard() {
         userName={userName}
         activeNav={activeNav}
         onChangeNav={handleNavClick}
-        onEditProfile={() => navigate('/candidate-profile-edit')}
+        onEditProfile={() => setActiveNav('profile')}
         onDownloadForm={() =>
           downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')
         }
@@ -1783,7 +1792,7 @@ export default function CandidateDashboard() {
         onDownloadForm={() =>
           downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')
         }
-        onEditProfile={() => navigate('/candidate-profile-edit')}
+        onEditProfile={() => setActiveNav('profile')}
         onNavChange={handleNavClick}
         activeNav={activeNav}
       />
@@ -1811,6 +1820,11 @@ export default function CandidateDashboard() {
             candidateTechnologies={candidateTechnologies}
             selectHrId={bookSlotSelectHrId}
             onSelectHrApplied={() => setBookSlotSelectHrId(null)}
+          />
+        ) : activeNav === 'profile' ? (
+          <CandidateProfileEditForm
+            userName={userName}
+            onBack={() => setActiveNav('home')}
           />
         ) : activeNav === 'slots' ? (
           <MySlots

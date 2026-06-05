@@ -69,7 +69,10 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/admin-dashboard" element={<AdminRouteGuard />} />
             <Route path="/candidate-dashboard" element={<CandidateRouteGuard />} />
-            <Route path="/candidate-profile-edit" element={<CandidateProfileEdit />} />
+            <Route
+              path="/candidate-profile-edit"
+              element={<Navigate to="/candidate-dashboard" state={{ openProfile: true }} replace />}
+            />
             <Route path="/candidate-event-list" element={<CandidateRouteGuard />} />
             <Route path="/" element={<RootRoute />} />
             <Route path="/calender" element={<Calender />} />
