@@ -48,6 +48,48 @@ function isValidCandidateMobile(mobile) {
   return /^[6-9]\d{9}$/.test(String(mobile || '').trim());
 }
 
+function openNativeDatePicker(inputEl) {
+  if (!inputEl) return;
+  if (typeof inputEl.showPicker === 'function') {
+    try {
+      inputEl.showPicker();
+      return;
+    } catch {
+      // fall through for browsers that block showPicker outside user gesture
+    }
+  }
+  inputEl.focus();
+  inputEl.click();
+}
+
+function DateInputWithCalendarIcon({ value, onChange, className = '', inputRef = null }) {
+  const localRef = useRef(null);
+  const ref = inputRef || localRef;
+  const inputClass =
+    className ||
+    'w-full rounded-md border border-slate-200 bg-white px-3 py-2 pr-9 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200';
+
+  return (
+    <div className="relative">
+      <input
+        ref={ref}
+        type="date"
+        value={value}
+        onChange={onChange}
+        className={`${inputClass} [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
+      />
+      <button
+        type="button"
+        onClick={() => openNativeDatePicker(ref.current)}
+        className="absolute right-2 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+        aria-label="Open calendar"
+      >
+        <i className="fa-solid fa-calendar text-sm" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 // Normalise legacy round labels to new naming
 function normaliseRoundLabelAdmin(raw) {
   const r = String(raw || '').trim();
@@ -1846,11 +1888,9 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
               <span className="text-red-500">*</span> Selected Date
             </label>
             <div className="relative">
-              <input
-                type="date"
+              <DateInputWithCalendarIcon
                 value={form.selectedDate}
                 onChange={handleChange('selectedDate')}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 pr-9 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
               />
             </div>
           </div>
@@ -1861,11 +1901,9 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
               <span className="text-red-500">*</span> Joining Date
             </label>
             <div className="relative">
-              <input
-                type="date"
+              <DateInputWithCalendarIcon
                 value={form.joiningDate}
                 onChange={handleChange('joiningDate')}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 pr-9 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
               />
             </div>
           </div>
@@ -4238,19 +4276,17 @@ function AdminLeavesTable({ onBackToHome }) {
               </button>
             </div>
 
-            {/* Date field - native calendar icon only (right side) */}
+            {/* Date field with calendar icon */}
             <div className="mb-4">
               <label className="block text-xs font-medium text-slate-700 mb-1">
                 Date
               </label>
-                <input
-                  type="date"
-                  value={leaveDate}
-                  onChange={(e) => setLeaveDate(e.target.value)}
-                  ref={leaveDateInputRef}
-                className="add-leave-date w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                  placeholder="mm/dd/yyyy"
-                />
+              <DateInputWithCalendarIcon
+                value={leaveDate}
+                onChange={(e) => setLeaveDate(e.target.value)}
+                inputRef={leaveDateInputRef}
+                className="add-leave-date w-full rounded-md border border-slate-200 bg-white px-3 py-2 pr-9 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              />
             </div>
 
             {/* Modal actions */}
