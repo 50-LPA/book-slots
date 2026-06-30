@@ -23,8 +23,14 @@ import {
   addLeave as addLeaveToFirestore,
   deleteLeave as deleteLeaveFromFirestore,
   formatDateDDMMYYYY,
+  syncCandidateDisplayNameOnEvents,
 } from '../firebase/slotsService';
 import { getHrDuplicateFieldErrors } from '../firebase/hrService';
+import {
+  normalizeCandidateMobile,
+  slotMatchesCandidate,
+  statsSlotCandidateKey,
+} from '../utils/candidateIdentity';
 import { parseISOToDate } from '../calendar';
 import WeekCalendar from '../Components/WeekCalendar';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
@@ -506,10 +512,7 @@ function AdminCandidatesTable({
   onEditCandidate,
 }) {
   const getLastInterview = (candidate) => {
-    const candidateName = (candidate?.name || '').trim();
-    const candidateSlots = slots.filter(
-      (s) => (s.candidateName || s.name || '').trim() === candidateName,
-    );
+    const candidateSlots = slots.filter((s) => slotMatchesCandidate(s, candidate));
     if (candidateSlots.length === 0) return null;
 
     const now = new Date();
@@ -555,10 +558,8 @@ function AdminCandidatesTable({
   const [confirmDeleteCandidateId, setConfirmDeleteCandidateId] = useState(null);
   const [confirmDeleteCandidateName, setConfirmDeleteCandidateName] = useState('');
 
-  const getScheduledCount = (candidateName) => {
-    return slots.filter(
-      (s) => (s.candidateName || s.name || '').trim() === (candidateName || '').trim(),
-    ).length;
+  const getScheduledCount = (candidate) => {
+    return slots.filter((s) => slotMatchesCandidate(s, candidate)).length;
   };
 
   // Reset to page 1 when data/filter changes
@@ -784,7 +785,7 @@ function AdminCandidatesTable({
                   </div>
                 </td>
                 <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">
-                  {getScheduledCount(c.name)}
+                  {getScheduledCount(c)}
                 </td>
                 <td className="px-3 py-2 text-slate-700 text-center text-xs border-r border-slate-200">
                   {(() => {
@@ -1590,6 +1591,11 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
       if (candidate?.firestoreId) {
         await updateDoc(doc(db, 'candidates', candidate.firestoreId), candidateData);
+        await syncCandidateDisplayNameOnEvents({
+          mobile: trimmedMobile,
+          firestoreId: candidate.firestoreId,
+          candidateName: form.name.trim(),
+        });
       }
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -4319,15 +4325,9 @@ const CHART_BODY_HEIGHT = 320;
 const Y_AXIS_MAX = 80; // Fixed scale 0–80 when showing all candidates
 const Y_TICKS = [0, 20, 40, 60, 80];
 
-function statsSlotCandidateKey(slot) {
-  const id = String(slot.candidateId || '').trim();
-  if (id) return `id:${id}`;
-  const name = String(slot.candidateName || slot.name || '').trim();
-  if (!name) return '';
-  return `name:${name.toLowerCase()}`;
-}
-
 function statsCandidateRecordKey(candidate) {
+  const mobile = normalizeCandidateMobile(candidate?.mobile);
+  if (mobile) return `mobile:${mobile}`;
   const id = String(candidate?.firestoreId || candidate?.id || '').trim();
   if (id) return `id:${id}`;
   const name = String(candidate?.name || '').trim();
@@ -5013,9 +5013,35 @@ export default function AdminDashboard() {
         uniqueCandidateIds.map(async (id) => {
           try {
             const snap = await getDoc(doc(db, 'candidates', id));
-            if (snap.exists()) candidateByIdCacheRef.current.set(id, snap.data());
+            if (snap.exists()) {
+              const data = snap.data();
+              candidateByIdCacheRef.current.set(id, data);
+              const mob = normalizeCandidateMobile(data?.mobile || data?.phone);
+              if (mob) candidateByIdCacheRef.current.set(mob, data);
+              return;
+            }
           } catch {
             // ignore
+          }
+
+          const mobileLookup = normalizeCandidateMobile(id);
+          if (/^[6-9]\d{9}$/.test(mobileLookup)) {
+            try {
+              const mobileQ = query(
+                collection(db, 'candidates'),
+                where('mobile', '==', mobileLookup),
+              );
+              const mobileSnap = await getDocs(mobileQ);
+              const first = mobileSnap.docs[0];
+              if (first?.exists?.()) {
+                const data = first.data();
+                candidateByIdCacheRef.current.set(id, data);
+                candidateByIdCacheRef.current.set(first.id, data);
+                candidateByIdCacheRef.current.set(mobileLookup, data);
+              }
+            } catch {
+              // ignore
+            }
           }
         }),
       );
@@ -5036,14 +5062,22 @@ export default function AdminDashboard() {
 
       const enriched = uiSlots.map((s) => {
         const candidateId = String(s.candidateId || '').trim();
+        const candidateMobile = normalizeCandidateMobile(
+          s.candidateMobile || s.mobile || candidateId,
+        );
         const hrId = String(s.hrId || '').trim();
 
-        const candidateDoc = candidateId ? candidateByIdCacheRef.current.get(candidateId) : null;
+        const lookupKeys = [candidateMobile, candidateId].filter(Boolean);
+        let candidateDoc = null;
+        for (const key of lookupKeys) {
+          candidateDoc = candidateByIdCacheRef.current.get(key);
+          if (candidateDoc) break;
+        }
         const hrDoc = hrId ? hrByIdCacheRef.current.get(hrId) : null;
 
         const candidateName =
-          String(s.candidateName || s.name || '').trim() ||
-          String(candidateDoc?.name || '').trim();
+          String(candidateDoc?.name || '').trim() ||
+          String(s.candidateName || s.name || '').trim();
 
         const hrName = String(s.hrName || '').trim() || String(hrDoc?.name || '').trim();
         const hrEmail = String(s.hrEmail || '').trim() || String(hrDoc?.email || '').trim();
@@ -5103,8 +5137,15 @@ export default function AdminDashboard() {
       if (slotSearch.trim()) {
         const q = slotSearch.toLowerCase();
         const candidateName = (slot.candidateName || '').toLowerCase();
+        const candidateMobile = normalizeCandidateMobile(
+          slot.candidateMobile || slot.candidateId || '',
+        );
         const company = (slot.company || '').toLowerCase();
-        if (!candidateName.includes(q) && !company.includes(q)) {
+        if (
+          !candidateName.includes(q) &&
+          !company.includes(q) &&
+          !candidateMobile.includes(q.replace(/\D/g, ''))
+        ) {
           return false;
         }
       }
@@ -5254,7 +5295,7 @@ export default function AdminDashboard() {
   const handleViewCandidate = (id) => {
     const candidate = candidates.find((c) => c.id === id);
     if (candidate) {
-      const candidateSlots = slots.filter((s) => s.candidateName === candidate.name);
+      const candidateSlots = slots.filter((s) => slotMatchesCandidate(s, candidate));
       setSelectedViewCandidate({
         name: candidate.name,
         candidate,
@@ -5620,13 +5661,13 @@ export default function AdminDashboard() {
               stats={slotStats}
               onOpenCandidateSlots={(candidateName) => {
                 const candidate = candidates.find(
-                  (c) => c.name === candidateName,
+                  (c) => (c.name || '').trim() === (candidateName || '').trim(),
                 );
-                const candidateSlots = slots.filter(
-                  (s) => (s.candidateName || s.name) === candidateName,
-                );
+                const candidateSlots = candidate
+                  ? slots.filter((s) => slotMatchesCandidate(s, candidate))
+                  : [];
                 setSelectedSlotsCandidate({
-                  name: candidateName,
+                  name: candidate?.name || candidateName,
                   candidate: candidate || null,
                   slots: candidateSlots,
                 });
@@ -5657,9 +5698,7 @@ export default function AdminDashboard() {
                   (c) => (c.name || '').trim().toLowerCase() === (addedByName || '').trim().toLowerCase(),
                 );
                 if (candidate) {
-                  const candidateSlots = slots.filter(
-                    (s) => (s.candidateName || s.name || '').trim().toLowerCase() === (candidate.name || '').trim().toLowerCase(),
-                  );
+                  const candidateSlots = slots.filter((s) => slotMatchesCandidate(s, candidate));
                   setSelectedViewCandidate({
                     name: candidate.name,
                     candidate,

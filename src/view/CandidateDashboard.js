@@ -18,8 +18,13 @@ import BookSlot from './BookSlot';
 import WeekCalendar from '../Components/WeekCalendar';
 import PlacedCandidatesMarquee from '../Components/PlacedCandidatesMarquee';
 import { db } from '../firebase/firebase';
-import { formatDateDDMMYYYY } from '../firebase/slotsService';
+import { formatDateDDMMYYYY, subscribeToCandidateSlots } from '../firebase/slotsService';
 import { checkHrDuplicates } from '../firebase/hrService';
+import {
+  getCandidateMatchKeys,
+  normalizeCandidateMobile,
+  slotMatchesCandidateKeys,
+} from '../utils/candidateIdentity';
 import { parseISOToDate } from '../calendar';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
 import { CandidateProfileEditForm } from '../pages/CandidateProfileEdit';
@@ -441,11 +446,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
             key={calendarRefreshKey}
             candidateIds={candidateIds}
             onEventClick={(event) => {
-              if (
-                event.candidateId &&
-                Array.isArray(candidateIds) &&
-                candidateIds.includes(event.candidateId)
-              ) {
+              if (Array.isArray(candidateIds) && slotMatchesCandidateKeys(event, candidateIds)) {
                 setCalendarSelectedEvent(event);
               }
             }}
@@ -628,59 +629,17 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
     typeof window !== 'undefined' ? sessionStorage.getItem('sb_user') : null;
 
   useEffect(() => {
-    // Resolve candidate identity from current session.
-    // We use candidateId stored as Firestore id or mobile for this candidate.
-    let candidateIds = [];
+    let matchKeys = [];
     try {
       const parsed = sbSessionRaw ? JSON.parse(sbSessionRaw) : null;
-      const id = String(parsed?.id || '').trim();
-      const mobile = String(parsed?.mobile || '').trim();
-      candidateIds = [id, mobile].filter(Boolean);
-      candidateIds = [...new Set(candidateIds)];
+      matchKeys = getCandidateMatchKeys(parsed);
     } catch {
-      candidateIds = [];
+      matchKeys = [];
     }
 
-    if (candidateIds.length === 0) return;
+    if (matchKeys.length === 0) return undefined;
 
-    const eventsRef = collection(db, 'events');
-    const q =
-      candidateIds.length === 1
-        ? query(eventsRef, where('candidateId', '==', candidateIds[0]))
-        : query(eventsRef, where('candidateId', 'in', candidateIds));
-
-    const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs
-        .map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-          };
-        })
-        // Safety: only keep slots for the current candidate ids
-        .filter((item) => {
-          const cid = String(item.candidateId || '').trim();
-          return cid && candidateIds.includes(cid);
-        });
-
-      // Sort so newest slots (by createdAt) appear at the top
-      items.sort((a, b) => {
-        const aTime = a.createdAt?.toMillis
-          ? a.createdAt.toMillis()
-          : a.createdAt
-            ? new Date(a.createdAt).getTime()
-            : 0;
-        const bTime = b.createdAt?.toMillis
-          ? b.createdAt.toMillis()
-          : b.createdAt
-            ? new Date(b.createdAt).getTime()
-            : 0;
-        return bTime - aTime;
-      });
-
-      setSlots(items);
-    });
+    const unsub = subscribeToCandidateSlots(matchKeys, setSlots);
     return () => unsub();
   }, [sbSessionRaw, refreshKey]);
 
@@ -1395,15 +1354,12 @@ export default function CandidateDashboard() {
   const [hrOwnerIds, setHrOwnerIds] = useState([]);
   const [hrOwnerNames, setHrOwnerNames] = useState([]);
 
-  // Candidate ids for calendar: derive directly from current sb_user session
+  // Candidate match keys for calendar: mobile is primary, Firestore id is legacy fallback
   const candidateIds = (() => {
     try {
       const raw = sessionStorage.getItem('sb_user');
       const parsed = raw ? JSON.parse(raw) : null;
-      const id = String(parsed?.id || '').trim();
-      const mobile = String(parsed?.mobile || '').trim();
-      const ids = [id, mobile].filter(Boolean);
-      return [...new Set(ids)];
+      return getCandidateMatchKeys(parsed);
     } catch {
       return [];
     }
@@ -1448,14 +1404,12 @@ export default function CandidateDashboard() {
         const q = collection(db, 'hrs');
         const querySnapshot = await getDocs(q);
         const eventSnap = await getDocs(collection(db, 'events'));
-        const candidateIdSet = new Set((candidateIds || []).map((id) => String(id || '').trim()).filter(Boolean));
         const hrInterviewCountById = {};
         eventSnap.forEach((evDoc) => {
           const ev = evDoc.data() || {};
           const evHrId = String(ev.hrId || '').trim();
-          const evCandidateId = String(ev.candidateId || '').trim();
           if (!evHrId) return;
-          if (candidateIdSet.size > 0 && !candidateIdSet.has(evCandidateId)) return;
+          if (candidateIds.length > 0 && !slotMatchesCandidateKeys(ev, candidateIds)) return;
           hrInterviewCountById[evHrId] = (hrInterviewCountById[evHrId] || 0) + 1;
         });
         const hrsData = querySnapshot.docs.map((doc) => ({

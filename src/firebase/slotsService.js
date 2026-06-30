@@ -14,6 +14,12 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import {
+  getCandidateMatchKeys,
+  getPrimaryCandidateLinkId,
+  normalizeCandidateMobile,
+  slotMatchesCandidateKeys,
+} from '../utils/candidateIdentity';
 
 // Use the same collection as the existing app so both UIs
 // operate on the shared events data.
@@ -40,10 +46,14 @@ export function formatDateDDMMYYYY(dateVal) {
  */
 export function slotToCalendarEvent(slot) {
   const candidateId = String(slot.candidateId || '').trim();
+  const candidateMobile = normalizeCandidateMobile(
+    slot.candidateMobile || slot.mobile || candidateId,
+  );
   const extendedProps = {
     company: slot.company || slot.companyName || '',
     technology: slot.technology || '',
     candidateName: slot.candidateName || slot.name || '',
+    candidateMobile,
     status: slot.status || '',
     interviewRound: slot.round || slot.interviewRound || '',
     referredBy: slot.referredBy || slot.refereedBy || '',
@@ -61,6 +71,7 @@ export function slotToCalendarEvent(slot) {
       end: slot.endISO,
       title: title || 'Interview',
       candidateId,
+      candidateMobile,
       referredBy: slot.referredBy || slot.refereedBy || '',
       extendedProps,
     };
@@ -78,6 +89,7 @@ export function slotToCalendarEvent(slot) {
     end: end.toISOString(),
     title: title || 'Interview',
     candidateId,
+    candidateMobile,
     referredBy: slot.referredBy || slot.refereedBy || '',
     extendedProps,
   };
@@ -104,8 +116,10 @@ export function subscribeToApprovedSlots(callback) {
       const data = d.data() || {};
       const name = (data.name || '').trim();
       const referredBy = (data.referredBy || data.refereedBy || '').trim();
+      const mobile = normalizeCandidateMobile(data.mobile || data.phone);
       if (name) {
-        map[d.id] = { name, referredBy };
+        map[d.id] = { name, referredBy, mobile };
+        if (mobile) map[mobile] = { name, referredBy, mobile };
       }
     });
     candidatesCache = map;
@@ -136,7 +150,12 @@ export function subscribeToApprovedSlots(callback) {
     const allSlots = snapshot.docs.map((d) => {
       const slot = slotDocToUI(d);
       const id = (slot.candidateId || '').trim();
-      const cacheEntry = id && candidatesCache ? candidatesCache[id] : null;
+      const mobileKey = normalizeCandidateMobile(
+        slot.candidateMobile || slot.mobile || id,
+      );
+      const cacheEntry =
+        (mobileKey && candidatesCache ? candidatesCache[mobileKey] : null) ||
+        (id && candidatesCache ? candidatesCache[id] : null);
       const hrId = (slot.hrId || '').trim();
       const hrEntry = hrId && hrCache ? hrCache[hrId] : null;
 
@@ -192,35 +211,79 @@ export function subscribeToApprovedSlots(callback) {
 }
 
 /**
- * Subscribe to a candidate's own slots (any status: pending, approved, etc.).
- * Use for candidate dashboard calendar so they see their booked slots.
- * candidateIds: array of ids to match (Firestore doc ID, mobile, or Firebase UID).
+ * Subscribe to a candidate's own slots (any status).
+ * Matches candidateId, candidateMobile, and legacy Firestore doc ids.
  */
-export function subscribeToCandidateSlots(candidateIds, callback) {
-  const ids = (candidateIds || []).filter(Boolean);
-  if (ids.length === 0) {
+export function subscribeToCandidateSlots(matchKeys, callback) {
+  const keys = [...new Set((matchKeys || []).map((k) => String(k || '').trim()).filter(Boolean))];
+  if (keys.length === 0) {
     callback([]);
     return () => {};
   }
 
+  const mobile = keys.map(normalizeCandidateMobile).find((m) => /^[6-9]\d{9}$/.test(m)) || '';
   const slotsRef = collection(db, SLOTS_COLLECTION);
-  const q =
-    ids.length === 1
-      ? query(slotsRef, where('candidateId', '==', ids[0]))
-      : query(slotsRef, where('candidateId', 'in', ids));
+  const latestSnaps = {};
 
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const slots = snapshot.docs.map((d) => slotDocToUI(d));
-      const events = slots.map(slotToCalendarEvent);
-      callback(events);
-    },
-    (err) => {
-      console.error('Error subscribing to candidate slots:', err);
-      callback([]);
-    },
-  );
+  const mergeAndEmit = () => {
+    const merged = new Map();
+    Object.values(latestSnaps).forEach((snap) => {
+      snap.docs.forEach((d) => {
+        merged.set(d.id, { id: d.id, ...d.data() });
+      });
+    });
+
+    const items = [...merged.values()]
+      .filter((item) => slotMatchesCandidateKeys(item, keys))
+      .sort((a, b) => {
+        const aTime = a.createdAt?.toMillis
+          ? a.createdAt.toMillis()
+          : a.createdAt
+            ? new Date(a.createdAt).getTime()
+            : 0;
+        const bTime = b.createdAt?.toMillis
+          ? b.createdAt.toMillis()
+          : b.createdAt
+            ? new Date(b.createdAt).getTime()
+            : 0;
+        return bTime - aTime;
+      });
+
+    callback(items);
+  };
+
+  const unsubs = [];
+  const attach = (q, key) => {
+    unsubs.push(
+      onSnapshot(
+        q,
+        (snapshot) => {
+          latestSnaps[key] = snapshot;
+          mergeAndEmit();
+        },
+        (err) => {
+          console.error('Error subscribing to candidate slots:', err);
+          callback([]);
+        },
+      ),
+    );
+  };
+
+  if (keys.length <= 10) {
+    const q =
+      keys.length === 1
+        ? query(slotsRef, where('candidateId', '==', keys[0]))
+        : query(slotsRef, where('candidateId', 'in', keys));
+    attach(q, 'candidateId');
+  }
+
+  if (mobile) {
+    attach(query(slotsRef, where('candidateMobile', '==', mobile)), 'candidateMobile');
+  }
+
+  return () => {
+    unsubs.forEach((unsub) => unsub());
+  };
 }
 
 /**
@@ -419,6 +482,11 @@ function slotDocToUI(docSnapshot) {
     id,
     firestoreId: id,
     candidateId: data.candidateId || '',
+    candidateMobile:
+      normalizeCandidateMobile(data.candidateMobile || data.mobile || '') ||
+      (/^[6-9]\d{9}$/.test(normalizeCandidateMobile(data.candidateId))
+        ? normalizeCandidateMobile(data.candidateId)
+        : ''),
     candidateName: data.candidateName || '',
     hrId: data.hrId || '',
     hrName: data.hrName || '',
@@ -638,6 +706,7 @@ export async function createSlot(slotData) {
   try {
     const {
       candidateId,
+      candidateMobile,
       candidateName,
       hrId,
       hrName,
@@ -661,8 +730,13 @@ export async function createSlot(slotData) {
     }
 
     const slotRef = collection(db, SLOTS_COLLECTION);
+    const normalizedMobile = normalizeCandidateMobile(candidateMobile || candidateId);
     const newSlot = {
-      candidateId: candidateId || '',
+      candidateId: getPrimaryCandidateLinkId({
+        mobile: normalizedMobile,
+        firestoreId: candidateId,
+      }),
+      candidateMobile: normalizedMobile,
       candidateName: candidateName || '',
       hrId: hrId || '',
       hrName: hrName || '',
@@ -867,4 +941,52 @@ export async function addLeave(dateStr, dateLabel) {
  */
 export async function deleteLeave(id) {
   await deleteDoc(doc(db, LEAVES_COLLECTION, id));
+}
+
+/**
+ * Update display-only candidateName on events linked to a candidate (by mobile / legacy ids).
+ */
+export async function syncCandidateDisplayNameOnEvents({
+  mobile,
+  firestoreId,
+  candidateName,
+} = {}) {
+  const trimmedName = String(candidateName || '').trim();
+  const matchKeys = getCandidateMatchKeys({ mobile, id: firestoreId, firestoreId });
+  if (!trimmedName || matchKeys.length === 0) return;
+
+  const slotsRef = collection(db, SLOTS_COLLECTION);
+  const seen = new Set();
+  const updates = [];
+
+  const collectDocs = (snap) => {
+    snap.docs.forEach((docSnap) => {
+      if (seen.has(docSnap.id)) return;
+      seen.add(docSnap.id);
+      updates.push(
+        updateDoc(doc(db, SLOTS_COLLECTION, docSnap.id), {
+          candidateName: trimmedName,
+        }),
+      );
+    });
+  };
+
+  const normalizedMobile = normalizeCandidateMobile(mobile);
+  if (normalizedMobile) {
+    const mobileSnap = await getDocs(
+      query(slotsRef, where('candidateMobile', '==', normalizedMobile)),
+    );
+    collectDocs(mobileSnap);
+  }
+
+  if (matchKeys.length <= 10) {
+    const idSnap = await getDocs(
+      matchKeys.length === 1
+        ? query(slotsRef, where('candidateId', '==', matchKeys[0]))
+        : query(slotsRef, where('candidateId', 'in', matchKeys)),
+    );
+    collectDocs(idSnap);
+  }
+
+  await Promise.all(updates);
 }

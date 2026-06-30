@@ -4,6 +4,10 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
 import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY } from '../firebase/slotsService';
+import {
+  getPrimaryCandidateLinkId,
+  normalizeCandidateMobile,
+} from '../utils/candidateIdentity';
 
 function normaliseKey(value) {
   return String(value || '').trim().toLowerCase();
@@ -491,21 +495,25 @@ export default function BookSlot({
       return;
     }
 
-    // Determine candidate identity from current sb_user session only
-    // Events will store candidateId as either Firestore doc id or mobile
-    let candidateId = '';
+    // Link slots by mobile; candidateName is display-only.
+    let candidateMobile = '';
+    let candidateFirestoreId = '';
     let candidateName = 'Candidate';
     try {
       const raw = sessionStorage.getItem('sb_user');
       const parsed = raw ? JSON.parse(raw) : null;
-      const firestoreId = String(parsed?.id || '').trim();
-      const mobile = String(parsed?.mobile || '').trim();
+      candidateFirestoreId = String(parsed?.id || '').trim();
+      candidateMobile = normalizeCandidateMobile(parsed?.mobile);
       const name = (parsed?.name || '').trim();
-      candidateId = firestoreId || mobile;
       if (name) candidateName = name;
     } catch {
       // ignore sessionStorage errors
     }
+
+    const candidateId = getPrimaryCandidateLinkId({
+      mobile: candidateMobile,
+      firestoreId: candidateFirestoreId,
+    });
 
     if (!candidateId) {
       // eslint-disable-next-line no-alert
@@ -541,6 +549,7 @@ export default function BookSlot({
       feedback: '',
       createdAt: new Date().toISOString(),
       candidateId,
+      candidateMobile,
       isApproved: false,
       hrId: hr.id || '',
       // Extra fields are safe for the existing app to ignore
