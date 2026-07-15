@@ -350,11 +350,11 @@ function SlotCalendar({
                               <div className="text-[10px] sm:text-[14px] font-semibold">
                                 {mainLabel}
                               </div>
-                              {timeLabel && (
+                              {/* {timeLabel && (
                                 <div className="text-[10px] sm:text-[14px] opacity-80">
                                   {timeLabel}
                                 </div>
-                              )}
+                              )} */}
                               {eventCount > 1 && idx < eventCount - 1 && (
                                 <div className="absolute left-0 right-0 bottom-0 h-px bg-slate-300" />
                               )}
