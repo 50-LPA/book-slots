@@ -205,7 +205,7 @@ const Calender = () => {
                       initialView="timeGridWeek"
                       expandRows
                       nowIndicator
-                      slotMinTime="11:00:00"
+                      slotMinTime="12:00:00"
                       slotMaxTime="20:00:00"
                       hiddenDays={[0, 6]}
                       headerToolbar={{

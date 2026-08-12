@@ -41,6 +41,110 @@ export function formatDateDDMMYYYY(dateVal) {
 }
 
 /**
+ * Returns slot end Date object based on end ISO, start ISO + duration, or date + time + duration.
+ */
+export function getSlotEndTime(slot) {
+  if (!slot) return null;
+
+  if (slot.end) {
+    const endVal = slot.end?.toDate ? slot.end.toDate() : new Date(slot.end);
+    if (!Number.isNaN(endVal.getTime())) {
+      return endVal;
+    }
+  }
+
+  let startTime = null;
+  if (slot.start) {
+    const startVal = slot.start?.toDate ? slot.start.toDate() : new Date(slot.start);
+    if (!Number.isNaN(startVal.getTime())) {
+      startTime = startVal;
+    }
+  }
+
+  const dur = parseInt(slot.duration, 10) || 30;
+
+  if (startTime) {
+    return new Date(startTime.getTime() + dur * 60000);
+  }
+
+  // Parse slot.date
+  let year = null;
+  let month = null;
+  let day = null;
+
+  if (slot.date?.toDate) {
+    const d = slot.date.toDate();
+    year = d.getFullYear();
+    month = d.getMonth();
+    day = d.getDate();
+  } else if (typeof slot.date === 'string') {
+    const trimmed = slot.date.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      const parts = trimmed.slice(0, 10).split('-').map((v) => parseInt(v, 10));
+      year = parts[0];
+      month = parts[1] - 1;
+      day = parts[2];
+    } else if (/^\d{2}[-/]\d{2}[-/]\d{4}/.test(trimmed)) {
+      const parts = trimmed.split(/[-/]/).map((v) => parseInt(v, 10));
+      day = parts[0];
+      month = parts[1] - 1;
+      year = parts[2];
+    } else {
+      const parsed = new Date(trimmed);
+      if (!Number.isNaN(parsed.getTime())) {
+        year = parsed.getFullYear();
+        month = parsed.getMonth();
+        day = parsed.getDate();
+      }
+    }
+  }
+
+  if (year == null || month == null || day == null) {
+    const now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth();
+    day = now.getDate();
+  }
+
+  let hh = null;
+  let mm = null;
+
+  if (slot.startHour != null && slot.startMinute != null) {
+    hh = parseInt(slot.startHour, 10);
+    mm = parseInt(slot.startMinute, 10);
+  } else if (slot.time) {
+    const rawTime = String(slot.time).trim();
+    const isPM = /pm/i.test(rawTime);
+    const isAM = /am/i.test(rawTime);
+    const cleanTime = rawTime.replace(/am|pm/gi, '').trim();
+    const [th, tm] = cleanTime.split(':').map((v) => parseInt(v, 10));
+    if (!Number.isNaN(th) && !Number.isNaN(tm)) {
+      hh = th;
+      mm = tm;
+      if (isPM && hh < 12) hh += 12;
+      if (isAM && hh === 12) hh = 0;
+    }
+  }
+
+  if (hh == null || mm == null) {
+    hh = 23;
+    mm = 59;
+  }
+
+  const base = new Date(year, month, day, hh, mm, 0, 0);
+  return new Date(base.getTime() + dur * 60000);
+}
+
+/**
+ * Returns true if the slot end time is in the past.
+ */
+export function isSlotPast(slot) {
+  const endTime = getSlotEndTime(slot);
+  if (!endTime) return false;
+  return endTime.getTime() <= Date.now();
+}
+
+/**
  * Convert an approved slot to calendar event format for SlotCalendar.
  * Expects slot with: date (Date), startHour, startMinute, duration, candidateName, company.
  */

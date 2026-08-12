@@ -18,7 +18,7 @@ import BookSlot from './BookSlot';
 import WeekCalendar from '../Components/WeekCalendar';
 import PlacedCandidatesMarquee from '../Components/PlacedCandidatesMarquee';
 import { db } from '../firebase/firebase';
-import { formatDateDDMMYYYY, subscribeToCandidateSlots } from '../firebase/slotsService';
+import { formatDateDDMMYYYY, subscribeToCandidateSlots, isSlotPast } from '../firebase/slotsService';
 import { checkHrDuplicates } from '../firebase/hrService';
 import {
   getCandidateMatchKeys,
@@ -162,6 +162,250 @@ function getInitials(name) {
   const first = parts[0]?.[0] || '';
   const last = parts.length > 1 ? parts[parts.length - 1]?.[0] : '';
   return (first + last).toUpperCase() || 'C';
+}
+
+
+
+function formatSlotTimeRange(slot) {
+  if (!slot) return '';
+  let startLabel = '';
+  let endLabel = '';
+  const dur = parseInt(slot.duration, 10) || 30;
+
+  if (slot.start && slot.end) {
+    const sDate = slot.start?.toDate ? slot.start.toDate() : new Date(slot.start);
+    const eDate = slot.end?.toDate ? slot.end.toDate() : new Date(slot.end);
+    if (!Number.isNaN(sDate.getTime()) && !Number.isNaN(eDate.getTime())) {
+      startLabel = sDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      endLabel = eDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+  }
+  if (!startLabel) {
+    let sh = slot.startHour;
+    let sm = slot.startMinute;
+    if (sh == null && slot.time) {
+      const [h, m] = String(slot.time).split(':').map((v) => parseInt(v, 10));
+      sh = h;
+      sm = m;
+    }
+    if (sh != null) {
+      const sDate = new Date();
+      sDate.setHours(sh, sm || 0, 0, 0);
+      const eDate = new Date(sDate.getTime() + dur * 60000);
+      startLabel = sDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      endLabel = eDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+  }
+  return startLabel && endLabel ? `${startLabel} - ${endLabel} (${dur} mins)` : '';
+}
+
+function FeedbackRequiredModal({
+  isOpen,
+  onClose,
+  pendingSlots = [],
+  onFeedbackSubmitted,
+}) {
+  const [selectedSlotId, setSelectedSlotId] = useState(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (pendingSlots.length > 0) {
+      const current = pendingSlots.find((s) => s.id === selectedSlotId);
+      if (!current) {
+        const pastSlot = pendingSlots.find((s) => isSlotPast(s));
+        setSelectedSlotId(pastSlot ? pastSlot.id : pendingSlots[0].id);
+        setFeedbackText('');
+      }
+    } else {
+      setSelectedSlotId(null);
+      setFeedbackText('');
+    }
+    setError('');
+  }, [pendingSlots, selectedSlotId]);
+
+  if (!isOpen || pendingSlots.length === 0) return null;
+
+  const currentSlot = pendingSlots.find((s) => s.id === selectedSlotId) || pendingSlots[0];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!currentSlot?.id) return;
+    if (!feedbackText.trim()) {
+      setError('Please enter your interview feedback before submitting.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError('');
+      const ref = doc(db, 'events', currentSlot.id);
+      await updateDoc(ref, {
+        feedback: feedbackText.trim(),
+        updatedAt: serverTimestamp(),
+      });
+      setFeedbackText('');
+      if (typeof onFeedbackSubmitted === 'function') {
+        onFeedbackSubmitted(currentSlot.id);
+      }
+    } catch (err) {
+      console.error('Failed to submit feedback:', err);
+      setError('Failed to save feedback. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="relative w-full max-w-lg rounded-2xl bg-white p-5 sm:p-6 shadow-2xl border border-slate-200">
+        {/* Header with Lock icon & warning */}
+        <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
+              <i className="fa-solid fa-lock text-lg" aria-hidden="true" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                {isSlotPast(currentSlot) ? 'Feedback Required First' : 'Active Slot in Progress'}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {isSlotPast(currentSlot)
+                  ? 'Please fill the feedback of completed slot to unlock booking.'
+                  : 'You have an active slot. Feedback unlocks after the interview ends.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 rounded-full p-1 transition"
+            aria-label="Close"
+          >
+            <i className="fa-solid fa-xmark text-base" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Slot details card */}
+        <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs sm:text-sm text-slate-700">
+          {pendingSlots.length > 1 && (
+            <div className="mb-2 pb-2 border-b border-slate-200 flex items-center justify-between gap-2 flex-wrap">
+              <span className="font-semibold text-amber-700">
+                {pendingSlots.length} slot(s) awaiting feedback
+              </span>
+              <select
+                value={currentSlot?.id}
+                onChange={(e) => {
+                  setSelectedSlotId(e.target.value);
+                  setFeedbackText('');
+                  setError('');
+                }}
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 max-w-[200px] truncate"
+              >
+                {pendingSlots.map((s, idx) => (
+                  <option key={s.id} value={s.id}>
+                    Slot #{idx + 1}: {s.company || s.companyName || 'Company'} ({formatDateDDMMYYYY(s.date)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-slate-500 block text-[11px]">Company</span>
+              <span className="font-semibold text-slate-800 truncate block">
+                {currentSlot?.company || currentSlot?.companyName || '-'}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[11px]">Round</span>
+              <span className="font-semibold text-slate-800 truncate block">
+                {normaliseRoundLabel(currentSlot?.round || currentSlot?.interviewRound) || '-'}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[11px]">Date</span>
+              <span className="font-semibold text-slate-800">
+                {formatDateDDMMYYYY(currentSlot?.date)}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[11px]">Time</span>
+              <span className="font-semibold text-slate-800">
+                {formatSlotTimeRange(currentSlot) || '-'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {isSlotPast(currentSlot) ? (
+          /* Feedback Input Form when slot time has passed */
+          <form onSubmit={handleSubmit} className="mt-4">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Your Interview Feedback <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              rows={4}
+              value={feedbackText}
+              onChange={(e) => {
+                setFeedbackText(e.target.value);
+                if (error) setError('');
+              }}
+              placeholder="Write what questions were asked, interview difficulty, topics covered, or your feedback..."
+              className="w-full rounded-lg border border-slate-300 p-2.5 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+
+            {error && <p className="mt-1 text-xs text-red-600 font-medium">{error}</p>}
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={submitting}
+                className="rounded-full px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || !feedbackText.trim()}
+                className="inline-flex items-center gap-1.5 rounded-full bg-purple-600 px-5 py-2 text-xs font-semibold text-white shadow hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <i className="fa-solid fa-check text-xs" aria-hidden="true" />
+                {submitting ? 'Saving Feedback...' : 'Save Feedback & Unlock'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          /* Notice when slot time has NOT passed yet */
+          <div className="mt-4">
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-center">
+              <div className="w-8 h-8 mx-auto mb-1.5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
+                <i className="fa-solid fa-clock text-sm" aria-hidden="true" />
+              </div>
+              <h4 className="text-xs sm:text-sm font-semibold text-amber-900">
+                Interview Not Completed Yet
+              </h4>
+              <p className="mt-1 text-[11px] sm:text-xs text-amber-700 leading-relaxed">
+                You cannot create multiple slots simultaneously without giving feedback for your existing slot. Feedback will unlock automatically after the interview time ends.
+              </p>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full bg-slate-800 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-900"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // Header Component with mobile sidebar nav (like Admin)
@@ -333,7 +577,7 @@ function Header({ userName, onLogout, activeNav, onChangeNav, onDownloadForm, on
 }
 
 // Candidate calendar area: other slots show "Slot Booked" + blue; own slots show name + referrer color
-function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] }) {
+function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [], hasPendingFeedback = false }) {
   const headerDate = new Date();
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [calendarSelectedEvent, setCalendarSelectedEvent] = useState(null);
@@ -383,10 +627,15 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
               <button
                 type="button"
                 onClick={onOpenBookSlot}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
+                title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Create Slot'}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${
+                  hasPendingFeedback
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
               >
-                <i className="fa-regular fa-square-plus w-3 h-3" aria-hidden="true" />
-                <span>Create Slot</span>
+                <i className={`${hasPendingFeedback ? 'fa-solid fa-lock' : 'fa-regular fa-square-plus'} w-3 h-3`} aria-hidden="true" />
+                <span>{hasPendingFeedback ? 'Create Slot (Locked)' : 'Create Slot'}</span>
               </button>
             </div>
 
@@ -431,10 +680,15 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
               <button
                 type="button"
                 onClick={onOpenBookSlot}
-                className="inline-flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
+                title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Create Slot'}
+                className={`inline-flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap ${
+                  hasPendingFeedback
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
               >
-                <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
-                <span>Create Slot</span>
+                <i className={`${hasPendingFeedback ? 'fa-solid fa-lock' : 'fa-regular fa-square-plus'} w-3 h-3 sm:w-4 sm:h-4`} aria-hidden="true" />
+                <span>{hasPendingFeedback ? 'Create Slot (Locked)' : 'Create Slot'}</span>
               </button>
 
             </div>
@@ -615,7 +869,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [] 
 }
 
 // My Slots Component - shows user's booked slots
-function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
+function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback = false }) {
   // We derive identity from sessionStorage (sb_user) only,
   // so switching candidates via login immediately changes the query.
   const [slots, setSlots] = useState([]);
@@ -706,46 +960,6 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
     return `${startLabel} - ${endLabel} (${durLabel})`;
   };
 
-  const getSlotEndTime = (slot) => {
-    // Determine end time from slot.end or from date + time + duration
-    let endTime = null;
-    if (slot.end) {
-      const endVal = slot.end?.toDate ? slot.end.toDate() : new Date(slot.end);
-      if (!Number.isNaN(endVal.getTime())) {
-        endTime = endVal;
-      }
-    }
-    if (!endTime) {
-      const dateBase =
-        slot.date?.toDate ? slot.date.toDate() : slot.date ? new Date(slot.date) : new Date();
-      let hh = null;
-      let mm = null;
-      if (slot.startHour != null && slot.startMinute != null) {
-        hh = parseInt(slot.startHour, 10);
-        mm = parseInt(slot.startMinute, 10);
-      } else if (slot.time) {
-        const [th, tm] = String(slot.time).split(':').map((v) => parseInt(v, 10));
-        if (!Number.isNaN(th) && !Number.isNaN(tm)) {
-          hh = th;
-          mm = tm;
-        }
-      }
-      const dur = parseInt(slot.duration, 10) || 30;
-      if (hh != null && mm != null) {
-        const start = new Date(dateBase);
-        start.setHours(hh, mm, 0, 0);
-        endTime = new Date(start.getTime() + dur * 60000);
-      }
-    }
-    return endTime;
-  };
-
-  const isSlotPast = (slot) => {
-    const endTime = getSlotEndTime(slot);
-    if (!endTime) return false;
-    return endTime.getTime() <= Date.now();
-  };
-
   const [confirmDeleteSlotId, setConfirmDeleteSlotId] = useState(null);
   const [confirmDeleteSlotLabel, setConfirmDeleteSlotLabel] = useState('');
 
@@ -792,15 +1006,20 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
           </button>
         </div>
 
-        {/* Right: Book New Slot button (always enabled) */}
+        {/* Right: Book New Slot button */}
         <div className="flex items-center">
           <button
             type="button"
             onClick={onBookNewSlot}
-            className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold shadow whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
+            title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Create Slot'}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold shadow whitespace-nowrap ${
+              hasPendingFeedback
+                ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
           >
-            <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
-            <span>Create Slot</span>
+            <i className={`${hasPendingFeedback ? 'fa-solid fa-lock' : 'fa-regular fa-square-plus'} w-3 h-3 sm:w-4 sm:h-4`} aria-hidden="true" />
+            <span>{hasPendingFeedback ? 'Create Slot (Locked)' : 'Create Slot'}</span>
           </button>
         </div>
       </div>
@@ -989,6 +1208,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
                             <button
                               type="button"
                               disabled
+                              title="Feedback can only be submitted after the slot time has passed"
                               className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-400 bg-slate-50 cursor-not-allowed"
                             >
                               <i className="fa-solid fa-lock text-[10px]" aria-hidden="true" />
@@ -1003,7 +1223,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [] }) {
                               setFeedbackSlot(slot);
                               setFeedbackText('');
                             }}
-                            className="inline-flex items-center gap-1 rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold text-slate-700 bg-white hover:bg-slate-50"
+                            className="inline-flex items-center gap-1 rounded-full border border-amber-300 px-3 py-1 text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100"
                           >
                             <i className="fa-solid fa-comment-dots text-xs" aria-hidden="true" />
                             Add Feedback
@@ -1365,6 +1585,40 @@ export default function CandidateDashboard() {
     }
   })();
 
+  const [showFeedbackRequiredModal, setShowFeedbackRequiredModal] = useState(false);
+  const [candidateSlots, setCandidateSlots] = useState([]);
+  const candidateIdsKey = candidateIds.join(',');
+
+  // Subscribe to candidate slots in real-time to track feedback lock status
+  useEffect(() => {
+    if (candidateIds.length === 0) return undefined;
+    const unsub = subscribeToCandidateSlots(candidateIds, setCandidateSlots);
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidateIdsKey]);
+
+  // Compute pending feedback slots: any existing slot (latest/last slot) that is not rejected and has no feedback
+  const pendingFeedbackSlots = useMemo(() => {
+    return candidateSlots.filter((slot) => {
+      const hasFeedback = Boolean(slot.feedback && String(slot.feedback).trim());
+      const isRejected = String(slot.status || '').trim().toLowerCase() === 'rejected';
+      return !isRejected && !hasFeedback;
+    });
+  }, [candidateSlots]);
+
+  // Candidate can book 1 slot without giving feedback for the last slot;
+  // after that (> 1 un-feedbacked slots), lock the "Create Slot" button.
+  const hasPendingFeedback = pendingFeedbackSlots.length > 1;
+
+  const handleOpenBookSlot = () => {
+    if (hasPendingFeedback) {
+      setShowFeedbackRequiredModal(true);
+      return;
+    }
+    setShowBookSlot(true);
+    setActiveNav('slots');
+  };
+
   // Auth guard: redirect if not candidate. Send admins to their dashboard (so back button works correctly)
   useEffect(() => {
     try {
@@ -1542,6 +1796,10 @@ export default function CandidateDashboard() {
     const hrId = String(existingHr?.id || '').trim();
     if (!hrId) return;
     setShowAddHR(false);
+    if (hasPendingFeedback) {
+      setShowFeedbackRequiredModal(true);
+      return;
+    }
     setShowBookSlot(true);
     setActiveNav('slots');
     setBookSlotSelectHrId(hrId);
@@ -1782,9 +2040,10 @@ export default function CandidateDashboard() {
           />
         ) : activeNav === 'slots' ? (
           <MySlots
-            onBookNewSlot={() => setShowBookSlot(true)}
+            onBookNewSlot={handleOpenBookSlot}
             onBackToHome={() => setActiveNav('home')}
             hrList={hrList}
+            hasPendingFeedback={hasPendingFeedback}
           />
         ) : activeNav === 'hrs' ? (
           <CandidateHrsList
@@ -1803,15 +2062,12 @@ export default function CandidateDashboard() {
               setActiveNav('hrs');
               setShowAddHR(true);
             }}
-            onOpenBookSlot={() => {
-              setShowBookSlot(true);
-              setActiveNav('slots');
-            }}
+            onOpenBookSlot={handleOpenBookSlot}
+            hasPendingFeedback={hasPendingFeedback}
           />
         )}
       </main>
 
-      {/* Add New HR modal (opens only when showAddHR=true) */}
       <AddHRModal
         isOpen={showAddHR}
         onClose={() => {
@@ -1823,6 +2079,13 @@ export default function CandidateDashboard() {
         onAdd={handleAddHR}
         onUseExistingHR={showBookSlot ? handleUseExistingHrOnBookSlot : null}
         technologyOptions={candidateTechnologies}
+      />
+      
+      <FeedbackRequiredModal
+        isOpen={showFeedbackRequiredModal}
+        onClose={() => setShowFeedbackRequiredModal(false)}
+        pendingSlots={pendingFeedbackSlots}
+        onFeedbackSubmitted={() => setShowFeedbackRequiredModal(false)}
       />
     </div>
   );

@@ -2,8 +2,8 @@ import React, { useMemo } from 'react';
 import { getWeekDays, parseISOToDate, formatDayHeader } from '../calendar';
 import { slotMatchesCandidateKeys } from '../utils/candidateIdentity';
 
-// Time slots from 11:00 AM to 7:00 PM (inclusive)
-const HOURS = [11, 12, 13, 14, 15, 16, 17, 18, 19];
+// Time slots from 12:00 PM to 7:00 PM (inclusive)
+const HOURS = [12, 13, 14, 15, 16, 17, 18, 19];
 
 function hourLabel(hour24) {
   const isPM = hour24 >= 12;

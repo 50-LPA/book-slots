@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
 import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY } from '../firebase/slotsService';
 import {
   getPrimaryCandidateLinkId,
   normalizeCandidateMobile,
+  getCandidateMatchKeys,
+  slotMatchesCandidateKeys,
 } from '../utils/candidateIdentity';
 
 function normaliseKey(value) {
@@ -29,11 +31,11 @@ const MEETING_DURATION_OPTIONS = [
   { value: '180', label: '3 hours' },
 ];
 
-/** Mon–Fri booking window: 11 AM – 7 PM (same for Wed, Thu, Fri) */
+/** Mon–Fri booking window: 12 PM – 7 PM (same for Wed, Thu, Fri) */
 const BOOKING_TIME_WINDOW = {
-  min: '11:00',
+  min: '12:00',
   max: '19:00',
-  hint: 'Book slots between 11 AM to 7 PM',
+  hint: 'Book slots between 12 PM to 7 PM',
 };
 
 function getBookingTimeWindow() {
@@ -521,6 +523,32 @@ export default function BookSlot({
       return;
     }
 
+    try {
+      const matchKeys = getCandidateMatchKeys({
+        mobile: candidateMobile,
+        id: candidateFirestoreId,
+      });
+      const eventsSnap = await getDocs(collection(db, 'events'));
+      const unfeedbackedSlots = eventsSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((s) => {
+          const matches = slotMatchesCandidateKeys(s, matchKeys);
+          const isRejected = String(s.status || '').trim().toLowerCase() === 'rejected';
+          const hasFeedback = Boolean(s.feedback && String(s.feedback).trim());
+          return matches && !isRejected && !hasFeedback;
+        });
+
+      if (unfeedbackedSlots.length > 1) {
+        // eslint-disable-next-line no-alert
+        alert('You already have multiple slots without feedback. Please submit feedback for your previous interview slot first before booking another slot.');
+        if (onClose) onClose();
+        return;
+      }
+    } catch (checkErr) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not verify existing feedback:', checkErr);
+    }
+
     const hr = selectedHR || {};
     const company = hr.company || '';
     const technology = hr.technology || '';
@@ -586,7 +614,7 @@ export default function BookSlot({
         if (!form.minute) e.minute = 'Minute is required';
         if (form.date && form.hour && form.minute) {
           if (!isStartTimeInBookingWindow(form.hour, form.minute, form.date)) {
-            e.time = 'Time must be between 11:00 AM and 7:00 PM.';
+            e.time = 'Time must be between 12:00 PM and 7:00 PM.';
           } else if (
             form.duration &&
             !isMeetingEndWithinBookingWindow(

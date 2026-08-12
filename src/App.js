@@ -3,13 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import './index.css';
 import { AuthProvider } from './context/AuthContext';
 
-const Login = React.lazy(() => import(/* webpackChunkName: "auth" */ './pages/Login'));
-const Register = React.lazy(() => import(/* webpackChunkName: "auth" */ './pages/Register'));
-const AdminRouteGuard = React.lazy(() => import(/* webpackChunkName: "dashboards" */ './Components/AdminRouteGuard'));
-const CandidateRouteGuard = React.lazy(() => import(/* webpackChunkName: "dashboards" */ './Components/CandidateRouteGuard'));
-const CalendarPage = React.lazy(() => import(/* webpackChunkName: "calendar" */ './pages/CalendarPage'));
-const Calender = React.lazy(() => import(/* webpackChunkName: "calendar" */ './pages/Calender'));
-const CandidateProfileEdit = React.lazy(() => import(/* webpackChunkName: "dashboards" */ './pages/CandidateProfileEdit'));
+const Login = React.lazy(() => import(/* webpackChunkName: "routes" */ './pages/Login'));
+const Register = React.lazy(() => import(/* webpackChunkName: "routes" */ './pages/Register'));
+const AdminRouteGuard = React.lazy(() => import(/* webpackChunkName: "routes" */ './Components/AdminRouteGuard'));
+const CandidateRouteGuard = React.lazy(() => import(/* webpackChunkName: "routes" */ './Components/CandidateRouteGuard'));
+const CalendarPage = React.lazy(() => import(/* webpackChunkName: "routes" */ './pages/CalendarPage'));
+const Calender = React.lazy(() => import(/* webpackChunkName: "routes" */ './pages/Calender'));
 
 // When a logged-in user lands on "/", send them to the correct dashboard
 function RootRoute() {

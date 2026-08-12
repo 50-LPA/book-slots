@@ -117,8 +117,9 @@ export default function AddHRModal({
     const mobile = String(form.mobile || '').trim();
 
     if (!name) e.name = 'HR name is required.';
-    if (!email) e.email = 'Email is required.';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Please enter a valid email.';
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      e.email = 'Please enter a valid email.';
+    }
     if (!jobType) e.jobType = 'Job type is required.';
     if (!company) e.company = 'Company name is required.';
     if (!technology) e.technology = 'Technology is required.';
@@ -271,9 +272,7 @@ export default function AddHRModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700">
-                  <span className="text-red-500">*</span> Email
-                </label>
+                <label className="block text-xs font-semibold text-gray-700">Email</label>
                 <input
                   type="text"
                   name="email"
