@@ -25,6 +25,7 @@ import {
   normalizeCandidateMobile,
   slotMatchesCandidateKeys,
 } from '../utils/candidateIdentity';
+import { isCandidateInterviewOlderThanTwoWeeks } from '../utils/candidateStatus';
 import { parseISOToDate } from '../calendar';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
 import { CandidateProfileEditForm } from '../pages/CandidateProfileEdit';
@@ -408,8 +409,15 @@ function FeedbackRequiredModal({
   );
 }
 
-// Header Component with mobile sidebar nav (like Admin)
-function Header({ userName, onLogout, activeNav, onChangeNav, onDownloadForm, onEditProfile }) {
+function Header({
+  userName,
+  onLogout,
+  activeNav,
+  onChangeNav,
+  onDownloadForm,
+  onEditProfile,
+  totalSlotsCount = 0,
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const initials = useMemo(() => getInitials(userName), [userName]);
@@ -431,36 +439,45 @@ function Header({ userName, onLogout, activeNav, onChangeNav, onDownloadForm, on
     <>
       <div className="bg-blue-100 px-2 sm:px-4 md:px-8 py-2 sm:py-3 md:py-4 flex items-center justify-between gap-2 sm:gap-3 relative">
         {/* Left Section: hamburger + title */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 max-w-[30%] sm:max-w-none">
           <button
             type="button"
             onClick={() => setNavOpen((open) => !open)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/70 text-slate-700 hover:bg-blue-200 shadow-sm md:hidden"
+            className="inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-white/70 text-slate-700 hover:bg-blue-200 shadow-sm md:hidden flex-shrink-0"
             aria-label="Toggle navigation"
           >
-            <i className="fa-solid fa-bars w-4 h-4" aria-hidden="true" />
+            <i className="fa-solid fa-bars w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
           </button>
-          <h1 className="text-sm sm:text-base md:text-xl font-bold text-gray-900 truncate">
+          <h1 className="text-xs sm:text-base md:text-xl font-bold text-gray-900 truncate">
             Slot Booking
           </h1>
         </div>
 
-                <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
+        {/* Center Section: Total Slots Summary Card (visible on mobile and desktop) */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center justify-center pointer-events-none z-10">
+          <div className="flex flex-col items-center justify-center bg-white/95 border border-blue-200/90 rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-0.5 sm:py-1 shadow-sm min-w-[68px] sm:min-w-[90px]">
+            <span className="text-xs sm:text-base font-bold text-slate-800 leading-tight">
+              {totalSlotsCount}
+            </span>
+            <span className="text-[9px] sm:text-[11px] text-slate-500 font-medium whitespace-nowrap">
+              Total Slots
+            </span>
+          </div>
         </div>
 
         {/* Right Section: user info */}
-        <div className="relative flex items-center gap-2 sm:gap-3 md:gap-4 ml-auto">
+        <div className="relative flex items-center gap-1.5 sm:gap-3 md:gap-4 ml-auto max-w-[32%] sm:max-w-none">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-2 focus:outline-none"
+            className="flex items-center gap-1.5 sm:gap-2 focus:outline-none"
           >
             {/* Mobile: show name + role beside avatar, like desktop */}
-            <div className="flex flex-col items-end sm:hidden">
-              <p className="font-semibold text-[11px] text-gray-900 max-w-[120px] truncate">
+            <div className="flex flex-col items-end sm:hidden min-w-0">
+              <p className="font-semibold text-[10px] text-gray-900 max-w-[65px] truncate">
                 {userName || 'Candidate'}
               </p>
-              <p className="text-[10px] text-gray-500">Candidate</p>
+              <p className="text-[9px] text-gray-500">Candidate</p>
             </div>
             {/* Desktop / tablet: existing name + role */}
             <div className="text-right hidden sm:block">
@@ -469,8 +486,8 @@ function Header({ userName, onLogout, activeNav, onChangeNav, onDownloadForm, on
               </p>
               <p className="text-[10px] sm:text-xs text-gray-500">Candidate</p>
             </div>
-            <div className="w-8 sm:w-9 md:w-10 h-8 sm:h-9 md:h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs sm:text-sm md:text-base font-semibold text-white">
+            <div className="w-7 h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-[11px] sm:text-sm md:text-base font-semibold text-white">
                 {initials}
               </span>
             </div>
@@ -540,6 +557,15 @@ function Header({ userName, onLogout, activeNav, onChangeNav, onDownloadForm, on
               </button>
             </div>
             <nav className="flex flex-col gap-1 px-2 py-3">
+              {/* Total Slots summary card in mobile drawer */}
+              <div className="mx-1 mb-2 p-2.5 rounded-lg bg-slate-800/80 border border-slate-700 flex flex-col items-center justify-center">
+                <span className="text-base font-bold text-blue-400 leading-tight">
+                  {totalSlotsCount}
+                </span>
+                <span className="text-[11px] text-slate-300 font-medium whitespace-nowrap">
+                  Total Slots
+                </span>
+              </div>
               {navItems.map((item) => (
                 <button
                   key={item.id}
@@ -1597,6 +1623,11 @@ export default function CandidateDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateIdsKey]);
 
+  // Check if candidate account is inactive due to last interview > 2 weeks ago
+  const isCandidateInactive = useMemo(() => {
+    return isCandidateInterviewOlderThanTwoWeeks(candidateSlots, candidateIds);
+  }, [candidateSlots, candidateIds]);
+
   // Compute pending feedback slots: any existing slot (latest/last slot) that is not rejected and has no feedback
   const pendingFeedbackSlots = useMemo(() => {
     return candidateSlots.filter((slot) => {
@@ -1611,6 +1642,10 @@ export default function CandidateDashboard() {
   const hasPendingFeedback = pendingFeedbackSlots.length > 1;
 
   const handleOpenBookSlot = () => {
+    if (isCandidateInactive) {
+      alert('Your account is currently inactive because your last interview was more than two weeks ago. Please contact the administrator.');
+      return;
+    }
     if (hasPendingFeedback) {
       setShowFeedbackRequiredModal(true);
       return;
@@ -1988,6 +2023,7 @@ export default function CandidateDashboard() {
         userName={userName}
         activeNav={activeNav}
         onChangeNav={handleNavClick}
+        totalSlotsCount={candidateSlots.length}
         onEditProfile={() => setActiveNav('profile')}
         onDownloadForm={() =>
           downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')

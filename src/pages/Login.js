@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
+import {
+  fetchCandidateEventsFromFirestore,
+  isCandidateInterviewOlderThanTwoWeeks,
+} from '../utils/candidateStatus';
 
 export default function Login() {
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -98,7 +102,24 @@ export default function Login() {
         return;
       }
 
-      if (candidateData.isActive === false) {
+      // Check if candidate's last interview was more than 2 weeks ago
+      const candidateInfo = {
+        id: candidateDoc.id,
+        firestoreId: candidateDoc.id,
+        mobile: normalizedMobile,
+        ...candidateData,
+      };
+      const candidateSlots = await fetchCandidateEventsFromFirestore(candidateInfo, db);
+      const isMoreThanTwoWeeks = isCandidateInterviewOlderThanTwoWeeks(candidateSlots, candidateInfo);
+
+      if (candidateData.isActive === false || isMoreThanTwoWeeks) {
+        if (candidateData.isActive !== false && isMoreThanTwoWeeks) {
+          try {
+            await updateDoc(doc(db, 'candidates', candidateDoc.id), { isActive: false });
+          } catch (updateErr) {
+            console.error('Failed to auto-update candidate inactive status on login:', updateErr);
+          }
+        }
         setLocalError(
           'Your account is currently inactive. Please contact the administrator.',
         );

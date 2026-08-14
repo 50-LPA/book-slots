@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
-import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY } from '../firebase/slotsService';
+import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY, slotDocToUI } from '../firebase/slotsService';
 import {
   getPrimaryCandidateLinkId,
   normalizeCandidateMobile,
   getCandidateMatchKeys,
   slotMatchesCandidateKeys,
 } from '../utils/candidateIdentity';
+import { isCandidateInterviewOlderThanTwoWeeks } from '../utils/candidateStatus';
 
 function normaliseKey(value) {
   return String(value || '').trim().toLowerCase();
@@ -538,6 +539,14 @@ export default function BookSlot({
           return matches && !isRejected && !hasFeedback;
         });
 
+      const allCandidateUiSlots = eventsSnap.docs.map((d) => slotDocToUI(d));
+      if (isCandidateInterviewOlderThanTwoWeeks(allCandidateUiSlots, matchKeys)) {
+        // eslint-disable-next-line no-alert
+        alert('Your account is currently inactive because your last interview was more than two weeks ago. Please contact the administrator.');
+        if (onClose) onClose();
+        return;
+      }
+
       if (unfeedbackedSlots.length > 1) {
         // eslint-disable-next-line no-alert
         alert('You already have multiple slots without feedback. Please submit feedback for your previous interview slot first before booking another slot.');
@@ -546,7 +555,7 @@ export default function BookSlot({
       }
     } catch (checkErr) {
       // eslint-disable-next-line no-console
-      console.warn('Could not verify existing feedback:', checkErr);
+      console.warn('Could not verify existing feedback/status:', checkErr);
     }
 
     const hr = selectedHR || {};

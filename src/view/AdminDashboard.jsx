@@ -31,8 +31,14 @@ import {
   slotMatchesCandidate,
   statsSlotCandidateKey,
 } from '../utils/candidateIdentity';
+import {
+  getLastInterviewInfo,
+  isCandidateInterviewOlderThanTwoWeeks,
+  getCandidateAccountStatus,
+} from '../utils/candidateStatus';
 import { parseISOToDate } from '../calendar';
 import WeekCalendar from '../Components/WeekCalendar';
+import ConfirmDeleteModal from '../Components/ConfirmDeleteModal';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
 import { saveAs } from 'file-saver';
 
@@ -512,42 +518,13 @@ function AdminCandidatesTable({
   onEditCandidate,
 }) {
   const getLastInterview = (candidate) => {
-    const candidateSlots = slots.filter((s) => slotMatchesCandidate(s, candidate));
-    if (candidateSlots.length === 0) return null;
-
-    const now = new Date();
-
-    // Only consider slots whose END time is in the past
-    const completedSlots = candidateSlots.filter((slot) => {
-      const baseDate =
-        slot.date instanceof Date ? slot.date : new Date(slot.date || 0);
-      const startHour = slot.startHour != null ? slot.startHour : 0;
-      const startMinute = slot.startMinute != null ? slot.startMinute : 0;
-      const durationMins =
-        slot.duration != null ? Number(slot.duration) : 30;
-
-      const start = new Date(baseDate);
-      start.setHours(startHour, startMinute, 0, 0);
-      const end = new Date(start.getTime() + durationMins * 60000);
-
-      return end <= now;
-    });
-
-    if (completedSlots.length === 0) return null;
-
-    // Latest completed slot by end time
-    const sorted = [...completedSlots].sort((a, b) => {
-      const da = a.date instanceof Date ? a.date : new Date(a.date || 0);
-      const db = b.date instanceof Date ? b.date : new Date(b.date || 0);
-      const ta = da.getTime() + ((a.startHour || 0) * 60 + (a.startMinute || 0)) * 60000;
-      const tb = db.getTime() + ((b.startHour || 0) * 60 + (b.startMinute || 0)) * 60000;
-      return tb - ta;
-    });
-
-    const last = sorted[0];
+    const info = getLastInterviewInfo(slots, candidate);
+    if (!info) return null;
     return {
-      date: last.dateExactLabel || last.dateLabel || '-',
-      time: last.timeLabel || '',
+      date: info.date,
+      time: info.time,
+      isOlderThanTwoWeeks: info.isOlderThanTwoWeeks,
+      daysAgo: info.daysAgo,
     };
   };
   const [currentPage, setCurrentPage] = useState(1);
@@ -804,16 +781,21 @@ function AdminCandidatesTable({
                   })()}
                 </td>
                 <td className="px-3 py-2 text-center border-r border-slate-200">
-                  <button
-                    onClick={() => onToggleStatus(c.id)}
-                    className={`inline-flex rounded-full px-3 py-0.5 text-[11px] font-semibold ${
-                      c.status === 'Active'
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-slate-300 text-slate-800'
-                    }`}
-                  >
-                    {c.status}
-                  </button>
+                  {(() => {
+                    const effectiveStatus = getCandidateAccountStatus(c, slots);
+                    return (
+                      <button
+                        onClick={() => onToggleStatus(c.id)}
+                        className={`inline-flex rounded-full px-3 py-0.5 text-[11px] font-semibold ${
+                          effectiveStatus === 'Active'
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-slate-300 text-slate-800'
+                        }`}
+                      >
+                        {effectiveStatus}
+                      </button>
+                    );
+                  })()}
                 </td>
                 <td className="px-3 py-2 text-center">
                   <div className="inline-flex gap-2">
@@ -961,6 +943,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
     'Data Analysts',
     'AEM',
     'Power BI',
+    'Security',
     'Other',
   ];
 
@@ -1439,6 +1422,7 @@ const EDIT_TECH_OPTIONS = [
   'Data Analysts',
   'AEM',
   'Power BI',
+  'Security',
   'Other',
 ];
 
@@ -1581,7 +1565,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         refereedBy: form.referredBy,
         referredBy: form.referredBy,
         experience: form.experience?.trim() || '',
-        isActive: true,
+        isActive: candidate?.status ? candidate.status === 'Active' : (candidate?.isActive !== false),
         isSelected: !!form.selected,
         selectedDate: form.selected ? form.selectedDate : '',
         selectedCompany: form.selected ? form.selectedCompany : '',
@@ -3839,6 +3823,48 @@ const normaliseRoundLabelAdmin = (raw) => {
     return counts;
   }, [slots]);
 
+  const getSlotBookingTime = (slot) => {
+    if (slot?.createdAt) {
+      if (typeof slot.createdAt.toDate === 'function') {
+        return slot.createdAt.toDate().getTime();
+      }
+      if (typeof slot.createdAt.toMillis === 'function') {
+        return slot.createdAt.toMillis();
+      }
+      if (slot.createdAt.seconds != null) {
+        return slot.createdAt.seconds * 1000 + (slot.createdAt.nanoseconds || 0) / 1e6;
+      }
+      const parsed = new Date(slot.createdAt).getTime();
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    if (slot?.startISO) {
+      const parsed = new Date(slot.startISO).getTime();
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    if (slot?.date) {
+      const baseDate = slot.date instanceof Date ? slot.date : new Date(slot.date);
+      const time = baseDate.getTime();
+      if (!Number.isNaN(time)) {
+        const sh = slot.startHour || 0;
+        const sm = slot.startMinute || 0;
+        return time + (sh * 60 + sm) * 60000;
+      }
+    }
+    return 0;
+  };
+
+  // Latest slots at the top (descending)
+  const sortedSlots = useMemo(() => {
+    return [...slots].sort((a, b) => getSlotBookingTime(b) - getSlotBookingTime(a));
+  }, [slots]);
+
+  // Identify the first 5 slots that were originally booked chronologically (only if candidate has at least 5 slots total)
+  const firstFiveBookedSlotKeys = useMemo(() => {
+    if (slots.length < 5) return new Set();
+    const chronological = [...slots].sort((a, b) => getSlotBookingTime(a) - getSlotBookingTime(b));
+    return new Set(chronological.slice(0, 5).map((s) => s.id || s.firestoreId || s));
+  }, [slots]);
+
   return (
     <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
       {/* Header row: back, title + reload center, referred by right */}
@@ -3958,70 +3984,80 @@ const normaliseRoundLabelAdmin = (raw) => {
         </div>
       )}
 
-      {/* Slots cards: 4-column grid on large screens */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {slots.map((slot) => {
+      {/* Slots cards: 5-column grid on large screens */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {sortedSlots.map((slot, idx) => {
           const isApproved = slot.status === 'Approved';
           const isRejected = slot.status === 'Rejected';
           const timeLabelPlain = String(slot.timeLabel || '').split('(')[0].trim();
+          const isFirstFive = firstFiveBookedSlotKeys.has(slot.id || slot.firestoreId || slot);
+          const showSeparator = (idx + 1) % 5 === 0 && idx < sortedSlots.length - 1;
 
           return (
-            <div
-              key={slot.id}
-              className="rounded-xl border border-slate-200 bg-white shadow-sm px-4 py-3 text-xs sm:text-sm text-slate-700 flex flex-col gap-1.5"
-            >
-              <div className="flex justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div>
-                    <div className="font-semibold text-slate-900">{slot.company}</div>
-                    <div className="text-[11px] text-slate-500">Company</div>
+            <React.Fragment key={slot.id || idx}>
+              <div
+                className={`rounded-xl bg-white shadow-sm px-4 py-3 text-xs sm:text-sm text-slate-700 flex flex-col gap-1.5 ${
+                  isFirstFive
+                    ? 'border-2 border-red-500'
+                    : 'border border-slate-200'
+                }`}
+              >
+                <div className="flex justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div>
+                      <div className="font-semibold text-slate-900">{slot.company}</div>
+                      <div className="text-[11px] text-slate-500">Company</div>
+                    </div>
+
+                    <div className="mt-1">
+                      <div className="text-slate-800">{slot.technology}</div>
+                      <div className="text-[11px] text-slate-500">Technology</div>
+                    </div>
+
+                    <div className="mt-1">
+                      <div className="text-slate-800">{normaliseRoundLabelAdmin(slot.round)}</div>
+                      <div className="text-[11px] text-slate-500">Round</div>
+                    </div>
                   </div>
 
-                  <div className="mt-1">
-                    <div className="text-slate-800">{slot.technology}</div>
-                    <div className="text-[11px] text-slate-500">Technology</div>
-                  </div>
-
-                  <div className="mt-1">
-                    <div className="text-slate-800">{normaliseRoundLabelAdmin(slot.round)}</div>
-                    <div className="text-[11px] text-slate-500">Round</div>
+                  <div className="flex-shrink-0 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-emerald-600 font-semibold">
+                        {isApproved
+                          ? 'Approved'
+                          : isRejected
+                          ? 'Rejected'
+                          : 'Pending'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">Status</div>
+                    <div className="mt-1">
+                      <div className="text-slate-800">
+                        {slot.dateExactLabel || slot.dateLabel}
+                      </div>
+                      <div className="text-[11px] text-slate-500">Date</div>
+                    </div>
+                    <div className="mt-1">
+                      <div className="text-slate-800">{timeLabelPlain}</div>
+                      <div className="text-[11px] text-slate-500">Time</div>
+                    </div>
                   </div>
                 </div>
-
-                <div className="flex-shrink-0 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <span className="text-emerald-600 font-semibold">
-                      {isApproved
-                        ? 'Approved'
-                        : isRejected
-                        ? 'Rejected'
-                        : 'Pending'}
+                <div className="mt-2 pt-2 border-t border-slate-100 text-left">
+                  <div className="flex flex-col">
+                    <span className="text-slate-800 text-xs sm:text-sm break-words">
+                      {String(slot.feedback || '').trim() || '-'}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Feedback
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-500">Status</div>
-                  <div className="mt-1">
-                    <div className="text-slate-800">
-                      {slot.dateExactLabel || slot.dateLabel}
-                    </div>
-                    <div className="text-[11px] text-slate-500">Date</div>
-                  </div>
-                  <div className="mt-1">
-                    <div className="text-slate-800">{timeLabelPlain}</div>
-                    <div className="text-[11px] text-slate-500">Time</div>
-                  </div>
                 </div>
               </div>
-              <div className="mt-2 pt-2 border-t border-slate-100 text-left">
-                <div className="flex flex-col">
-                  <span className="text-slate-800 text-xs sm:text-sm break-words">
-                    {String(slot.feedback || '').trim() || '-'}
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    Feedback
-                  </span>
-                </div>
-              </div>
-            </div>
+              {showSeparator && (
+                <hr className="col-span-full border-t border-slate-300 my-2" />
+              )}
+            </React.Fragment>
           );
         })}
       </div>
@@ -4750,6 +4786,8 @@ export default function AdminDashboard() {
   const [showHrSuccessToast, setShowHrSuccessToast] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [calendarSelectedEvent, setCalendarSelectedEvent] = useState(null);
+  const [showDeleteCalendarSlotConfirm, setShowDeleteCalendarSlotConfirm] = useState(false);
+  const [isDeletingCalendarSlot, setIsDeletingCalendarSlot] = useState(false);
   const adminTodayLabel = new Date().toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -5114,6 +5152,27 @@ export default function AdminDashboard() {
       unsubscribe();
     };
   }, [statsRefreshKey]);
+
+  // Automatically sync candidate account inactivity to Firestore if their last interview was > 2 weeks ago
+  useEffect(() => {
+    if (!slots || slots.length === 0 || !candidates || candidates.length === 0) return;
+
+    candidates.forEach(async (c) => {
+      const isOlder = isCandidateInterviewOlderThanTwoWeeks(slots, c);
+      if (isOlder && c.status === 'Active') {
+        const docId = c.firestoreId || c.id;
+        const collectionName = c.sourceCollection || 'candidates';
+        if (docId) {
+          try {
+            await updateDoc(doc(db, collectionName, docId), { isActive: false });
+          } catch (err) {
+            console.error('Failed to auto-update candidate inactive status in Firestore:', err);
+          }
+        }
+      }
+    });
+  }, [slots, candidates]);
+
   const [selectedSlotsCandidate, setSelectedSlotsCandidate] = useState(null);
   const [selectedViewCandidate, setSelectedViewCandidate] = useState(null);
   const [editingCandidate, setEditingCandidate] = useState(null);
@@ -5155,10 +5214,11 @@ export default function AdminDashboard() {
 
   const filteredCandidates = useMemo(() => {
     const filtered = candidates.filter((c) => {
+      const effectiveStatus = getCandidateAccountStatus(c, slots);
       if (candidateSelectionFilter === 'selected' && !c.selected) return false;
       if (candidateSelectionFilter === 'unselected' && c.selected) return false;
-      if (candidateStatusFilter === 'active' && c.status !== 'Active') return false;
-      if (candidateStatusFilter === 'inactive' && c.status !== 'Inactive') return false;
+      if (candidateStatusFilter === 'active' && effectiveStatus !== 'Active') return false;
+      if (candidateStatusFilter === 'inactive' && effectiveStatus !== 'Inactive') return false;
       if (candidateReferredByFilter === 'anil_sir') {
         const ref = (c.referredBy || '').toLowerCase();
         if (!ref.includes('anil')) return false;
@@ -5189,7 +5249,7 @@ export default function AdminDashboard() {
       const idB = typeof b.id === 'number' ? b.id : parseInt(b.id, 10) || 0;
       return idB - idA;
     });
-  }, [candidates, candidateSelectionFilter, candidateReferredByFilter, candidateStatusFilter, candidateSearch]);
+  }, [candidates, slots, candidateSelectionFilter, candidateReferredByFilter, candidateStatusFilter, candidateSearch]);
 
   const filteredHRs = useMemo(() => {
     return hrs.filter((hr) => {
@@ -5233,13 +5293,14 @@ export default function AdminDashboard() {
   const handleToggleStatus = async (id) => {
     const candidate = candidates.find((c) => c.id === id);
     if (!candidate) return;
-    const newStatus = candidate.status === 'Active' ? 'Inactive' : 'Active';
+    const currentEffective = getCandidateAccountStatus(candidate, slots);
+    const newStatus = currentEffective === 'Active' ? 'Inactive' : 'Active';
     const isActive = newStatus === 'Active';
 
     // Optimistic UI update
     setCandidates((prev) =>
       prev.map((c) =>
-        c.id === id ? { ...c, status: newStatus } : c,
+        c.id === id ? { ...c, status: newStatus, isActive } : c,
       ),
     );
 
@@ -5252,7 +5313,7 @@ export default function AdminDashboard() {
       // Revert on failure
       setCandidates((prev) =>
         prev.map((c) =>
-          c.id === id ? { ...c, status: candidate.status } : c,
+          c.id === id ? { ...c, status: candidate.status, isActive: candidate.isActive } : c,
         ),
       );
       console.error('Failed to update candidate status:', err);
@@ -6097,12 +6158,60 @@ export default function AdminDashboard() {
                       <div className="text-[11px] text-slate-500">Email</div>
                     </div>
                   )}
+
+                  {/* Actions row: Delete Button */}
+                  <div className="mt-4 pt-3 border-t border-slate-200 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteCalendarSlotConfirm(true)}
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600 shadow-sm transition"
+                    >
+                      <i className="fa-solid fa-trash text-xs" aria-hidden="true" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
               );
             })()}
           </div>
         </div>
       )}
+
+      {/* Calendar slot delete confirmation modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteCalendarSlotConfirm && Boolean(calendarSelectedEvent)}
+        title="Are you sure you want to delete this slot?"
+        itemType="Slot for"
+        itemName={
+          (() => {
+            const ev = calendarSelectedEvent;
+            if (!ev) return '';
+            const cName = ev.candidateName || ev.extendedProps?.candidateName || '';
+            const comp = ev.extendedProps?.company || ev.company || '';
+            return [cName, comp].filter(Boolean).join(' - ') || 'Candidate / Company';
+          })()
+        }
+        onCancel={() => setShowDeleteCalendarSlotConfirm(false)}
+        onConfirm={async () => {
+          const slotId = calendarSelectedEvent?.id || calendarSelectedEvent?.firestoreId;
+          if (slotId) {
+            try {
+              setIsDeletingCalendarSlot(true);
+              await deleteSlot(slotId);
+              setCalendarRefreshKey((k) => k + 1);
+            } catch (err) {
+              console.error('Failed to delete calendar slot:', err);
+            } finally {
+              setIsDeletingCalendarSlot(false);
+            }
+          }
+          setShowDeleteCalendarSlotConfirm(false);
+          setCalendarSelectedEvent(null);
+        }}
+        isDeleting={isDeletingCalendarSlot}
+        cancelButtonText="Cancel"
+        deleteButtonText="Delete"
+      />
 
       </main>
 

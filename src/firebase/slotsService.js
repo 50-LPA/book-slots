@@ -77,6 +77,10 @@ export function getSlotEndTime(slot) {
     year = d.getFullYear();
     month = d.getMonth();
     day = d.getDate();
+  } else if (slot.date instanceof Date) {
+    year = slot.date.getFullYear();
+    month = slot.date.getMonth();
+    day = slot.date.getDate();
   } else if (typeof slot.date === 'string') {
     const trimmed = slot.date.trim();
     if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
@@ -525,7 +529,7 @@ function formatCreatedAt(timestamp) {
  * Convert Firestore slot document to UI format.
  * Supports both admin format (startHour, startMinute, company) and legacy candidate format (time string, companyName).
  */
-function slotDocToUI(docSnapshot) {
+export function slotDocToUI(docSnapshot) {
   const data = docSnapshot.data();
   const id = docSnapshot.id;
 

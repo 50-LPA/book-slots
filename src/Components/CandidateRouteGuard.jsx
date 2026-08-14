@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import CandidateDashboard from '../view/CandidateDashboard';
+import {
+  fetchCandidateEventsFromFirestore,
+  isCandidateInterviewOlderThanTwoWeeks,
+} from '../utils/candidateStatus';
 
 /**
  * Route-level guard for /candidate-dashboard (and /candidate-event-list).
- * Verifies session and that candidate is still active (admin may have deactivated).
+ * Verifies session and that candidate is still active (admin may have deactivated,
+ * or last interview was > 2 weeks ago).
  */
 export default function CandidateRouteGuard() {
   const [state, setState] = useState('checking'); // 'checking' | 'allow' | 'redirect'
@@ -32,14 +37,43 @@ export default function CandidateRouteGuard() {
           return;
         }
 
-        // For candidates: verify they are still active (admin may have deactivated)
+        // For candidates: verify they are still active (admin deactivated or last interview > 2 weeks ago)
         const candidateId = String(parsed?.id || '').trim();
-        if (candidateId) {
-          const candidateRef = doc(db, 'candidates', candidateId);
-          const snap = await getDoc(candidateRef);
-          if (snap.exists()) {
+        const candidateMobile = String(parsed?.mobile || '').trim();
+        if (candidateId || candidateMobile) {
+          let candidateRef = candidateId ? doc(db, 'candidates', candidateId) : null;
+          let snap = candidateRef ? await getDoc(candidateRef) : null;
+          if ((!snap || !snap.exists()) && candidateMobile) {
+            const q = query(collection(db, 'candidates'), where('mobile', '==', candidateMobile));
+            const mobSnap = await getDocs(q);
+            if (!mobSnap.empty) {
+              snap = mobSnap.docs[0];
+              candidateRef = doc(db, 'candidates', snap.id);
+            }
+          }
+
+          if (snap && snap.exists()) {
             const data = snap.data();
-            if (data.isActive === false) {
+            const candidateInfo = {
+              id: snap.id,
+              firestoreId: snap.id,
+              mobile: candidateMobile,
+              ...data,
+            };
+            const candidateSlots = await fetchCandidateEventsFromFirestore(candidateInfo, db);
+            const isMoreThanTwoWeeks = isCandidateInterviewOlderThanTwoWeeks(
+              candidateSlots,
+              candidateInfo,
+            );
+
+            if (data.isActive === false || isMoreThanTwoWeeks) {
+              if (data.isActive !== false && isMoreThanTwoWeeks && candidateRef) {
+                try {
+                  await updateDoc(candidateRef, { isActive: false });
+                } catch (err) {
+                  // ignore
+                }
+              }
               sessionStorage.removeItem('sb_user');
               localStorage.removeItem('candidates');
               localStorage.removeItem('name');
