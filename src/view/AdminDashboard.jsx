@@ -3853,17 +3853,99 @@ const normaliseRoundLabelAdmin = (raw) => {
     return 0;
   };
 
-  // Latest slots at the top (descending)
-  const sortedSlots = useMemo(() => {
-    return [...slots].sort((a, b) => getSlotBookingTime(b) - getSlotBookingTime(a));
+  // Sort chronologically ascending (first slot booked -> latest slot booked)
+  const chronologicalSlots = useMemo(() => {
+    return [...slots].sort((a, b) => {
+      const timeDiff = getSlotBookingTime(a) - getSlotBookingTime(b);
+      if (timeDiff !== 0) return timeDiff;
+      const idA = String(a.id || a.firestoreId || '');
+      const idB = String(b.id || b.firestoreId || '');
+      return idA.localeCompare(idB);
+    });
   }, [slots]);
 
-  // Identify the first 5 slots that were originally booked chronologically (only if candidate has at least 5 slots total)
-  const firstFiveBookedSlotKeys = useMemo(() => {
-    if (slots.length < 5) return new Set();
-    const chronological = [...slots].sort((a, b) => getSlotBookingTime(a) - getSlotBookingTime(b));
-    return new Set(chronological.slice(0, 5).map((s) => s.id || s.firestoreId || s));
-  }, [slots]);
+  // The first 5 slots originally booked by the candidate (placed in the last row)
+  const firstFiveSlots = useMemo(() => {
+    const initialFive = chronologicalSlots.slice(0, 5);
+    return [...initialFive].sort((a, b) => getSlotBookingTime(b) - getSlotBookingTime(a));
+  }, [chronologicalSlots]);
+
+  // Newly created slots booked after the first 5 slots (placed at the top, sorted newest first)
+  const newlyCreatedSlots = useMemo(() => {
+    const extra = chronologicalSlots.slice(5);
+    return [...extra].sort((a, b) => getSlotBookingTime(b) - getSlotBookingTime(a));
+  }, [chronologicalSlots]);
+
+  const renderSlotCard = (slot, isFirstFive, key) => {
+    const isApproved = slot.status === 'Approved';
+    const isRejected = slot.status === 'Rejected';
+    const timeLabelPlain = String(slot.timeLabel || '').split('(')[0].trim();
+    const hasFiveOrMore = slots.length >= 5;
+    const highlightFirstFive = isFirstFive && hasFiveOrMore;
+
+    return (
+      <div
+        key={slot.id || key}
+        className={`rounded-xl bg-white shadow-sm px-4 py-3 text-xs sm:text-sm text-slate-700 flex flex-col gap-1.5 ${
+          highlightFirstFive
+            ? 'border-2 border-red-500'
+            : 'border border-slate-200'
+        }`}
+      >
+        <div className="flex justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div>
+              <div className="font-semibold text-slate-900">{slot.company}</div>
+              <div className="text-[11px] text-slate-500">Company</div>
+            </div>
+
+            <div className="mt-1">
+              <div className="text-slate-800">{slot.technology}</div>
+              <div className="text-[11px] text-slate-500">Technology</div>
+            </div>
+
+            <div className="mt-1">
+              <div className="text-slate-800">{normaliseRoundLabelAdmin(slot.round)}</div>
+              <div className="text-[11px] text-slate-500">Round</div>
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 text-right">
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-emerald-600 font-semibold">
+                {isApproved
+                  ? 'Approved'
+                  : isRejected
+                  ? 'Rejected'
+                  : 'Pending'}
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-500">Status</div>
+            <div className="mt-1">
+              <div className="text-slate-800">
+                {slot.dateExactLabel || slot.dateLabel}
+              </div>
+              <div className="text-[11px] text-slate-500">Date</div>
+            </div>
+            <div className="mt-1">
+              <div className="text-slate-800">{timeLabelPlain}</div>
+              <div className="text-[11px] text-slate-500">Time</div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-2 pt-2 border-t border-slate-100 text-left">
+          <div className="flex flex-col">
+            <span className="text-slate-800 text-xs sm:text-sm break-words">
+              {String(slot.feedback || '').trim() || '-'}
+            </span>
+            <span className="text-[11px] text-slate-500">
+              Feedback
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
@@ -3984,82 +4066,32 @@ const normaliseRoundLabelAdmin = (raw) => {
         </div>
       )}
 
-      {/* Slots cards: 5-column grid on large screens */}
+      {/* Top section: Newly created slots (from 6th slot onwards, newest first) */}
+      {newlyCreatedSlots.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {newlyCreatedSlots.map((slot, idx) => {
+              const showSeparator =
+                (idx + 1) % 5 === 0 && idx < newlyCreatedSlots.length - 1;
+              return (
+                <React.Fragment key={slot.id || `new-${idx}`}>
+                  {renderSlotCard(slot, false, slot.id || `new-${idx}`)}
+                  {showSeparator && (
+                    <hr className="col-span-full border-t border-slate-300 my-2" />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+          <hr className="border-t border-slate-300 my-4" />
+        </>
+      )}
+
+      {/* Last row: Candidate's initial 5 slots (always 5 slots in one line in the last row) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {sortedSlots.map((slot, idx) => {
-          const isApproved = slot.status === 'Approved';
-          const isRejected = slot.status === 'Rejected';
-          const timeLabelPlain = String(slot.timeLabel || '').split('(')[0].trim();
-          const isFirstFive = firstFiveBookedSlotKeys.has(slot.id || slot.firestoreId || slot);
-          const showSeparator = (idx + 1) % 5 === 0 && idx < sortedSlots.length - 1;
-
-          return (
-            <React.Fragment key={slot.id || idx}>
-              <div
-                className={`rounded-xl bg-white shadow-sm px-4 py-3 text-xs sm:text-sm text-slate-700 flex flex-col gap-1.5 ${
-                  isFirstFive
-                    ? 'border-2 border-red-500'
-                    : 'border border-slate-200'
-                }`}
-              >
-                <div className="flex justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div>
-                      <div className="font-semibold text-slate-900">{slot.company}</div>
-                      <div className="text-[11px] text-slate-500">Company</div>
-                    </div>
-
-                    <div className="mt-1">
-                      <div className="text-slate-800">{slot.technology}</div>
-                      <div className="text-[11px] text-slate-500">Technology</div>
-                    </div>
-
-                    <div className="mt-1">
-                      <div className="text-slate-800">{normaliseRoundLabelAdmin(slot.round)}</div>
-                      <div className="text-[11px] text-slate-500">Round</div>
-                    </div>
-                  </div>
-
-                  <div className="flex-shrink-0 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <span className="text-emerald-600 font-semibold">
-                        {isApproved
-                          ? 'Approved'
-                          : isRejected
-                          ? 'Rejected'
-                          : 'Pending'}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500">Status</div>
-                    <div className="mt-1">
-                      <div className="text-slate-800">
-                        {slot.dateExactLabel || slot.dateLabel}
-                      </div>
-                      <div className="text-[11px] text-slate-500">Date</div>
-                    </div>
-                    <div className="mt-1">
-                      <div className="text-slate-800">{timeLabelPlain}</div>
-                      <div className="text-[11px] text-slate-500">Time</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-2 pt-2 border-t border-slate-100 text-left">
-                  <div className="flex flex-col">
-                    <span className="text-slate-800 text-xs sm:text-sm break-words">
-                      {String(slot.feedback || '').trim() || '-'}
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      Feedback
-                    </span>
-                  </div>
-                </div>
-              </div>
-              {showSeparator && (
-                <hr className="col-span-full border-t border-slate-300 my-2" />
-              )}
-            </React.Fragment>
-          );
-        })}
+        {firstFiveSlots.map((slot, idx) =>
+          renderSlotCard(slot, true, slot.id || `first-${idx}`),
+        )}
       </div>
     </div>
   );
