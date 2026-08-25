@@ -141,4 +141,30 @@ describe('Candidate Inactivity based on Last Interview', () => {
     const inactiveCandidate = { ...candidate, isActive: false, status: 'Inactive' };
     expect(getCandidateAccountStatus(inactiveCandidate, [])).toBe('Inactive');
   });
+
+  test('candidate with interview older than two weeks who was reactivated by admin is Active', () => {
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+    const slots = [
+      {
+        id: 'slot1',
+        candidateId: 'cand1',
+        candidateMobile: '9876543210',
+        date: fifteenDaysAgo,
+        startHour: 10,
+        startMinute: 0,
+        duration: 30,
+        status: 'Approved',
+      },
+    ];
+
+    const reactivatedCandidate = {
+      ...candidate,
+      isActive: true,
+      status: 'Active',
+      lastActivatedAt: Date.now(),
+    };
+
+    expect(isCandidateInterviewOlderThanTwoWeeks(slots, reactivatedCandidate)).toBe(false);
+    expect(getCandidateAccountStatus(reactivatedCandidate, slots)).toBe('Active');
+  });
 });

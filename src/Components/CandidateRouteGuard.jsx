@@ -66,10 +66,10 @@ export default function CandidateRouteGuard() {
               candidateInfo,
             );
 
-            if (data.isActive === false || isMoreThanTwoWeeks) {
+            if (data.isActive === false || data.status === 'Inactive' || isMoreThanTwoWeeks) {
               if (data.isActive !== false && isMoreThanTwoWeeks && candidateRef) {
                 try {
-                  await updateDoc(candidateRef, { isActive: false });
+                  await updateDoc(candidateRef, { isActive: false, status: 'Inactive' });
                 } catch (err) {
                   // ignore
                 }

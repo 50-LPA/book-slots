@@ -785,11 +785,13 @@ function AdminCandidatesTable({
                     const effectiveStatus = getCandidateAccountStatus(c, slots);
                     return (
                       <button
+                        type="button"
                         onClick={() => onToggleStatus(c.id)}
-                        className={`inline-flex rounded-full px-3 py-0.5 text-[11px] font-semibold ${
+                        title={`Click to set as ${effectiveStatus === 'Active' ? 'Inactive' : 'Active'}`}
+                        className={`inline-flex rounded-full px-3 py-0.5 text-[11px] font-semibold cursor-pointer transition-colors ${
                           effectiveStatus === 'Active'
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-slate-300 text-slate-800'
+                            ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                            : 'bg-slate-300 text-slate-800 hover:bg-slate-400'
                         }`}
                       >
                         {effectiveStatus}
@@ -1106,6 +1108,8 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
         referredBy: form.referredBy.trim(),
         experience: form.experience?.trim() || '',
         isActive: true,
+        status: 'Active',
+        lastActivatedAt: Date.now(),
         isSelected: false,
         selectedDate: '',
         selectedCompany: '',
@@ -1566,6 +1570,8 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         referredBy: form.referredBy,
         experience: form.experience?.trim() || '',
         isActive: candidate?.status ? candidate.status === 'Active' : (candidate?.isActive !== false),
+        status: candidate?.status ? candidate.status : (candidate?.isActive !== false ? 'Active' : 'Inactive'),
+        lastActivatedAt: candidate?.lastActivatedAt || null,
         isSelected: !!form.selected,
         selectedDate: form.selected ? form.selectedDate : '',
         selectedCompany: form.selected ? form.selectedCompany : '',
@@ -4862,7 +4868,9 @@ export default function AdminDashboard() {
             totalScheduled: '0',
             lastInterview: '-',
             payment: typeof d.payment === 'number' ? `₹${d.payment}` : d.payment || '₹0',
-            status: d.isActive === false ? 'Inactive' : 'Active',
+            status: d.isActive === false ? 'Inactive' : (d.status || 'Active'),
+            isActive: d.isActive !== false,
+            lastActivatedAt: d.lastActivatedAt || d.reactivatedAt || null,
             selected: !!d.isSelected,
             referredBy,
             password: String(d.password ?? '').trim(),
@@ -5196,7 +5204,7 @@ export default function AdminDashboard() {
         const collectionName = c.sourceCollection || 'candidates';
         if (docId) {
           try {
-            await updateDoc(doc(db, collectionName, docId), { isActive: false });
+            await updateDoc(doc(db, collectionName, docId), { isActive: false, status: 'Inactive' });
           } catch (err) {
             console.error('Failed to auto-update candidate inactive status in Firestore:', err);
           }
@@ -5328,11 +5336,19 @@ export default function AdminDashboard() {
     const currentEffective = getCandidateAccountStatus(candidate, slots);
     const newStatus = currentEffective === 'Active' ? 'Inactive' : 'Active';
     const isActive = newStatus === 'Active';
+    const lastActivatedAt = isActive ? Date.now() : null;
 
     // Optimistic UI update
     setCandidates((prev) =>
       prev.map((c) =>
-        c.id === id ? { ...c, status: newStatus, isActive } : c,
+        c.id === id
+          ? {
+              ...c,
+              status: newStatus,
+              isActive,
+              lastActivatedAt,
+            }
+          : c,
       ),
     );
 
@@ -5340,12 +5356,24 @@ export default function AdminDashboard() {
     try {
       const docId = candidate.firestoreId || candidate.id;
       const collectionName = candidate.sourceCollection || 'candidates';
-      await updateDoc(doc(db, collectionName, docId), { isActive });
+      const updatePayload = {
+        isActive,
+        status: newStatus,
+        lastActivatedAt,
+      };
+      await updateDoc(doc(db, collectionName, docId), updatePayload);
     } catch (err) {
       // Revert on failure
       setCandidates((prev) =>
         prev.map((c) =>
-          c.id === id ? { ...c, status: candidate.status, isActive: candidate.isActive } : c,
+          c.id === id
+            ? {
+                ...c,
+                status: candidate.status,
+                isActive: candidate.isActive,
+                lastActivatedAt: candidate.lastActivatedAt,
+              }
+            : c,
         ),
       );
       console.error('Failed to update candidate status:', err);
@@ -5666,6 +5694,8 @@ export default function AdminDashboard() {
                   totalScheduled: '0',
                   lastInterview: '-',
                   status: 'Active',
+                  isActive: true,
+                  lastActivatedAt: Date.now(),
                   selected: false,
                 };
                 setCandidates((prev) => [newCandidate, ...prev]);

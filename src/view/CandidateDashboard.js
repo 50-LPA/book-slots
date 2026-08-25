@@ -1600,15 +1600,18 @@ export default function CandidateDashboard() {
   const [hrOwnerIds, setHrOwnerIds] = useState([]);
   const [hrOwnerNames, setHrOwnerNames] = useState([]);
 
-  // Candidate match keys for calendar: mobile is primary, Firestore id is legacy fallback
-  const candidateIds = (() => {
+  const candidateUser = (() => {
     try {
       const raw = sessionStorage.getItem('sb_user');
-      const parsed = raw ? JSON.parse(raw) : null;
-      return getCandidateMatchKeys(parsed);
+      return raw ? JSON.parse(raw) : null;
     } catch {
-      return [];
+      return null;
     }
+  })();
+
+  // Candidate match keys for calendar: mobile is primary, Firestore id is legacy fallback
+  const candidateIds = (() => {
+    return candidateUser ? getCandidateMatchKeys(candidateUser) : [];
   })();
 
   const [showFeedbackRequiredModal, setShowFeedbackRequiredModal] = useState(false);
@@ -1625,8 +1628,8 @@ export default function CandidateDashboard() {
 
   // Check if candidate account is inactive due to last interview > 2 weeks ago
   const isCandidateInactive = useMemo(() => {
-    return isCandidateInterviewOlderThanTwoWeeks(candidateSlots, candidateIds);
-  }, [candidateSlots, candidateIds]);
+    return isCandidateInterviewOlderThanTwoWeeks(candidateSlots, candidateUser || candidateIds);
+  }, [candidateSlots, candidateUser, candidateIdsKey]);
 
   // Compute pending feedback slots: any existing slot (latest/last slot) that is not rejected and has no feedback
   const pendingFeedbackSlots = useMemo(() => {

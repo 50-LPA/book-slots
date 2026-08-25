@@ -112,10 +112,10 @@ export default function Login() {
       const candidateSlots = await fetchCandidateEventsFromFirestore(candidateInfo, db);
       const isMoreThanTwoWeeks = isCandidateInterviewOlderThanTwoWeeks(candidateSlots, candidateInfo);
 
-      if (candidateData.isActive === false || isMoreThanTwoWeeks) {
+      if (candidateData.isActive === false || candidateData.status === 'Inactive' || isMoreThanTwoWeeks) {
         if (candidateData.isActive !== false && isMoreThanTwoWeeks) {
           try {
-            await updateDoc(doc(db, 'candidates', candidateDoc.id), { isActive: false });
+            await updateDoc(doc(db, 'candidates', candidateDoc.id), { isActive: false, status: 'Inactive' });
           } catch (updateErr) {
             console.error('Failed to auto-update candidate inactive status on login:', updateErr);
           }

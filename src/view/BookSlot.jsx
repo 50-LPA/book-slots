@@ -502,12 +502,13 @@ export default function BookSlot({
     let candidateMobile = '';
     let candidateFirestoreId = '';
     let candidateName = 'Candidate';
+    let parsedCandidate = null;
     try {
       const raw = sessionStorage.getItem('sb_user');
-      const parsed = raw ? JSON.parse(raw) : null;
-      candidateFirestoreId = String(parsed?.id || '').trim();
-      candidateMobile = normalizeCandidateMobile(parsed?.mobile);
-      const name = (parsed?.name || '').trim();
+      parsedCandidate = raw ? JSON.parse(raw) : null;
+      candidateFirestoreId = String(parsedCandidate?.id || '').trim();
+      candidateMobile = normalizeCandidateMobile(parsedCandidate?.mobile);
+      const name = (parsedCandidate?.name || '').trim();
       if (name) candidateName = name;
     } catch {
       // ignore sessionStorage errors
@@ -540,7 +541,7 @@ export default function BookSlot({
         });
 
       const allCandidateUiSlots = eventsSnap.docs.map((d) => slotDocToUI(d));
-      if (isCandidateInterviewOlderThanTwoWeeks(allCandidateUiSlots, matchKeys)) {
+      if (isCandidateInterviewOlderThanTwoWeeks(allCandidateUiSlots, parsedCandidate || matchKeys)) {
         // eslint-disable-next-line no-alert
         alert('Your account is currently inactive because your last interview was more than two weeks ago. Please contact the administrator.');
         if (onClose) onClose();

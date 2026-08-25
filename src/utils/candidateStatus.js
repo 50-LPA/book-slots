@@ -112,6 +112,7 @@ export function getLastInterviewInfo(slots, candidateOrKeys) {
 /**
  * Returns true if the candidate has a completed interview and the last interview
  * took place more than 2 weeks (14 days) ago.
+ * If the candidate was reactivated by an admin after their last interview, returns false.
  *
  * @param {Array} slots - List of slot objects
  * @param {Object|Array} candidateOrKeys - Candidate object or match keys
@@ -122,12 +123,42 @@ export function isCandidateInterviewOlderThanTwoWeeks(slots, candidateOrKeys) {
   if (!info) {
     return false;
   }
+  if (!info.isOlderThanTwoWeeks) {
+    return false;
+  }
+
+  // If candidate was activated/reactivated by admin after the last interview ended,
+  // the old interview is waived and does not make candidate inactive.
+  if (candidateOrKeys && typeof candidateOrKeys === 'object' && !Array.isArray(candidateOrKeys)) {
+    const activatedAt =
+      candidateOrKeys.lastActivatedAt ||
+      candidateOrKeys.reactivatedAt ||
+      candidateOrKeys.activatedAt;
+    if (activatedAt) {
+      const activatedTime =
+        typeof activatedAt === 'number'
+          ? activatedAt
+          : typeof activatedAt?.toDate === 'function'
+          ? activatedAt.toDate().getTime()
+          : typeof activatedAt?.toMillis === 'function'
+          ? activatedAt.toMillis()
+          : new Date(activatedAt).getTime();
+
+      const interviewEndTime = info.endTime ? info.endTime.getTime() : 0;
+      if (activatedTime && !Number.isNaN(activatedTime) && activatedTime >= interviewEndTime) {
+        return false;
+      }
+    }
+  }
+
   return Boolean(info.isOlderThanTwoWeeks);
 }
 
 /**
  * Returns the effective account status ('Active' or 'Inactive') for a candidate.
- * If the last interview was more than 2 weeks ago or candidate.isActive === false, returns 'Inactive'.
+ * If candidate.isActive === false or candidate.status === 'Inactive', returns 'Inactive'.
+ * If the last interview was more than 2 weeks ago and not reactivated, returns 'Inactive'.
+ * Otherwise returns 'Active'.
  *
  * @param {Object} candidate - Candidate object (with isActive property)
  * @param {Array} slots - List of slot objects
@@ -223,7 +254,7 @@ export async function checkAndSyncCandidateInactivity(candidate, firestoreDb, op
     const collectionName = candidate.sourceCollection || 'candidates';
     if (docId && candidate.isActive !== false) {
       try {
-        await updateDoc(doc(dbInstance, collectionName, docId), { isActive: false });
+        await updateDoc(doc(dbInstance, collectionName, docId), { isActive: false, status: 'Inactive' });
       } catch (err) {
         console.error('Failed to auto-deactivate candidate in Firestore:', err);
       }
@@ -234,7 +265,7 @@ export async function checkAndSyncCandidateInactivity(candidate, firestoreDb, op
     };
   }
 
-  const isInactive = candidate.isActive === false;
+  const isInactive = candidate.isActive === false || candidate.status === 'Inactive';
   return {
     isInactive,
     lastInterview,
