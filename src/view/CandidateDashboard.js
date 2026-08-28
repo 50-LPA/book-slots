@@ -5,6 +5,7 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   onSnapshot,
   doc,
   deleteDoc,
@@ -1609,9 +1610,12 @@ export default function CandidateDashboard() {
     }
   })();
 
+  const [candidateProfile, setCandidateProfile] = useState(() => candidateUser);
+
   // Candidate match keys for calendar: mobile is primary, Firestore id is legacy fallback
   const candidateIds = (() => {
-    return candidateUser ? getCandidateMatchKeys(candidateUser) : [];
+    const userOrProfile = candidateProfile || candidateUser;
+    return userOrProfile ? getCandidateMatchKeys(userOrProfile) : [];
   })();
 
   const [showFeedbackRequiredModal, setShowFeedbackRequiredModal] = useState(false);
@@ -1628,8 +1632,9 @@ export default function CandidateDashboard() {
 
   // Check if candidate account is inactive due to last interview > 2 weeks ago
   const isCandidateInactive = useMemo(() => {
-    return isCandidateInterviewOlderThanTwoWeeks(candidateSlots, candidateUser || candidateIds);
-  }, [candidateSlots, candidateUser, candidateIdsKey]);
+    const candidateObj = candidateProfile || candidateUser || candidateIds;
+    return isCandidateInterviewOlderThanTwoWeeks(candidateSlots, candidateObj);
+  }, [candidateSlots, candidateProfile, candidateUser, candidateIdsKey]);
 
   // Compute pending feedback slots: any existing slot (latest/last slot) that is not rejected and has no feedback
   const pendingFeedbackSlots = useMemo(() => {
@@ -1644,8 +1649,43 @@ export default function CandidateDashboard() {
   // after that (> 1 un-feedbacked slots), lock the "Create Slot" button.
   const hasPendingFeedback = pendingFeedbackSlots.length > 1;
 
-  const handleOpenBookSlot = () => {
+  const handleOpenBookSlot = async () => {
+    let currentProfile = candidateProfile;
+    // If state indicates inactive, do a fast live check against Firestore in case
+    // admin recently activated the candidate and state/snapshot is propagating
     if (isCandidateInactive) {
+      try {
+        const candId = String(currentProfile?.id || currentProfile?.firestoreId || candidateUser?.id || '').trim();
+        const candMobile = normalizeCandidateMobile(currentProfile?.mobile || candidateUser?.mobile);
+        let freshDoc = null;
+        if (candId) {
+          const snap = await getDoc(doc(db, 'candidates', candId));
+          if (snap.exists()) freshDoc = { id: snap.id, firestoreId: snap.id, ...snap.data() };
+        }
+        if (!freshDoc && candMobile) {
+          const q = query(collection(db, 'candidates'), where('mobile', '==', candMobile));
+          const snap = await getDocs(q);
+          if (!snap.empty) freshDoc = { id: snap.docs[0].id, firestoreId: snap.docs[0].id, ...snap.docs[0].data() };
+        }
+        if (freshDoc) {
+          currentProfile = freshDoc;
+          setCandidateProfile(freshDoc);
+          try {
+            const raw = sessionStorage.getItem('sb_user');
+            const parsed = raw ? JSON.parse(raw) : {};
+            sessionStorage.setItem('sb_user', JSON.stringify({ ...parsed, ...freshDoc }));
+          } catch {
+            // ignore
+          }
+        }
+      } catch (checkErr) {
+        console.warn('Could not re-verify candidate status from Firestore:', checkErr);
+      }
+    }
+
+    const candidateObj = currentProfile || candidateUser || candidateIds;
+    const stillInactive = isCandidateInterviewOlderThanTwoWeeks(candidateSlots, candidateObj);
+    if (stillInactive) {
       alert('Your account is currently inactive because your last interview was more than two weeks ago. Please contact the administrator.');
       return;
     }
@@ -1732,6 +1772,9 @@ export default function CandidateDashboard() {
   }, [activeNav, hrsRefreshKey]);
 
   useEffect(() => {
+    let cancelled = false;
+    let unsubSnapshot = null;
+
     const normaliseTechnologies = (data) => {
       if (!data) return [];
       if (Array.isArray(data.technologies)) {
@@ -1775,52 +1818,75 @@ export default function CandidateDashboard() {
           setHrOwnerNames([...ownerNames]);
         }
 
+        const candidateId = String(parsed?.id || parsed?.firestoreId || '').trim();
         const mobile = String(parsed?.mobile || '').trim();
-        if (!mobile) return;
-        // Prefer candidates profile (this is where technologies are assigned).
-        let data = null;
-        try {
-          const candQ = query(collection(db, 'candidates'), where('mobile', '==', mobile));
-          const candSnap = await getDocs(candQ);
-          if (!candSnap.empty) {
-            data = candSnap.docs[0].data();
-            ownerIds.add(candSnap.docs[0].id); // Firestore doc id sometimes used in addedById
-            ownerNames.add(String(candSnap.docs[0].data()?.name || '').trim());
-          }
-        } catch {
-          // ignore and fall back
-        }
+        if (!candidateId && !mobile) return;
 
-        // Fallback to legacy users collection (kept for backward compatibility)
-        if (!data) {
-          const q = query(collection(db, 'users'), where('mobile', '==', mobile));
-          const snap = await getDocs(q);
-          if (!snap.empty) {
-            data = snap.docs[0].data();
-            ownerIds.add(snap.docs[0].id);
-            ownerNames.add(String(snap.docs[0].data()?.name || '').trim());
-          }
-        }
+        const applyCandidateData = (docId, data) => {
+          if (!data) return;
+          const profile = {
+            id: docId,
+            firestoreId: docId,
+            mobile: mobile || data.mobile,
+            ...data,
+          };
+          setCandidateProfile(profile);
 
-        if (!data) {
-          // Even without profile doc, keep baseline owner keys.
+          ownerIds.add(docId);
+          const name = String(data?.name || cachedName || '').trim();
+          if (name) {
+            setUserName(name);
+            ownerNames.add(name);
+          }
+          const techs = normaliseTechnologies(data);
+          if (techs.length) setCandidateTechnologies(techs);
           setHrOwnerIds([...ownerIds]);
           setHrOwnerNames([...ownerNames]);
-          return;
+
+          try {
+            sessionStorage.setItem(
+              'sb_user',
+              JSON.stringify({
+                ...parsed,
+                ...profile,
+                name: name || cachedName,
+                technologies: techs,
+              }),
+            );
+          } catch {
+            // ignore
+          }
+        };
+
+        // Real-time listener: subscribe directly to the candidate document in candidates collection
+        if (candidateId) {
+          unsubSnapshot = onSnapshot(
+            doc(db, 'candidates', candidateId),
+            (snap) => {
+              if (cancelled) return;
+              if (snap.exists()) {
+                applyCandidateData(snap.id, snap.data());
+              }
+            },
+            (err) => {
+              console.warn('Candidate doc snapshot error:', err);
+            },
+          );
+        } else if (mobile) {
+          const candQ = query(collection(db, 'candidates'), where('mobile', '==', mobile));
+          unsubSnapshot = onSnapshot(
+            candQ,
+            (candSnap) => {
+              if (cancelled) return;
+              if (!candSnap.empty) {
+                applyCandidateData(candSnap.docs[0].id, candSnap.docs[0].data());
+              }
+            },
+            (err) => {
+              console.warn('Candidate query snapshot error:', err);
+            },
+          );
         }
-
-        const name = String(data?.name || '').trim();
-        const techs = normaliseTechnologies(data);
-        if (name) setUserName(name);
-        if (name) ownerNames.add(name);
-        if (techs.length) setCandidateTechnologies(techs);
-        setHrOwnerIds([...ownerIds]);
-        setHrOwnerNames([...ownerNames]);
-
-        sessionStorage.setItem(
-          'sb_user',
-          JSON.stringify({ ...parsed, name: name || cachedName, technologies: techs }),
-        );
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Failed to load candidate name:', err);
@@ -1828,12 +1894,47 @@ export default function CandidateDashboard() {
     };
 
     loadUserName();
+
+    return () => {
+      cancelled = true;
+      if (unsubSnapshot) unsubSnapshot();
+    };
   }, [currentUser]);
 
-  const handleUseExistingHrOnBookSlot = (existingHr) => {
+  const handleUseExistingHrOnBookSlot = async (existingHr) => {
     const hrId = String(existingHr?.id || '').trim();
     if (!hrId) return;
     setShowAddHR(false);
+
+    let currentProfile = candidateProfile;
+    if (isCandidateInactive) {
+      try {
+        const candId = String(currentProfile?.id || currentProfile?.firestoreId || candidateUser?.id || '').trim();
+        const candMobile = normalizeCandidateMobile(currentProfile?.mobile || candidateUser?.mobile);
+        let freshDoc = null;
+        if (candId) {
+          const snap = await getDoc(doc(db, 'candidates', candId));
+          if (snap.exists()) freshDoc = { id: snap.id, firestoreId: snap.id, ...snap.data() };
+        }
+        if (!freshDoc && candMobile) {
+          const q = query(collection(db, 'candidates'), where('mobile', '==', candMobile));
+          const snap = await getDocs(q);
+          if (!snap.empty) freshDoc = { id: snap.docs[0].id, firestoreId: snap.docs[0].id, ...snap.docs[0].data() };
+        }
+        if (freshDoc) {
+          currentProfile = freshDoc;
+          setCandidateProfile(freshDoc);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const candidateObj = currentProfile || candidateUser || candidateIds;
+    if (isCandidateInterviewOlderThanTwoWeeks(candidateSlots, candidateObj)) {
+      alert('Your account is currently inactive because your last interview was more than two weeks ago. Please contact the administrator.');
+      return;
+    }
     if (hasPendingFeedback) {
       setShowFeedbackRequiredModal(true);
       return;
@@ -2061,6 +2162,7 @@ export default function CandidateDashboard() {
       >
         {showBookSlot ? (
           <BookSlot
+            candidateProfile={candidateProfile}
             onClose={() => setShowBookSlot(false)}
             onOpenAddHR={() => setShowAddHR(true)}
             onBookSuccess={() => {

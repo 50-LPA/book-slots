@@ -568,6 +568,7 @@ function AdminCandidatesTable({
             onClick={() => {
               onChangeSelectionFilter('unselected');
               onChangeReferredByFilter('all');
+              onChangeStatusFilter('active');
               onChangeSearch('');
             }}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
@@ -736,7 +737,7 @@ function AdminCandidatesTable({
                       );
                     })()}
                     <span className="truncate">{c.name}</span>
-                    {c.selected && (
+                    {(c.selected || c.isSelected) && (
                       <span className="ml-1 text-xs font-bold text-blue-600 whitespace-nowrap">
                         - Selected
                       </span>
@@ -782,7 +783,10 @@ function AdminCandidatesTable({
                 </td>
                 <td className="px-3 py-2 text-center border-r border-slate-200">
                   {(() => {
-                    const effectiveStatus = getCandidateAccountStatus(c, slots);
+                    const isSelected = !!(c.selected || c.isSelected);
+                    const effectiveStatus = isSelected
+                      ? (c.status ? c.status : (c.isActive !== false ? 'Active' : 'Inactive'))
+                      : getCandidateAccountStatus(c, slots);
                     return (
                       <button
                         type="button"
@@ -1446,6 +1450,24 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
     joiningDate: candidate?.joiningDate || '',
     selectedCompany: candidate?.selectedCompany || '',
     package: candidate?.package || '',
+    hrName: candidate?.hrName || '',
+    hrMobile: candidate?.hrMobile || '',
+    hrEmail: candidate?.hrEmail || '',
+    hrLinkedin: candidate?.hrLinkedin || '',
+    candidateEmail: candidate?.candidateEmail || candidate?.email || '',
+    candidateMobile: candidate?.candidateMobile || candidate?.mobile || '',
+    motherName: candidate?.motherName || '',
+    motherMobile: candidate?.motherMobile || '',
+    fatherName: candidate?.fatherName || '',
+    fatherMobile: candidate?.fatherMobile || '',
+    brotherName: candidate?.brotherName || '',
+    brotherMobile: candidate?.brotherMobile || '',
+    sisterName: candidate?.sisterName || '',
+    sisterMobile: candidate?.sisterMobile || '',
+    aadhar: candidate?.aadhar || '',
+    pan: candidate?.pan || '',
+    permanentAddress: candidate?.permanentAddress || candidate?.permAddress || '',
+    temporaryAddress: candidate?.temporaryAddress || candidate?.tempAddress || '',
   });
   const [showPassword, setShowPassword] = useState(true);
   const [showTechDropdown, setShowTechDropdown] = useState(false);
@@ -1468,6 +1490,24 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         joiningDate: candidate.joiningDate || '',
         selectedCompany: candidate.selectedCompany || '',
         package: candidate.package || '',
+        hrName: candidate.hrName || '',
+        hrMobile: candidate.hrMobile || '',
+        hrEmail: candidate.hrEmail || '',
+        hrLinkedin: candidate.hrLinkedin || '',
+        candidateEmail: candidate.candidateEmail || candidate.email || '',
+        candidateMobile: candidate.candidateMobile || candidate.mobile || '',
+        motherName: candidate.motherName || '',
+        motherMobile: candidate.motherMobile || '',
+        fatherName: candidate.fatherName || '',
+        fatherMobile: candidate.fatherMobile || '',
+        brotherName: candidate.brotherName || '',
+        brotherMobile: candidate.brotherMobile || '',
+        sisterName: candidate.sisterName || '',
+        sisterMobile: candidate.sisterMobile || '',
+        aadhar: candidate.aadhar || '',
+        pan: candidate.pan || '',
+        permanentAddress: candidate.permanentAddress || candidate.permAddress || '',
+        temporaryAddress: candidate.temporaryAddress || candidate.tempAddress || '',
       });
     }
   }, [candidate]);
@@ -1476,6 +1516,19 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
     let value = e.target.value;
     if (field === 'mobile') {
       value = sanitizeCandidateMobileInput(value);
+    } else if (
+      field === 'candidateMobile' ||
+      field === 'hrMobile' ||
+      field === 'motherMobile' ||
+      field === 'fatherMobile' ||
+      field === 'brotherMobile' ||
+      field === 'sisterMobile'
+    ) {
+      value = value.replace(/\D/g, '').slice(0, 10);
+    } else if (field === 'aadhar') {
+      value = value.replace(/\D/g, '').slice(0, 12);
+    } else if (field === 'pan') {
+      value = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     } else if (field === 'password') {
       // Allow digits and symbols, max 6 characters (no letters)
       value = value.replace(/[a-zA-Z]/g, '').slice(0, 6);
@@ -1571,12 +1624,36 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         experience: form.experience?.trim() || '',
         isActive: candidate?.status ? candidate.status === 'Active' : (candidate?.isActive !== false),
         status: candidate?.status ? candidate.status : (candidate?.isActive !== false ? 'Active' : 'Inactive'),
-        lastActivatedAt: candidate?.lastActivatedAt || null,
+        lastActivatedAt:
+          candidate?.lastActivatedAt ||
+          ((candidate?.status === 'Active' || candidate?.isActive !== false) ? Date.now() : null),
         isSelected: !!form.selected,
+        selected: !!form.selected,
         selectedDate: form.selected ? form.selectedDate : '',
         selectedCompany: form.selected ? form.selectedCompany : '',
         selectedPackage: form.selected ? (selectedPackage || '') : '',
+        package: form.selected ? (selectedPackage || '') : '',
         joiningDate: form.selected ? form.joiningDate : '',
+        hrName: form.selected ? (form.hrName || '').trim() : '',
+        hrMobile: form.selected ? (form.hrMobile || '').trim() : '',
+        hrEmail: form.selected ? (form.hrEmail || '').trim() : '',
+        hrLinkedin: form.selected ? (form.hrLinkedin || '').trim() : '',
+        candidateEmail: form.selected ? (form.candidateEmail || '').trim() : '',
+        candidateMobile: form.selected ? (form.candidateMobile || '').trim() : '',
+        motherName: form.selected ? (form.motherName || '').trim() : '',
+        motherMobile: form.selected ? (form.motherMobile || '').trim() : '',
+        fatherName: form.selected ? (form.fatherName || '').trim() : '',
+        fatherMobile: form.selected ? (form.fatherMobile || '').trim() : '',
+        brotherName: form.selected ? (form.brotherName || '').trim() : '',
+        brotherMobile: form.selected ? (form.brotherMobile || '').trim() : '',
+        sisterName: form.selected ? (form.sisterName || '').trim() : '',
+        sisterMobile: form.selected ? (form.sisterMobile || '').trim() : '',
+        aadhar: form.selected ? (form.aadhar || '').trim() : '',
+        pan: form.selected ? (form.pan || '').trim() : '',
+        permanentAddress: form.selected ? (form.permanentAddress || '').trim() : '',
+        permAddress: form.selected ? (form.permanentAddress || '').trim() : '',
+        temporaryAddress: form.selected ? (form.temporaryAddress || '').trim() : '',
+        tempAddress: form.selected ? (form.temporaryAddress || '').trim() : '',
       };
 
       if (candidate?.firestoreId) {
@@ -1812,25 +1889,23 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
           </div>
         </div>
 
-        {/* Normal form: Referred By dropdown - only when NOT selected */}
-        {!form.selected && (
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
-              <span className="text-red-500">*</span> Referred By
-            </label>
-            <select
-              value={form.referredBy}
-              onChange={handleChange('referredBy')}
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            >
-              <option value="">Select Referred By</option>
-              <option value="Anil Shinde Sir">Anil Shinde Sir</option>
-              <option value="Viraj Kadam Sir">Viraj Kadam Sir</option>
-              <option value="Nilesh Sir">Nilesh Sir</option>
-              <option value="Vishal Sir">Vishal Sir</option>
-            </select>
-          </div>
-        )}
+        {/* Referred By dropdown - always visible in main form */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-700">
+            <span className="text-red-500">*</span> Referred By
+          </label>
+          <select
+            value={form.referredBy}
+            onChange={handleChange('referredBy')}
+            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          >
+            <option value="">Select Referred By</option>
+            <option value="Anil Shinde Sir">Anil Shinde Sir</option>
+            <option value="Viraj Kadam Sir">Viraj Kadam Sir</option>
+            <option value="Nilesh Sir">Nilesh Sir</option>
+            <option value="Vishal Sir">Vishal Sir</option>
+          </select>
+        </div>
 
         {/* Experience - required, 0–20, digits and decimal only */}
         <div className="flex flex-col gap-1">
@@ -1932,22 +2007,271 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
             />
           </div>
 
-          {/* Referred By - in selected view */}
+          {/* HR Name */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-700">
-              <span className="text-red-500">*</span> Referred By
+              HR Name
             </label>
-            <select
-              value={form.referredBy}
-              onChange={handleChange('referredBy')}
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            >
-              <option value="">Select Referred By</option>
-              <option value="Anil Shinde Sir">Anil Shinde Sir</option>
-              <option value="Viraj Kadam Sir">Viraj Kadam Sir</option>
-              <option value="Nilesh Sir">Nilesh Sir</option>
-              <option value="Vishal Sir">Vishal Sir</option>
-            </select>
+            <input
+              type="text"
+              value={form.hrName}
+              onChange={handleChange('hrName')}
+              placeholder="Enter HR name"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* HR Mobile */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              HR Mobile
+            </label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.hrMobile}
+              onChange={handleChange('hrMobile')}
+              placeholder="Enter HR mobile"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* HR Email */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              HR Email
+            </label>
+            <input
+              type="email"
+              value={form.hrEmail}
+              onChange={handleChange('hrEmail')}
+              placeholder="Enter HR email"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* HR LinkedIn Profile */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              HR Linkedin profile
+            </label>
+            <input
+              type="text"
+              value={form.hrLinkedin}
+              onChange={handleChange('hrLinkedin')}
+              placeholder="LinkedIn profile URL"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Candidate Email */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Candidate email
+            </label>
+            <input
+              type="email"
+              value={form.candidateEmail}
+              onChange={handleChange('candidateEmail')}
+              placeholder="Enter candidate email"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Candidate Mobile */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Candidate mobile
+            </label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.candidateMobile}
+              onChange={handleChange('candidateMobile')}
+              placeholder="Enter candidate mobile"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Mother Name */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Mother name
+            </label>
+            <input
+              type="text"
+              value={form.motherName}
+              onChange={handleChange('motherName')}
+              placeholder="Enter mother's name"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Mother Mobile No. */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Mother mobile No.
+            </label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.motherMobile}
+              onChange={handleChange('motherMobile')}
+              placeholder="Enter mother's mobile"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Father Name */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Father Name
+            </label>
+            <input
+              type="text"
+              value={form.fatherName}
+              onChange={handleChange('fatherName')}
+              placeholder="Enter father's name"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Father Mobile No. */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Father mobile no.
+            </label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.fatherMobile}
+              onChange={handleChange('fatherMobile')}
+              placeholder="Enter father's mobile"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Brother Name */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Brother Name
+            </label>
+            <input
+              type="text"
+              value={form.brotherName}
+              onChange={handleChange('brotherName')}
+              placeholder="Enter brother's name"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Brother Mobile No. */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Brother mobile no.
+            </label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.brotherMobile}
+              onChange={handleChange('brotherMobile')}
+              placeholder="Enter brother's mobile"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Sister Name */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Sister Name
+            </label>
+            <input
+              type="text"
+              value={form.sisterName}
+              onChange={handleChange('sisterName')}
+              placeholder="Enter sister's name"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Sister Mobile No. */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Sister Mobile no.
+            </label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.sisterMobile}
+              onChange={handleChange('sisterMobile')}
+              placeholder="Enter sister's mobile"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Aadhar */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              Aadhar
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={12}
+              value={form.aadhar}
+              onChange={handleChange('aadhar')}
+              placeholder="12 digit Aadhar"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* PAN */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-700">
+              PAN
+            </label>
+            <input
+              type="text"
+              maxLength={10}
+              value={form.pan}
+              onChange={handleChange('pan')}
+              placeholder="10 character PAN"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 uppercase focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Perm address */}
+          <div className="flex flex-col gap-1 md:col-span-2">
+            <label className="text-xs font-semibold text-slate-700">
+              Perm address
+            </label>
+            <input
+              type="text"
+              value={form.permanentAddress}
+              onChange={handleChange('permanentAddress')}
+              placeholder="Enter permanent address"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          {/* Temp address */}
+          <div className="flex flex-col gap-1 md:col-span-2">
+            <label className="text-xs font-semibold text-slate-700">
+              Temp address
+            </label>
+            <input
+              type="text"
+              value={form.temporaryAddress}
+              onChange={handleChange('temporaryAddress')}
+              placeholder="Enter temporary address"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
           </div>
         </div>
       )}
@@ -3795,7 +4119,7 @@ function AdminCandidateSlotsView({ data, onBack }) {
       : '0';
   const referredBy = candidate?.referredBy || 'Viraj Kadam Sir';
   const totalCount = slots.length || 0;
-  const isSelectedCandidate = !!candidate?.selected;
+  const isSelectedCandidate = !!(candidate?.selected || candidate?.isSelected);
   const formatCandidateDateDisplay = (raw) => {
     if (!raw || raw === '-') return '-';
     const formatted = formatDateDDMMYYYY(raw);
@@ -4042,32 +4366,191 @@ const normaliseRoundLabelAdmin = (raw) => {
         {/* Selected candidate details moved to row 2 */}
       </div>
 
-      {/* Summary row 2: selected/joining dates (only for selected candidates) */}
+      {/* Summary row 2: selected candidate details */}
       {isSelectedCandidate && (
-        <div className="mb-4 flex flex-row flex-wrap items-stretch gap-4 sm:gap-6 text-slate-700">
-          <div className="flex flex-col items-center text-center min-w-[140px]">
-            <span className="text-sm font-semibold text-slate-800">
-              {selectedDate}
-            </span>
-            <span className="text-[11px] text-slate-500">Selected Date</span>
+        <div className="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pb-4 border-b border-slate-200">
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {selectedDate}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Selected Date</span>
+            </div>
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {joiningDate}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Joining Date</span>
+            </div>
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {selectedCompany}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Selected Company</span>
+            </div>
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {selectedPackage} {selectedPackage !== '-' ? 'LPA' : ''}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Package</span>
+            </div>
           </div>
-          <div className="flex flex-col items-center text-center min-w-[140px]">
-            <span className="text-sm font-semibold text-slate-800">
-              {joiningDate}
-            </span>
-            <span className="text-[11px] text-slate-500">Joining Date</span>
-          </div>
-          <div className="flex flex-col items-center text-center min-w-[140px]">
-            <span className="text-sm font-semibold text-slate-800">
-              {selectedCompany}
-            </span>
-            <span className="text-[11px] text-slate-500">Selected Company</span>
-          </div>
-          <div className="flex flex-col items-center text-center min-w-[140px]">
-            <span className="text-sm font-semibold text-slate-800">
-              {selectedPackage} LPA
-            </span>
-            <span className="text-[11px] text-slate-500">Package</span>
+
+          {/* New details in grid of 4 with data above the label */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            {/* HR Name */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.hrName || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">HR Name</span>
+            </div>
+
+            {/* HR Mobile */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.hrMobile || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">HR Mobile</span>
+            </div>
+
+            {/* HR Email */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full truncate" title={candidate?.hrEmail || ''}>
+                {candidate?.hrEmail || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">HR Email</span>
+            </div>
+
+            {/* HR Linkedin profile */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              {candidate?.hrLinkedin ? (
+                <a
+                  href={candidate.hrLinkedin.startsWith('http') ? candidate.hrLinkedin : `https://${candidate.hrLinkedin}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold text-sky-600 hover:underline break-all w-full truncate"
+                  title={candidate.hrLinkedin}
+                >
+                  {candidate.hrLinkedin}
+                </a>
+              ) : (
+                <span className="text-sm font-semibold text-slate-800">-</span>
+              )}
+              <span className="text-[11px] text-slate-500 mt-1">HR Linkedin profile</span>
+            </div>
+
+            {/* Candidate Email */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full truncate" title={candidate?.candidateEmail || ''}>
+                {candidate?.candidateEmail || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Candidate email</span>
+            </div>
+
+            {/* Candidate Mobile */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.candidateMobile || candidate?.mobile || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Candidate mobile</span>
+            </div>
+
+            {/* Mother Name */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.motherName || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Mother name</span>
+            </div>
+
+            {/* Mother Mobile No. */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.motherMobile || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Mother mobile No.</span>
+            </div>
+
+            {/* Father Name */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.fatherName || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Father Name</span>
+            </div>
+
+            {/* Father Mobile No. */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.fatherMobile || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Father mobile no.</span>
+            </div>
+
+            {/* Brother Name */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.brotherName || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Brother Name</span>
+            </div>
+
+            {/* Brother Mobile No. */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.brotherMobile || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Brother mobile no.</span>
+            </div>
+
+            {/* Sister Name */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.sisterName || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Sister Name</span>
+            </div>
+
+            {/* Sister Mobile No. */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.sisterMobile || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Sister Mobile no.</span>
+            </div>
+
+            {/* Aadhar */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.aadhar || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Aadhar</span>
+            </div>
+
+            {/* PAN */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
+              <span className="text-sm font-semibold text-slate-800 uppercase break-words w-full">
+                {candidate?.pan || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">PAN</span>
+            </div>
+
+            {/* Perm address */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0 sm:col-span-2">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.permanentAddress || candidate?.permAddress || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Perm address</span>
+            </div>
+
+            {/* Temp address */}
+            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0 sm:col-span-2">
+              <span className="text-sm font-semibold text-slate-800 break-words w-full">
+                {candidate?.temporaryAddress || candidate?.tempAddress || '-'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">Temp address</span>
+            </div>
           </div>
         </div>
       )}
@@ -4871,7 +5354,8 @@ export default function AdminDashboard() {
             status: d.isActive === false ? 'Inactive' : (d.status || 'Active'),
             isActive: d.isActive !== false,
             lastActivatedAt: d.lastActivatedAt || d.reactivatedAt || null,
-            selected: !!d.isSelected,
+            selected: !!(d.isSelected || d.selected),
+            isSelected: !!(d.isSelected || d.selected),
             referredBy,
             password: String(d.password ?? '').trim(),
             // Selected candidate details (if present from Firestore)
@@ -4879,6 +5363,26 @@ export default function AdminDashboard() {
             joiningDate: d.joiningDate || '',
             selectedCompany: d.selectedCompany || '',
             package: d.selectedPackage || d.package || '',
+            hrName: d.hrName || '',
+            hrMobile: d.hrMobile || '',
+            hrEmail: d.hrEmail || '',
+            hrLinkedin: d.hrLinkedin || '',
+            candidateEmail: d.candidateEmail || d.email || '',
+            candidateMobile: d.candidateMobile || '',
+            motherName: d.motherName || '',
+            motherMobile: d.motherMobile || '',
+            fatherName: d.fatherName || '',
+            fatherMobile: d.fatherMobile || '',
+            brotherName: d.brotherName || '',
+            brotherMobile: d.brotherMobile || '',
+            sisterName: d.sisterName || '',
+            sisterMobile: d.sisterMobile || '',
+            aadhar: d.aadhar || '',
+            pan: d.pan || '',
+            permanentAddress: d.permanentAddress || d.permAddress || '',
+            temporaryAddress: d.temporaryAddress || d.tempAddress || '',
+            permAddress: d.permanentAddress || d.permAddress || '',
+            tempAddress: d.temporaryAddress || d.tempAddress || '',
           };
         });
 
@@ -5254,9 +5758,14 @@ export default function AdminDashboard() {
 
   const filteredCandidates = useMemo(() => {
     const filtered = candidates.filter((c) => {
-      const effectiveStatus = getCandidateAccountStatus(c, slots);
-      if (candidateSelectionFilter === 'selected' && !c.selected) return false;
-      if (candidateSelectionFilter === 'unselected' && c.selected) return false;
+      const isSelected = !!(c.selected || c.isSelected);
+      if (candidateSelectionFilter === 'selected' && !isSelected) return false;
+      if (candidateSelectionFilter === 'unselected' && isSelected) return false;
+
+      const effectiveStatus = isSelected
+        ? (c.status ? c.status : (c.isActive !== false ? 'Active' : 'Inactive'))
+        : getCandidateAccountStatus(c, slots);
+
       if (candidateStatusFilter === 'active' && effectiveStatus !== 'Active') return false;
       if (candidateStatusFilter === 'inactive' && effectiveStatus !== 'Inactive') return false;
       if (candidateReferredByFilter === 'anil_sir') {
@@ -5333,7 +5842,10 @@ export default function AdminDashboard() {
   const handleToggleStatus = async (id) => {
     const candidate = candidates.find((c) => c.id === id);
     if (!candidate) return;
-    const currentEffective = getCandidateAccountStatus(candidate, slots);
+    const isSelected = !!(candidate.selected || candidate.isSelected);
+    const currentEffective = isSelected
+      ? (candidate.status ? candidate.status : (candidate.isActive !== false ? 'Active' : 'Inactive'))
+      : getCandidateAccountStatus(candidate, slots);
     const newStatus = currentEffective === 'Active' ? 'Inactive' : 'Active';
     const isActive = newStatus === 'Active';
     const lastActivatedAt = isActive ? Date.now() : null;
@@ -5453,6 +5965,26 @@ export default function AdminDashboard() {
           joiningDate: d.joiningDate || '',
           selectedCompany: d.selectedCompany || '',
           package: d.selectedPackage || d.package || '',
+          hrName: d.hrName || candidate.hrName || '',
+          hrMobile: d.hrMobile || candidate.hrMobile || '',
+          hrEmail: d.hrEmail || candidate.hrEmail || '',
+          hrLinkedin: d.hrLinkedin || candidate.hrLinkedin || '',
+          candidateEmail: d.candidateEmail || d.email || candidate.candidateEmail || candidate.email || '',
+          candidateMobile: d.candidateMobile || candidate.candidateMobile || String(d.mobile ?? d.phone ?? '').trim(),
+          motherName: d.motherName || candidate.motherName || '',
+          motherMobile: d.motherMobile || candidate.motherMobile || '',
+          fatherName: d.fatherName || candidate.fatherName || '',
+          fatherMobile: d.fatherMobile || candidate.fatherMobile || '',
+          brotherName: d.brotherName || candidate.brotherName || '',
+          brotherMobile: d.brotherMobile || candidate.brotherMobile || '',
+          sisterName: d.sisterName || candidate.sisterName || '',
+          sisterMobile: d.sisterMobile || candidate.sisterMobile || '',
+          aadhar: d.aadhar || candidate.aadhar || '',
+          pan: d.pan || candidate.pan || '',
+          permanentAddress: d.permanentAddress || d.permAddress || candidate.permanentAddress || candidate.permAddress || '',
+          temporaryAddress: d.temporaryAddress || d.tempAddress || candidate.temporaryAddress || candidate.tempAddress || '',
+          permAddress: d.permanentAddress || d.permAddress || candidate.permanentAddress || candidate.permAddress || '',
+          tempAddress: d.temporaryAddress || d.tempAddress || candidate.temporaryAddress || candidate.tempAddress || '',
         };
         setEditingCandidate(fullCandidate);
       }
@@ -5722,12 +6254,33 @@ export default function AdminDashboard() {
                             : c.technologies,
                           referredBy: data.referredBy || c.referredBy,
                           selected: data.selected ?? c.selected,
+                          isSelected: data.selected ?? c.selected,
                           password: data.password,
                           ...(data.selected && {
                             selectedDate: data.selectedDate,
                             joiningDate: data.joiningDate,
                             selectedCompany: data.selectedCompany,
                             package: data.package,
+                            hrName: data.hrName,
+                            hrMobile: data.hrMobile,
+                            hrEmail: data.hrEmail,
+                            hrLinkedin: data.hrLinkedin,
+                            candidateEmail: data.candidateEmail,
+                            candidateMobile: data.candidateMobile,
+                            motherName: data.motherName,
+                            motherMobile: data.motherMobile,
+                            fatherName: data.fatherName,
+                            fatherMobile: data.fatherMobile,
+                            brotherName: data.brotherName,
+                            brotherMobile: data.brotherMobile,
+                            sisterName: data.sisterName,
+                            sisterMobile: data.sisterMobile,
+                            aadhar: data.aadhar,
+                            pan: data.pan,
+                            permanentAddress: data.permanentAddress,
+                            temporaryAddress: data.temporaryAddress,
+                            permAddress: data.permanentAddress,
+                            tempAddress: data.temporaryAddress,
                           }),
                         }
                       : c,
@@ -5751,7 +6304,14 @@ export default function AdminDashboard() {
               search={candidateSearch}
               onBackToHome={() => setActiveTab('home')}
               onOpenAddForm={() => setShowAddForm(true)}
-              onChangeSelectionFilter={setCandidateSelectionFilter}
+              onChangeSelectionFilter={(newFilter) => {
+                setCandidateSelectionFilter(newFilter);
+                if (newFilter === 'selected') {
+                  setCandidateStatusFilter('all');
+                } else if (newFilter === 'unselected') {
+                  setCandidateStatusFilter('active');
+                }
+              }}
               onChangeReferredByFilter={setCandidateReferredByFilter}
               onChangeStatusFilter={setCandidateStatusFilter}
               onChangeSearch={setCandidateSearch}

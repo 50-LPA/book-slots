@@ -83,6 +83,25 @@ export default function CandidateRouteGuard() {
               if (!cancelled) setState('redirect');
               return;
             }
+
+            // Candidate is active; update session with fresh activation status from Firestore
+            try {
+              sessionStorage.setItem(
+                'sb_user',
+                JSON.stringify({
+                  ...parsed,
+                  id: snap.id,
+                  firestoreId: snap.id,
+                  mobile: candidateMobile,
+                  name: (data.name || parsed?.name || '').trim(),
+                  isActive: data.isActive !== false,
+                  status: data.status || 'Active',
+                  lastActivatedAt: data.lastActivatedAt || data.reactivatedAt || null,
+                }),
+              );
+            } catch {
+              // ignore
+            }
           }
         }
 

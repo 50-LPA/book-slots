@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
 import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY, slotDocToUI } from '../firebase/slotsService';
@@ -79,6 +79,7 @@ function isMeetingEndWithinBookingWindow(hour, minute, durationMins, dateStr) {
 }
 
 export default function BookSlot({
+  candidateProfile = null,
   onClose,
   onOpenAddHR,
   onBookSuccess,
@@ -540,8 +541,31 @@ export default function BookSlot({
           return matches && !isRejected && !hasFeedback;
         });
 
+      let liveCandidateData = candidateProfile || parsedCandidate;
+      if (candidateFirestoreId) {
+        try {
+          const candSnap = await getDoc(doc(db, 'candidates', candidateFirestoreId));
+          if (candSnap.exists()) {
+            liveCandidateData = { id: candSnap.id, firestoreId: candSnap.id, ...candSnap.data() };
+          }
+        } catch {
+          // ignore
+        }
+      }
+      if ((!liveCandidateData || !liveCandidateData.lastActivatedAt) && candidateMobile) {
+        try {
+          const qMob = query(collection(db, 'candidates'), where('mobile', '==', candidateMobile));
+          const qSnap = await getDocs(qMob);
+          if (!qSnap.empty) {
+            liveCandidateData = { id: qSnap.docs[0].id, firestoreId: qSnap.docs[0].id, ...qSnap.docs[0].data() };
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       const allCandidateUiSlots = eventsSnap.docs.map((d) => slotDocToUI(d));
-      if (isCandidateInterviewOlderThanTwoWeeks(allCandidateUiSlots, parsedCandidate || matchKeys)) {
+      if (isCandidateInterviewOlderThanTwoWeeks(allCandidateUiSlots, liveCandidateData || matchKeys)) {
         // eslint-disable-next-line no-alert
         alert('Your account is currently inactive because your last interview was more than two weeks ago. Please contact the administrator.');
         if (onClose) onClose();

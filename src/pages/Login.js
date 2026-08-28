@@ -153,9 +153,13 @@ export default function Login() {
         'sb_user',
         JSON.stringify({
           id: candidateDoc.id,
+          firestoreId: candidateDoc.id,
           mobile: normalizedMobile,
           role: 'candidate',
           name: (candidateSession.name || '').trim(),
+          isActive: candidateData.isActive !== false,
+          status: candidateData.status || 'Active',
+          lastActivatedAt: candidateData.lastActivatedAt || candidateData.reactivatedAt || null,
         }),
       );
 
