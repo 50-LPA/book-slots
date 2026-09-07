@@ -132,5 +132,5 @@ function CalendarToolbar({
   );
 }
 
-export default CalendarToolbar;
+export default React.memo(CalendarToolbar);
 

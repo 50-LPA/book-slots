@@ -62,15 +62,15 @@ function WeekCalendar({ candidateIds = [], onEventClick }) {
     [weekStart, weekEndExclusive, events],
   );
 
-  const handleToday = () => setWeekStart(getWeekStart(new Date()));
+  const handleToday = React.useCallback(() => setWeekStart(getWeekStart(new Date())), []);
 
-  const handleNextWeek = () => {
+  const handleNextWeek = React.useCallback(() => {
     setWeekStart((prev) => {
       const next = new Date(prev);
       next.setDate(next.getDate() + 7);
       return next;
     });
-  };
+  }, []);
 
   return (
     <>
@@ -100,4 +100,4 @@ function WeekCalendar({ candidateIds = [], onEventClick }) {
   );
 }
 
-export default WeekCalendar;
+export default React.memo(WeekCalendar);

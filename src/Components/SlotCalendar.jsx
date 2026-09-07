@@ -239,24 +239,11 @@ function SlotCalendar({
                             slotMatchesCandidateKeys(event, candidateIds);
 
                           let mainLabel = event.title;
-                          let timeLabel = '';
 
                           // Candidate calendar:
                           // - Own slots: "<Name or You>" on first line, time on second line
                           // - Other slots: "Slot Booked" on first line, time on second line (no other name)
                           if (isCandidateView && event.__startDate && event.__endDate) {
-                            const startLabel = event.__startDate.toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: true,
-                            });
-                            const endLabel = event.__endDate.toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: true,
-                            });
-                            timeLabel = `${startLabel} - ${endLabel}`;
-
                             if (isOwnSlot) {
                               const name = (event.candidateName || '').trim();
                               mainLabel = name || 'You';
@@ -270,7 +257,6 @@ function SlotCalendar({
 
                           if (!isCandidateView) {
                             mainLabel = event.title;
-                            timeLabel = '';
                           }
 
                           // Compute vertical position and height within this hour cell
@@ -311,7 +297,6 @@ function SlotCalendar({
                             // For continuation rows, hide labels so it looks like one long block
                             if (!isFirstHourRowForEvent) {
                               mainLabel = '';
-                              timeLabel = '';
                             }
                           }
 
@@ -332,10 +317,11 @@ function SlotCalendar({
                             }
                           }
 
+                          const eventKey = event.id ? `${event.id}-${hour}-${idx}` : `${event.title}-${hour}-${idx}`;
                           const eventCount = hourEvents.length;
                           return (
                             <div
-                              key={`${event.title}-${idx}`}
+                              key={eventKey}
                               className={`absolute inset-x-0.5 sm:inset-x-1 ${colorClass} px-1 py-1 sm:px-3 sm:py-2 text-[10px] sm:text-[14px] text-white shadow-sm w-auto max-w-full break-words overflow-hidden`}
                               onClick={() => {
                                 if (onEventClick) {
@@ -350,11 +336,6 @@ function SlotCalendar({
                               <div className="text-[10px] sm:text-[14px] font-semibold">
                                 {mainLabel}
                               </div>
-                              {/* {timeLabel && (
-                                <div className="text-[10px] sm:text-[14px] opacity-80">
-                                  {timeLabel}
-                                </div>
-                              )} */}
                               {eventCount > 1 && idx < eventCount - 1 && (
                                 <div className="absolute left-0 right-0 bottom-0 h-px bg-slate-300" />
                               )}
@@ -392,4 +373,4 @@ function SlotCalendar({
   );
 }
 
-export default SlotCalendar;
+export default React.memo(SlotCalendar);

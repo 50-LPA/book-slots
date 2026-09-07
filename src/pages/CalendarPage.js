@@ -23,16 +23,6 @@ export default function CalendarPage() {
     getLeaves().then((list) => setLeaveDates(list.map((l) => l.date).filter(Boolean)));
   }, [calendarRefreshKey]);
 
-  useEffect(() => {
-    const syncToToday = () => {
-      const now = new Date();
-      setToday(now);
-    };
-    // Keep week navigation stable: do a one-time sync.
-    syncToToday();
-    return undefined;
-  }, []);
-
   const weekEnd = useMemo(() => getWeekDays(weekStart, 5)[4], [weekStart]);
   const weekEndExclusive = useMemo(() => getWeekEndExclusive(weekStart, 5), [weekStart]);
 

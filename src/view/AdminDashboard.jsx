@@ -60,45 +60,23 @@ function isValidCandidateMobile(mobile) {
   return /^[6-9]\d{9}$/.test(String(mobile || '').trim());
 }
 
-function openNativeDatePicker(inputEl) {
-  if (!inputEl) return;
-  if (typeof inputEl.showPicker === 'function') {
-    try {
-      inputEl.showPicker();
-      return;
-    } catch {
-      // fall through for browsers that block showPicker outside user gesture
-    }
-  }
-  inputEl.focus();
-  inputEl.click();
-}
+
 
 function DateInputWithCalendarIcon({ value, onChange, className = '', inputRef = null }) {
   const localRef = useRef(null);
   const ref = inputRef || localRef;
   const inputClass =
     className ||
-    'w-full rounded-md border border-slate-200 bg-white px-3 py-2 pr-9 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200';
+    'w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200 cursor-pointer';
 
   return (
-    <div className="relative">
-      <input
-        ref={ref}
-        type="date"
-        value={value}
-        onChange={onChange}
-        className={`${inputClass} [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
-      />
-      <button
-        type="button"
-        onClick={() => openNativeDatePicker(ref.current)}
-        className="absolute right-2 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-        aria-label="Open calendar"
-      >
-        <i className="fa-solid fa-calendar text-sm" aria-hidden="true" />
-      </button>
-    </div>
+    <input
+      ref={ref}
+      type="date"
+      value={value}
+      onChange={onChange}
+      className={inputClass}
+    />
   );
 }
 
@@ -4589,6 +4567,8 @@ const normaliseRoundLabelAdmin = (raw) => {
 function AdminLeavesTable({ onBackToHome }) {
   const [showAddLeave, setShowAddLeave] = useState(false);
   const [leaveDate, setLeaveDate] = useState('');
+  const [leaveError, setLeaveError] = useState('');
+  const [savingLeave, setSavingLeave] = useState(false);
   const [leaves, setLeaves] = useState([]);
   const leaveDateInputRef = useRef(null);
   const [confirmDeleteLeaveId, setConfirmDeleteLeaveId] = useState(null);
@@ -4610,15 +4590,32 @@ function AdminLeavesTable({ onBackToHome }) {
   };
 
   const handleSaveLeave = async () => {
-    if (!leaveDate) return;
-    const dateLabel = formatLeaveDate(leaveDate);
+    if (!leaveDate) {
+      setLeaveError('Please select a date.');
+      return;
+    }
+    const cleanDate = String(leaveDate).trim();
+    const alreadyExists = leaves.some(
+      (l) => String(l.date || '').trim() === cleanDate,
+    );
+    if (alreadyExists) {
+      setLeaveError('Leave for this date already exists.');
+      return;
+    }
+
+    const dateLabel = formatLeaveDate(cleanDate);
     try {
-      const id = await addLeaveToFirestore(leaveDate, dateLabel);
-      setLeaves((prev) => [...prev, { id, date: leaveDate, dateLabel }]);
-    setLeaveDate('');
-    setShowAddLeave(false);
+      setSavingLeave(true);
+      setLeaveError('');
+      const id = await addLeaveToFirestore(cleanDate, dateLabel);
+      setLeaves((prev) => [...prev, { id, date: cleanDate, dateLabel }]);
+      setLeaveDate('');
+      setShowAddLeave(false);
     } catch (err) {
       console.error('Failed to add leave:', err);
+      setLeaveError(err?.message || 'Failed to add leave. Please try again.');
+    } finally {
+      setSavingLeave(false);
     }
   };
 
@@ -4665,7 +4662,7 @@ function AdminLeavesTable({ onBackToHome }) {
             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
             aria-label="Refresh"
             onClick={() => {
-              // simple refresh: no-op for now
+              getLeaves(true).then((list) => setLeaves(list));
             }}
           >
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
@@ -4676,7 +4673,11 @@ function AdminLeavesTable({ onBackToHome }) {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setShowAddLeave(true)}
+            onClick={() => {
+              setLeaveDate('');
+              setLeaveError('');
+              setShowAddLeave(true);
+            }}
             className="inline-flex items-center gap-2 rounded-md bg-lime-500 px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-semibold text-white shadow hover:bg-lime-600 whitespace-nowrap"
           >
             <i className="fa-solid fa-plus w-4 h-4" aria-hidden="true" />
@@ -4839,17 +4840,26 @@ function AdminLeavesTable({ onBackToHome }) {
               </button>
             </div>
 
-            {/* Date field with calendar icon */}
+            {/* Date field with single calendar icon */}
             <div className="mb-4">
               <label className="block text-xs font-medium text-slate-700 mb-1">
                 Date
               </label>
-              <DateInputWithCalendarIcon
+              <input
+                type="date"
+                ref={leaveDateInputRef}
                 value={leaveDate}
-                onChange={(e) => setLeaveDate(e.target.value)}
-                inputRef={leaveDateInputRef}
-                className="add-leave-date w-full rounded-md border border-slate-200 bg-white px-3 py-2 pr-9 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                onChange={(e) => {
+                  setLeaveError('');
+                  setLeaveDate(e.target.value);
+                }}
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200 cursor-pointer"
               />
+              {leaveError && (
+                <div className="mt-2 text-xs text-red-600 font-medium">
+                  {leaveError}
+                </div>
+              )}
             </div>
 
             {/* Modal actions */}
@@ -4863,10 +4873,11 @@ function AdminLeavesTable({ onBackToHome }) {
               </button>
               <button
                 type="button"
+                disabled={savingLeave}
                 onClick={handleSaveLeave}
-                className="rounded-md bg-lime-500 px-5 py-1.5 text-xs sm:text-sm font-semibold text-white hover:bg-lime-600"
+                className="rounded-md bg-lime-500 disabled:opacity-50 px-5 py-1.5 text-xs sm:text-sm font-semibold text-white hover:bg-lime-600"
               >
-                Save
+                {savingLeave ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>

@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MARQUEE_ITEMS from '../data/marqueeCompanies';
 
-function LogoPlacedCard({ item }) {
-  const [logoSrc, setLogoSrc] = useState(item.logoSrc);
+function LogoPlacedCard({ item, loadImages }) {
   const [logoFailed, setLogoFailed] = useState(false);
 
   return (
     <div className="flex w-[220px] shrink-0 flex-col items-center rounded-md border border-slate-300 bg-white shadow-sm sm:w-[260px] overflow-hidden">
       <div className="w-full">
-        {!logoFailed ? (
+        {loadImages && !logoFailed ? (
           <img
-            src={logoSrc}
+            src={item.logoSrc}
             alt={`${item.alt} logo`}
-            className="h-16 w-full object-contain bg-white sm:h-20"
+            className="h-16 w-full object-contain bg-white sm:h-20 transition-opacity duration-300"
             loading="lazy"
+            decoding="async"
             onError={() => {
               // Logos are local first; when missing, show company name badge.
               setLogoFailed(true);
@@ -34,8 +34,25 @@ function LogoPlacedCard({ item }) {
 
 /**
  * Marquee tab + scrolling row of partner logos with “placed N” under each (home calendar mockup).
+ * Defers logo image downloading until after the calendar and slots are rendered.
  */
-export default function PlacedCandidatesMarquee({ className = '', speedSeconds = 15 }) {
+export default function PlacedCandidatesMarquee({ className = '', speedSeconds = 15, delayLoad = true }) {
+  const [loadImages, setLoadImages] = useState(!delayLoad);
+
+  useEffect(() => {
+    if (!delayLoad || loadImages) return undefined;
+
+    // Defer loading logo images until the calendar and slots are fully rendered
+    let id;
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      id = window.requestIdleCallback(() => setLoadImages(true), { timeout: 1200 });
+      return () => window.cancelIdleCallback(id);
+    } else {
+      id = setTimeout(() => setLoadImages(true), 600);
+      return () => clearTimeout(id);
+    }
+  }, [delayLoad, loadImages]);
+
   // Duplicate once for seamless 0% -> -50% looping.
   const loop = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
 
@@ -50,7 +67,7 @@ export default function PlacedCandidatesMarquee({ className = '', speedSeconds =
           style={{ animationDuration: `${speedSeconds}s` }}
         >
           {loop.map((item, idx) => (
-            <LogoPlacedCard key={`${item.id}-${idx}`} item={item} />
+            <LogoPlacedCard key={`${item.id}-${idx}`} item={item} loadImages={loadImages} />
           ))}
         </div>
       </div>

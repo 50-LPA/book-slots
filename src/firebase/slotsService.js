@@ -203,119 +203,167 @@ export function slotToCalendarEvent(slot) {
   };
 }
 
+// Module-level caches to avoid re-fetching candidates and HRs across mounts/snapshots
+let globalCandidatesCache = null;
+let globalCandidatesPromise = null;
+let globalHrCache = null;
+let globalHrPromise = null;
+
+export function getCachedCandidatesMap() {
+  return globalCandidatesCache;
+}
+
+export function getCachedHrMap() {
+  return globalHrCache;
+}
+
+function fetchCandidatesCache() {
+  if (globalCandidatesCache) return Promise.resolve(globalCandidatesCache);
+  if (globalCandidatesPromise) return globalCandidatesPromise;
+
+  globalCandidatesPromise = getDocs(collection(db, 'candidates'))
+    .then((snap) => {
+      const map = {};
+      snap.forEach((d) => {
+        const data = d.data() || {};
+        const name = (data.name || '').trim();
+        const referredBy = (data.referredBy || data.refereedBy || '').trim();
+        const mobile = normalizeCandidateMobile(data.mobile || data.phone);
+        if (name) {
+          map[d.id] = { name, referredBy, mobile };
+          if (mobile) map[mobile] = { name, referredBy, mobile };
+        }
+      });
+      globalCandidatesCache = map;
+      return map;
+    })
+    .catch((err) => {
+      console.error('Error loading candidates cache:', err);
+      return {};
+    })
+    .finally(() => {
+      globalCandidatesPromise = null;
+    });
+
+  return globalCandidatesPromise;
+}
+
+function fetchHrCache() {
+  if (globalHrCache) return Promise.resolve(globalHrCache);
+  if (globalHrPromise) return globalHrPromise;
+
+  globalHrPromise = getDocs(collection(db, 'hrs'))
+    .then((snap) => {
+      const map = {};
+      snap.forEach((d) => {
+        const data = d.data() || {};
+        map[d.id] = {
+          name: (data.name || '').trim(),
+          email: (data.email || '').trim(),
+          mobile: (data.mobile || '').trim(),
+        };
+      });
+      globalHrCache = map;
+      return map;
+    })
+    .catch((err) => {
+      console.error('Error loading HR cache:', err);
+      return {};
+    })
+    .finally(() => {
+      globalHrPromise = null;
+    });
+
+  return globalHrPromise;
+}
+
+function mapDocsToEvents(docs, cCache = globalCandidatesCache, hCache = globalHrCache) {
+  const allSlots = docs.map((d) => {
+    const slot = slotDocToUI(d);
+    const id = (slot.candidateId || '').trim();
+    const mobileKey = normalizeCandidateMobile(
+      slot.candidateMobile || slot.mobile || id,
+    );
+    const cacheEntry =
+      (mobileKey && cCache ? cCache[mobileKey] : null) ||
+      (id && cCache ? cCache[id] : null);
+    const hrId = (slot.hrId || '').trim();
+    const hrEntry = hrId && hCache ? hCache[hrId] : null;
+
+    let candidateName = (slot.candidateName || slot.name || '').trim();
+    let referredBy = (slot.referredBy || slot.refereedBy || '').trim();
+    let hrName = (slot.hrName || '').trim();
+    let hrEmail = (slot.hrEmail || '').trim();
+    let hrMobile = (slot.hrMobile || '').trim();
+
+    if (!candidateName && cacheEntry?.name) {
+      candidateName = cacheEntry.name;
+    }
+    if (!referredBy && cacheEntry?.referredBy) {
+      referredBy = cacheEntry.referredBy;
+    }
+    if (hrEntry) {
+      if (!hrName && hrEntry.name) hrName = hrEntry.name;
+      if (!hrEmail && hrEntry.email) hrEmail = hrEntry.email;
+      if (!hrMobile && hrEntry.mobile) hrMobile = hrEntry.mobile;
+    }
+
+    return {
+      ...slot,
+      candidateName,
+      referredBy,
+      hrName,
+      hrEmail,
+      hrMobile,
+    };
+  });
+
+  // Filter to approved only (handle both 'Approved' and 'approved')
+  const approvedSlots = allSlots.filter((slot) => {
+    const s = String(slot.status || '').trim();
+    return s === 'Approved' || s === 'approved';
+  });
+
+  return approvedSlots.map(slotToCalendarEvent);
+}
+
 /**
  * Subscribe to approved slots and call callback with calendar events.
- * Loads all slots and filters client-side to avoid Firestore query/index issues.
+ * Emits immediately on first snapshot without waiting for candidates/hrs collections,
+ * eliminating the 3-4s blocking delay. Enriches asynchronously if needed.
  */
 export function subscribeToApprovedSlots(callback) {
   const slotsRef = collection(db, SLOTS_COLLECTION);
+  let isSubscribed = true;
 
-  // Cache of candidateId -> { name, referredBy } so calendar can show
-  // candidate name and color slots by referrer, even for legacy events.
-  let candidatesCache = null;
-  // Cache of hrId -> { name, email, mobile } for enriching HR details
-  let hrCache = null;
-
-  const ensureCandidatesCache = async () => {
-    if (candidatesCache) return candidatesCache;
-    const snap = await getDocs(collection(db, 'candidates'));
-    const map = {};
-    snap.forEach((d) => {
-      const data = d.data() || {};
-      const name = (data.name || '').trim();
-      const referredBy = (data.referredBy || data.refereedBy || '').trim();
-      const mobile = normalizeCandidateMobile(data.mobile || data.phone);
-      if (name) {
-        map[d.id] = { name, referredBy, mobile };
-        if (mobile) map[mobile] = { name, referredBy, mobile };
-      }
-    });
-    candidatesCache = map;
-    return candidatesCache;
-  };
-
-  const processSnapshot = async (snapshot) => {
-    try {
-      await ensureCandidatesCache();
-      if (!hrCache) {
-        const snap = await getDocs(collection(db, 'hrs'));
-        const map = {};
-        snap.forEach((d) => {
-          const data = d.data() || {};
-          map[d.id] = {
-            name: (data.name || '').trim(),
-            email: (data.email || '').trim(),
-            mobile: (data.mobile || '').trim(),
-          };
-        });
-        hrCache = map;
-      }
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Error loading candidates for calendar:', err);
-    }
-
-    const allSlots = snapshot.docs.map((d) => {
-      const slot = slotDocToUI(d);
-      const id = (slot.candidateId || '').trim();
-      const mobileKey = normalizeCandidateMobile(
-        slot.candidateMobile || slot.mobile || id,
-      );
-      const cacheEntry =
-        (mobileKey && candidatesCache ? candidatesCache[mobileKey] : null) ||
-        (id && candidatesCache ? candidatesCache[id] : null);
-      const hrId = (slot.hrId || '').trim();
-      const hrEntry = hrId && hrCache ? hrCache[hrId] : null;
-
-      let candidateName = (slot.candidateName || slot.name || '').trim();
-      let referredBy = (slot.referredBy || slot.refereedBy || '').trim();
-      let hrName = (slot.hrName || '').trim();
-      let hrEmail = (slot.hrEmail || '').trim();
-      let hrMobile = (slot.hrMobile || '').trim();
-
-      if (!candidateName && cacheEntry?.name) {
-        candidateName = cacheEntry.name;
-      }
-      if (!referredBy && cacheEntry?.referredBy) {
-        referredBy = cacheEntry.referredBy;
-      }
-      if (hrEntry) {
-        if (!hrName && hrEntry.name) hrName = hrEntry.name;
-        if (!hrEmail && hrEntry.email) hrEmail = hrEntry.email;
-        if (!hrMobile && hrEntry.mobile) hrMobile = hrEntry.mobile;
-      }
-
-      return {
-        ...slot,
-        candidateName,
-        referredBy,
-        hrName,
-        hrEmail,
-        hrMobile,
-      };
-    });
-
-    // Filter to approved only (handle both 'Approved' and 'approved')
-    const approvedSlots = allSlots.filter((slot) => {
-      const s = String(slot.status || '').trim();
-      return s === 'Approved' || s === 'approved';
-    });
-
-    const events = approvedSlots.map(slotToCalendarEvent);
-    callback(events);
-  };
-
-  // Subscribe to ALL events (no status filter) - avoids index/query issues
-  return onSnapshot(
+  const unsubscribe = onSnapshot(
     slotsRef,
     (snapshot) => {
-      processSnapshot(snapshot);
+      if (!isSubscribed) return;
+
+      // 1. FAST PATH: Emit events immediately with current doc data and existing cache
+      const immediateEvents = mapDocsToEvents(snapshot.docs, globalCandidatesCache, globalHrCache);
+      callback(immediateEvents);
+
+      // 2. BACKGROUND PATH: If cache was missing, load in background and re-emit enriched events
+      if (!globalCandidatesCache || !globalHrCache) {
+        Promise.all([fetchCandidatesCache(), fetchHrCache()]).then(([cCache, hCache]) => {
+          if (!isSubscribed) return;
+          const enrichedEvents = mapDocsToEvents(snapshot.docs, cCache, hCache);
+          callback(enrichedEvents);
+        });
+      }
     },
     (err) => {
       console.error('Error subscribing to slots for calendar:', err);
       callback([]);
     },
   );
+
+  return () => {
+    isSubscribed = false;
+    unsubscribe();
+  };
 }
 
 /**
@@ -1001,44 +1049,82 @@ export async function getSlotStatistics() {
 // Reuse the existing adminLeaves collection so leave days are shared.
 const LEAVES_COLLECTION = 'adminLeaves';
 
+// In-memory cache for leaves to eliminate redundant Firestore queries
+let globalLeavesCache = null;
+let globalLeavesPromise = null;
+let lastLeavesFetchTime = 0;
+const LEAVES_TTL_MS = 60 * 1000; // 1 minute
+
 /**
  * Get all leave dates from Firestore. Returns array of { id, date } where date is YYYY-MM-DD.
+ * Cached in memory to accelerate calendar loads to sub-second speeds.
  */
-export async function getLeaves() {
-  try {
-    const ref = collection(db, LEAVES_COLLECTION);
-    const snapshot = await getDocs(ref);
-    return snapshot.docs.map((d) => ({
-      id: d.id,
-      // Normalise to YYYY-MM-DD string for consumers like BookSlot/WeekCalendar.
-      date: (() => {
-        const raw = d.data().date;
-        if (raw?.toDate) {
-          const dt = raw.toDate();
-          const y = dt.getFullYear();
-          const m = String(dt.getMonth() + 1).padStart(2, '0');
-          const day = String(dt.getDate()).padStart(2, '0');
-          return `${y}-${m}-${day}`;
-        }
-        if (typeof raw === 'string') return raw;
-        return '';
-      })(),
-      dateLabel: d.data().dateLabel || (d.data().date?.toDate ? formatDateDDMMYYYY(d.data().date.toDate()) : ''),
-    }));
-  } catch (err) {
-    console.error('Error loading leaves:', err);
-    return [];
+export async function getLeaves(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && globalLeavesCache && now - lastLeavesFetchTime < LEAVES_TTL_MS) {
+    return globalLeavesCache;
   }
+  if (globalLeavesPromise) {
+    return globalLeavesPromise;
+  }
+
+  globalLeavesPromise = (async () => {
+    try {
+      const ref = collection(db, LEAVES_COLLECTION);
+      const snapshot = await getDocs(ref);
+      const list = snapshot.docs.map((d) => ({
+        id: d.id,
+        // Normalise to YYYY-MM-DD string for consumers like BookSlot/WeekCalendar.
+        date: (() => {
+          const raw = d.data().date;
+          if (raw?.toDate) {
+            const dt = raw.toDate();
+            const y = dt.getFullYear();
+            const m = String(dt.getMonth() + 1).padStart(2, '0');
+            const day = String(dt.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+          }
+          if (typeof raw === 'string') return raw;
+          return '';
+        })(),
+        dateLabel: d.data().dateLabel || (d.data().date?.toDate ? formatDateDDMMYYYY(d.data().date.toDate()) : ''),
+      }));
+      globalLeavesCache = list;
+      lastLeavesFetchTime = Date.now();
+      return list;
+    } catch (err) {
+      console.error('Error loading leaves:', err);
+      return globalLeavesCache || [];
+    } finally {
+      globalLeavesPromise = null;
+    }
+  })();
+
+  return globalLeavesPromise;
 }
 
 /**
  * Add a leave day. dateStr should be YYYY-MM-DD, dateLabel is for display.
+ * Prevents adding duplicate leaves on the same date.
  */
 export async function addLeave(dateStr, dateLabel) {
+  const cleanDate = String(dateStr || '').trim();
+  if (!cleanDate) {
+    throw new Error('Date is required');
+  }
+
+  // Check if leave already exists for this date
+  const currentLeaves = await getLeaves(true);
+  const exists = currentLeaves.some((l) => String(l.date || '').trim() === cleanDate);
+  if (exists) {
+    throw new Error('Leave for this date already exists.');
+  }
+
+  globalLeavesCache = null; // Invalidate cache
   const ref = collection(db, LEAVES_COLLECTION);
   const docRef = await addDoc(ref, {
-    date: dateStr,
-    dateLabel: dateLabel || dateStr,
+    date: cleanDate,
+    dateLabel: dateLabel || cleanDate,
     createdAt: serverTimestamp(),
   });
   return docRef.id;
@@ -1048,6 +1134,7 @@ export async function addLeave(dateStr, dateLabel) {
  * Delete a leave by Firestore document id.
  */
 export async function deleteLeave(id) {
+  globalLeavesCache = null; // Invalidate cache
   await deleteDoc(doc(db, LEAVES_COLLECTION, id));
 }
 

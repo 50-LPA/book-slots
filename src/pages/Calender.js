@@ -10,12 +10,11 @@ import { subscribeToApprovedSlots, getLeaves } from '../firebase/slotsService';
 import { toSafeDate, isSameDay } from '../utils/dateUtils';
 
 const Calender = () => {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate] = useState(() => new Date());
   const [events, setEvents] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [todayEventCount, setTodayEventCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [refreshKey, setRefreshKey] = useState(0);
   const navigate = useNavigate();
 
@@ -25,7 +24,6 @@ const Calender = () => {
     const unsubscribe = subscribeToApprovedSlots((approvedEvents) => {
       setEvents(approvedEvents);
       setIsLoading(false);
-      setLastRefreshed(new Date());
     });
     return () => unsubscribe();
   }, [refreshKey]);
@@ -240,7 +238,6 @@ const Calender = () => {
                       eventColor="#3788d8"
                       eventTextColor="#ffffff"
                       eventDidMount={(info) => {
-                        const { company, technology, candidateName } = info.event.extendedProps;
                         const eventEl = info.el;
                         const titleEl = eventEl.querySelector('.fc-event-title');
                         const startTime = new Date(info.event.start);

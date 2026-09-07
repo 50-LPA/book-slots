@@ -52,30 +52,19 @@ body {
   border-radius: 9999px;
 }
 
-/* Hide native datepicker icons and normalize appearance across browsers */
+/* Standard datepicker appearance across browsers */
 input[type="date"] {
-  -webkit-appearance: none;
-  -moz-appearance: textfield;
-  appearance: none;
-  padding-right: 2.5rem; /* room for custom icon */
+  cursor: pointer;
 }
 
-/* WebKit calendar picker indicator (Chrome, Edge, Safari) */
 input[type="date"]::-webkit-calendar-picker-indicator {
-  display: none;
-  -webkit-appearance: none;
+  cursor: pointer;
+  opacity: 1;
 }
 
 /* Firefox clear/inner controls */
 input[type="date"]::-moz-clear {
   display: none;
-}
-
-/* Add Leave date input: show only native icon by undoing global hide */
-.add-leave-date::-webkit-calendar-picker-indicator {
-  opacity: 1;
-  display: block;
-  cursor: pointer;
 }
 
 /* Home calendar: marquee row (logos + “placed N”) */

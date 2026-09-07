@@ -1722,8 +1722,11 @@ export default function CandidateDashboard() {
   const [hrsError, setHrsError] = useState(null);
   const [hrsRefreshKey, setHrsRefreshKey] = useState(0);
 
-  // Fetch HRs from Firestore "hrs" collection
+  // Fetch HRs from Firestore "hrs" collection (deferred when on calendar to prioritize slots)
   useEffect(() => {
+    const isHrNeededNow = activeNav === 'hrs' || showBookSlot;
+    let timerId = null;
+
     const fetchHRs = async () => {
       try {
         const hasExistingRows = Array.isArray(hrList) && hrList.length > 0;
@@ -1768,8 +1771,27 @@ export default function CandidateDashboard() {
       }
     };
 
-    fetchHRs();
-  }, [activeNav, hrsRefreshKey]);
+    if (isHrNeededNow) {
+      fetchHRs();
+    } else {
+      // Defer loading HRs until after Calendar and Slots have loaded and rendered
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        timerId = window.requestIdleCallback(() => fetchHRs(), { timeout: 2500 });
+      } else {
+        timerId = setTimeout(() => fetchHRs(), 1500);
+      }
+    }
+
+    return () => {
+      if (timerId) {
+        if (typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+          window.cancelIdleCallback(timerId);
+        } else {
+          clearTimeout(timerId);
+        }
+      }
+    };
+  }, [activeNav, hrsRefreshKey, showBookSlot]);
 
   useEffect(() => {
     let cancelled = false;
