@@ -2,9 +2,6 @@ import React, { useMemo } from 'react';
 import { getWeekDays, parseISOToDate, formatDayHeader } from '../calendar';
 import { slotMatchesCandidateKeys } from '../utils/candidateIdentity';
 
-// Time slots from 12:00 PM to 7:00 PM (inclusive)
-const HOURS = [12, 13, 14, 15, 16, 17, 18, 19];
-
 function hourLabel(hour24) {
   const isPM = hour24 >= 12;
   const hour12 = ((hour24 + 11) % 12) + 1;
@@ -26,11 +23,33 @@ function SlotCalendar({
   colorByReferrer = true,
   candidateIds = [],
   onEventClick,
+  showSaturday = true,
+  startHour = 11,
+  endHour = 19,
 }) {
   const today = todayProp ?? new Date();
   const todayString = today.toDateString();
-  const days = useMemo(() => getWeekDays(weekStart, 5), [weekStart]);
+  const days = useMemo(
+    () => getWeekDays(weekStart, showSaturday ? 6 : 5),
+    [weekStart, showSaturday],
+  );
   const leaveSet = useMemo(() => new Set(leaveDates), [leaveDates]);
+
+  const hours = useMemo(() => {
+    const list = [];
+    const s =
+      typeof startHour === 'number' && !Number.isNaN(startHour)
+        ? startHour
+        : 11;
+    const e =
+      typeof endHour === 'number' && !Number.isNaN(endHour)
+        ? endHour
+        : 19;
+    for (let h = s; h <= e; h += 1) {
+      list.push(h);
+    }
+    return list.length > 0 ? list : [11, 12, 13, 14, 15, 16, 17, 18, 19];
+  }, [startHour, endHour]);
 
   const eventsByDay = useMemo(() => {
     return days.map((day) => {
@@ -64,7 +83,9 @@ function SlotCalendar({
   const currentHour = today.getHours();
   const currentMinutes = today.getMinutes();
   const withinHoursRange =
-    currentHour >= HOURS[0] && currentHour <= HOURS[HOURS.length - 1];
+    hours.length > 0 &&
+    currentHour >= hours[0] &&
+    currentHour <= hours[hours.length - 1];
 
   return (
     <div className="sb-slot-calendar relative bg-white">
@@ -133,7 +154,7 @@ function SlotCalendar({
             </tr>
           </thead>
           <tbody>
-            {HOURS.map((hour) => {
+            {hours.map((hour) => {
               const isCurrentHour = hour === currentHour;
               const minuteOffset = (currentMinutes / 60) * 100;
               return (

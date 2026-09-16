@@ -25,6 +25,17 @@ import {
   formatDateDDMMYYYY,
   syncCandidateDisplayNameOnEvents,
 } from '../firebase/slotsService';
+import {
+  subscribeToSlotSettings,
+  saveSlotSettings,
+  getStoredSlotSettings,
+  normalizeSlotSettings,
+  formatHourToLabel,
+  formatHourTo24,
+  parseHourFromLabel,
+  START_TIME_OPTIONS,
+  END_TIME_OPTIONS,
+} from '../firebase/settingsService';
 import { getHrDuplicateFieldErrors } from '../firebase/hrService';
 import {
   normalizeCandidateMobile,
@@ -244,6 +255,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
     { id: 'leaves', label: 'Admin Leaves', icon: 'fa-solid fa-calendar-check' },
     { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-user-group' },
     { id: 'stats', label: 'Statistics', icon: 'fa-solid fa-chart-line' },
+    { id: 'settings', label: 'Settings', icon: 'fa-solid fa-gear' },
   ];
 
   const handleNavClick = (id) => {
@@ -454,6 +466,19 @@ function AdminTopNav({ activeTab, onChange, pendingApprovals = 0 }) {
       >
         <i className="fa-solid fa-chart-bar w-4 h-4" aria-hidden="true" />
         <span>Statistics</span>
+      </button>
+
+      {/* Settings */}
+      <button
+        onClick={() => onChange('settings')}
+        className={`${baseBtn} ${
+          activeTab === 'settings'
+            ? 'bg-purple-100 text-purple-600 shadow-sm'
+            : 'text-gray-700 hover:text-gray-900'
+        }`}
+      >
+        <i className="fa-solid fa-gear w-4 h-4" aria-hidden="true" />
+        <span>Settings</span>
       </button>
 
       <div className="ml-auto hidden sm:flex items-center text-[11px] font-semibold text-slate-600">
@@ -4887,6 +4912,158 @@ function AdminLeavesTable({ onBackToHome }) {
   );
 }
 
+function AdminSettingsTab({
+  slotSettings,
+  onToggleSaturday,
+  onUpdateStartTime,
+  onUpdateEndTime,
+  isSavingSlotSettings,
+  settingsSavedMessage,
+  onBackToHome,
+}) {
+  return (
+    <div className="w-full min-h-[70vh] bg-white rounded-lg sm:rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6 space-y-4">
+      {/* Header row - back button + Setting heading */}
+      <div className="flex items-center justify-between gap-3 mb-6">
+        {/* Left: back button */}
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={onBackToHome}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100 transition-colors"
+            title="Back to Home"
+          >
+            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Center: Setting Heading */}
+        <div className="flex-1 flex items-center justify-center gap-2">
+          <span className="text-xs sm:text-sm font-semibold text-purple-600">
+            Setting
+          </span>
+        </div>
+
+        {/* Right: Save Status / Spacer */}
+        <div className="flex items-center justify-end min-w-9">
+          {settingsSavedMessage && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+              <i className="fa-solid fa-circle-check text-xs" /> {settingsSavedMessage}
+            </span>
+          )}
+          {isSavingSlotSettings && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 bg-purple-50 px-2.5 py-0.5 rounded-full">
+              <i className="fa-solid fa-circle-notch fa-spin text-xs" /> Saving...
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Option 1: Saturday Show / Hide Toggle */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/60">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-sm sm:text-base font-bold text-gray-900">
+              Saturday Calendar & Slot Booking
+            </h3>
+            <span
+              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                slotSettings.showSaturday
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-slate-100 text-slate-600 border-slate-200'
+              }`}
+            >
+              {slotSettings.showSaturday ? 'Active / Show' : 'Hidden'}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Default: Active / Show. When disabled, Saturday is hidden across all three calendars and locked in slot booking.
+          </p>
+        </div>
+
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={onToggleSaturday}
+            className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+              slotSettings.showSaturday ? 'bg-purple-600' : 'bg-slate-300'
+            }`}
+            role="switch"
+            aria-checked={slotSettings.showSaturday}
+            title={slotSettings.showSaturday ? 'Click to hide Saturday' : 'Click to show Saturday'}
+          >
+            <span
+              className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                slotSettings.showSaturday ? 'translate-x-7' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Option 2: Slot Start Time setting */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/60">
+        <div>
+          <h3 className="text-sm sm:text-base font-bold text-gray-900">
+            Slot Start Time
+          </h3>
+          <p className="text-xs text-gray-500 mt-1">
+            Default: 11:00 AM. Sets the earliest hour for slots across all calendars and slot booking.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label htmlFor="settings-start-time-select" className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+            Start Time:
+          </label>
+          <select
+            id="settings-start-time-select"
+            value={slotSettings.startHour}
+            onChange={(e) => onUpdateStartTime(parseInt(e.target.value, 10))}
+            className="text-xs sm:text-sm font-bold text-purple-800 bg-white border border-purple-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-400 focus:outline-none cursor-pointer transition-colors shadow-2xs"
+          >
+            {START_TIME_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Option 3: Slot End Time setting */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/60">
+        <div>
+          <h3 className="text-sm sm:text-base font-bold text-gray-900">
+            Slot End Time
+          </h3>
+          <p className="text-xs text-gray-500 mt-1">
+            Default: 7:00 PM. Sets the latest hour for slots across all calendars and slot booking.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label htmlFor="settings-end-time-select" className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+            End Time:
+          </label>
+          <select
+            id="settings-end-time-select"
+            value={slotSettings.endHour}
+            onChange={(e) => onUpdateEndTime(parseInt(e.target.value, 10))}
+            className="text-xs sm:text-sm font-bold text-purple-800 bg-white border border-purple-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-400 focus:outline-none cursor-pointer transition-colors shadow-2xs"
+          >
+            {END_TIME_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Bar graph for Statistics tab – Y-axis rotated "Total Slots", fixed 0–80 scale, grid, x-axis month labels
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const CHART_BODY_HEIGHT = 320;
@@ -5325,6 +5502,99 @@ export default function AdminDashboard() {
     month: 'short',
     year: 'numeric',
   });
+
+  const [slotSettings, setSlotSettings] = useState(() => getStoredSlotSettings());
+  const [isSavingSlotSettings, setIsSavingSlotSettings] = useState(false);
+  const [settingsSavedMessage, setSettingsSavedMessage] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSlotSettings((settings) => {
+      setSlotSettings(settings);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleToggleSaturday = async () => {
+    const nextValue = !slotSettings.showSaturday;
+    const updated = normalizeSlotSettings({ ...slotSettings, showSaturday: nextValue });
+    setSlotSettings(updated);
+    setIsSavingSlotSettings(true);
+    try {
+      await saveSlotSettings(updated);
+      setSettingsSavedMessage('Saved');
+      setTimeout(() => setSettingsSavedMessage(''), 2500);
+    } catch (err) {
+      console.error('Failed to save Saturday setting:', err);
+    } finally {
+      setIsSavingSlotSettings(false);
+    }
+  };
+
+  const handleUpdateStartTime = async (newVal) => {
+    const hour =
+      typeof newVal === 'number'
+        ? newVal
+        : parseHourFromLabel(newVal);
+    if (hour == null || Number.isNaN(hour)) return;
+
+    let eHour = slotSettings.endHour ?? 19;
+    if (eHour <= hour) {
+      eHour = Math.min(23, hour + 1);
+    }
+    const updated = normalizeSlotSettings({
+      ...slotSettings,
+      startHour: hour,
+      endHour: eHour,
+      slotStartTime: formatHourToLabel(hour),
+      slotEndTime: formatHourToLabel(eHour),
+      startTime: formatHourTo24(hour),
+      endTime: formatHourTo24(eHour),
+    });
+    setSlotSettings(updated);
+    setIsSavingSlotSettings(true);
+    try {
+      await saveSlotSettings(updated);
+      setSettingsSavedMessage('Saved');
+      setTimeout(() => setSettingsSavedMessage(''), 2500);
+    } catch (err) {
+      console.error('Failed to save start time setting:', err);
+    } finally {
+      setIsSavingSlotSettings(false);
+    }
+  };
+
+  const handleUpdateEndTime = async (newVal) => {
+    const hour =
+      typeof newVal === 'number'
+        ? newVal
+        : parseHourFromLabel(newVal);
+    if (hour == null || Number.isNaN(hour)) return;
+
+    let sHour = slotSettings.startHour ?? 11;
+    if (hour <= sHour) {
+      sHour = Math.max(0, hour - 1);
+    }
+    const updated = normalizeSlotSettings({
+      ...slotSettings,
+      startHour: sHour,
+      endHour: hour,
+      slotStartTime: formatHourToLabel(sHour),
+      slotEndTime: formatHourToLabel(hour),
+      startTime: formatHourTo24(sHour),
+      endTime: formatHourTo24(hour),
+    });
+    setSlotSettings(updated);
+    setIsSavingSlotSettings(true);
+    try {
+      await saveSlotSettings(updated);
+      setSettingsSavedMessage('Saved');
+      setTimeout(() => setSettingsSavedMessage(''), 2500);
+    } catch (err) {
+      console.error('Failed to save end time setting:', err);
+    } finally {
+      setIsSavingSlotSettings(false);
+    }
+  };
 
   // Load candidates from Firestore on mount.
   // Mirrors the working project logic: read directly from "candidates" only.
@@ -6525,6 +6795,16 @@ export default function AdminDashboard() {
           />
         ) : activeTab === 'leaves' ? (
           <AdminLeavesTable onBackToHome={() => setActiveTab('home')} />
+        ) : activeTab === 'settings' ? (
+          <AdminSettingsTab
+            slotSettings={slotSettings}
+            onToggleSaturday={handleToggleSaturday}
+            onUpdateStartTime={handleUpdateStartTime}
+            onUpdateEndTime={handleUpdateEndTime}
+            isSavingSlotSettings={isSavingSlotSettings}
+            settingsSavedMessage={settingsSavedMessage}
+            onBackToHome={() => setActiveTab('home')}
+          />
         ) : (
           <>
             <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm border border-slate-300 px-4 py-6">
@@ -6592,7 +6872,7 @@ export default function AdminDashboard() {
                     <div className="absolute md:relative md:left-0 md:translate-x-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 flex items-center gap-2">
                       <span className="text-xs sm:text-sm font-semibold text-purple-600">
                         Slot Booking
-                  </span>
+                      </span>
                       <button
                         type="button"
                         onClick={() => setCalendarRefreshKey((k) => k + 1)}
@@ -6631,6 +6911,7 @@ export default function AdminDashboard() {
                 <div className="mt-4">
                   <WeekCalendar
                     key={calendarRefreshKey}
+                    settings={slotSettings}
                     onEventClick={(event) => {
                       setCalendarSelectedEvent(event);
                     }}

@@ -29,5 +29,9 @@ service cloud.firestore {
     match /slots/{docId} {
       allow read, write: if true;
     }
+    // Settings
+    match /settings/{docId} {
+      allow read, write: if true;
+    }
   }
 }

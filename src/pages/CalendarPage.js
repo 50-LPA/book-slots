@@ -3,8 +3,20 @@ import Header from '../Components/Header';
 import CalendarToolbar from '../Components/CalendarToolbar';
 import PlacedCandidatesMarquee from '../Components/PlacedCandidatesMarquee';
 import SlotCalendar from '../Components/SlotCalendar';
-import { getWeekStart, getWeekEndExclusive, formatWeekRangeLabel, getWeekDays, parseISOToDate, isSameDay } from '../calendar';
-import { subscribeToApprovedSlots, getLeaves } from '../firebase/slotsService';
+import {
+  getWeekStart,
+  getWeekEndExclusive,
+  formatWeekRangeLabel,
+  getWeekDays,
+  parseISOToDate,
+  isSameDay,
+} from '../calendar';
+import {
+  subscribeToApprovedSlots,
+  getLeaves,
+  subscribeToSlotSettings,
+  getStoredSlotSettings,
+} from '../firebase/slotsService';
 
 export default function CalendarPage() {
   const [today, setToday] = useState(() => new Date());
@@ -13,6 +25,17 @@ export default function CalendarPage() {
   const [events, setEvents] = useState([]);
   const [leaveDates, setLeaveDates] = useState([]);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
+  const [settings, setSettings] = useState(() => getStoredSlotSettings());
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSlotSettings((s) => setSettings(s));
+    return () => unsubscribe();
+  }, []);
+
+  const showSaturday = settings?.showSaturday !== false;
+  const startHour = settings?.startHour ?? 11;
+  const endHour = settings?.endHour ?? 19;
+  const dayCount = showSaturday ? 6 : 5;
 
   useEffect(() => {
     const unsubscribe = subscribeToApprovedSlots((approvedEvents) => setEvents(approvedEvents));
@@ -23,8 +46,14 @@ export default function CalendarPage() {
     getLeaves().then((list) => setLeaveDates(list.map((l) => l.date).filter(Boolean)));
   }, [calendarRefreshKey]);
 
-  const weekEnd = useMemo(() => getWeekDays(weekStart, 5)[4], [weekStart]);
-  const weekEndExclusive = useMemo(() => getWeekEndExclusive(weekStart, 5), [weekStart]);
+  const weekEnd = useMemo(
+    () => getWeekDays(weekStart, dayCount)[dayCount - 1],
+    [weekStart, dayCount],
+  );
+  const weekEndExclusive = useMemo(
+    () => getWeekEndExclusive(weekStart, dayCount),
+    [weekStart, dayCount],
+  );
 
   const rangeLabel = useMemo(
     () => formatWeekRangeLabel(weekStart, weekEnd),
@@ -108,6 +137,9 @@ export default function CalendarPage() {
                 events={displayWeekEvents}
                 leaveDates={leaveDates}
                 colorByReferrer={false}
+                showSaturday={showSaturday}
+                startHour={startHour}
+                endHour={endHour}
               />
             </div>
           </div>

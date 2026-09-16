@@ -4,6 +4,7 @@ import { collection, addDoc, getDocs, doc, getDoc, query, where } from 'firebase
 import { db } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
 import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY, slotDocToUI } from '../firebase/slotsService';
+import { subscribeToSlotSettings, getStoredSlotSettings } from '../firebase/settingsService';
 import {
   getPrimaryCandidateLinkId,
   normalizeCandidateMobile,
@@ -32,26 +33,6 @@ const MEETING_DURATION_OPTIONS = [
   { value: '180', label: '3 hours' },
 ];
 
-/** Mon–Fri booking window: 12 PM – 7 PM (same for Wed, Thu, Fri) */
-const BOOKING_TIME_WINDOW = {
-  min: '12:00',
-  max: '19:00',
-  hint: 'Book slots between 12 PM to 7 PM',
-};
-
-function getBookingTimeWindow() {
-  return BOOKING_TIME_WINDOW;
-}
-
-function getAllowedBookingHours() {
-  const { min, max } = getBookingTimeWindow();
-  const minH = parseInt(min.split(':')[0], 10);
-  const maxH = parseInt(max.split(':')[0], 10);
-  const hours = [];
-  for (let hh = minH; hh <= maxH; hh += 1) hours.push(hh);
-  return hours;
-}
-
 function timeToMinutes(hour, minute) {
   const hh = parseInt(hour, 10);
   const mm = parseInt(minute, 10);
@@ -59,21 +40,19 @@ function timeToMinutes(hour, minute) {
   return hh * 60 + mm;
 }
 
-function isStartTimeInBookingWindow(hour, minute, dateStr) {
+function isStartTimeInBookingWindow(hour, minute, dateStr, minTime = '11:00', maxTime = '19:00') {
   if (!hour || minute == null || !dateStr) return false;
   const hh = String(hour).padStart(2, '0');
   const mm = String(minute).padStart(2, '0');
   const time = `${hh}:${mm}`;
-  const { min, max } = getBookingTimeWindow();
-  return time >= min && time <= max;
+  return time >= minTime && time <= maxTime;
 }
 
-function isMeetingEndWithinBookingWindow(hour, minute, durationMins, dateStr) {
+function isMeetingEndWithinBookingWindow(hour, minute, durationMins, dateStr, maxTime = '19:00') {
   const startMins = timeToMinutes(hour, minute);
   const dur = parseInt(durationMins, 10);
   if (startMins == null || Number.isNaN(dur) || !dateStr) return false;
-  const { max } = getBookingTimeWindow();
-  const [maxH, maxM] = max.split(':').map((v) => parseInt(v, 10));
+  const [maxH, maxM] = maxTime.split(':').map((v) => parseInt(v, 10));
   const maxEndMins = maxH * 60 + maxM;
   return startMins + dur <= maxEndMins;
 }
@@ -126,9 +105,30 @@ export default function BookSlot({
   }, [candidateTechnologies]);
   const isTechnologyRestricted = techOptions.length > 0;
 
-  const bookingTimeHint = BOOKING_TIME_WINDOW.hint;
+  const [slotSettings, setSlotSettings] = useState(() => getStoredSlotSettings());
 
-  const allowedBookingHours = useMemo(() => getAllowedBookingHours(), []);
+  useEffect(() => {
+    const unsubscribe = subscribeToSlotSettings((s) => setSlotSettings(s));
+    return () => unsubscribe();
+  }, []);
+
+  const showSaturday = slotSettings?.showSaturday !== false;
+  const startHour = slotSettings?.startHour ?? 11;
+  const endHour = slotSettings?.endHour ?? 19;
+  const startTime = slotSettings?.startTime || '11:00';
+  const endTime = slotSettings?.endTime || '19:00';
+  const slotStartTime = slotSettings?.slotStartTime || '11:00 AM';
+  const slotEndTime = slotSettings?.slotEndTime || '07:00 PM';
+
+  const bookingTimeHint = `Book slots between ${slotStartTime} to ${slotEndTime}`;
+
+  const allowedBookingHours = useMemo(() => {
+    const s = typeof startHour === 'number' ? startHour : 11;
+    const e = typeof endHour === 'number' ? endHour : 19;
+    const hours = [];
+    for (let hh = s; hh <= e; hh += 1) hours.push(hh);
+    return hours;
+  }, [startHour, endHour]);
 
   useEffect(() => {
     if (!form.date || !form.hour) return;
@@ -390,7 +390,7 @@ export default function BookSlot({
       setAvailabilityMessage('Slot cannot be booked on Sunday.');
       return;
     }
-    if (isSaturday(form.date)) {
+    if (!showSaturday && isSaturday(form.date)) {
       setAvailabilityState('unavailable');
       setAvailabilityMessage('Slot cannot be booked on Saturday.');
       return;
@@ -465,7 +465,7 @@ export default function BookSlot({
       alert('Slot cannot be booked on Sunday. Please choose a different day.');
       return;
     }
-    if (isSaturday(form.date)) {
+    if (!showSaturday && isSaturday(form.date)) {
       setAvailabilityState('unavailable');
       setAvailabilityMessage('Slot cannot be booked on Saturday.');
       alert('Slot cannot be booked on Saturday. Please choose a different day.');
@@ -647,8 +647,8 @@ export default function BookSlot({
         if (!form.hour) e.hour = 'Hour is required';
         if (!form.minute) e.minute = 'Minute is required';
         if (form.date && form.hour && form.minute) {
-          if (!isStartTimeInBookingWindow(form.hour, form.minute, form.date)) {
-            e.time = 'Time must be between 12:00 PM and 7:00 PM.';
+          if (!isStartTimeInBookingWindow(form.hour, form.minute, form.date, startTime, endTime)) {
+            e.time = `Time must be between ${slotStartTime} and ${slotEndTime}.`;
           } else if (
             form.duration &&
             !isMeetingEndWithinBookingWindow(
@@ -656,10 +656,17 @@ export default function BookSlot({
               form.minute,
               form.duration,
               form.date,
+              endTime,
             )
           ) {
-            e.time = 'Meeting must end by 7 PM.';
+            e.time = `Meeting must end by ${slotEndTime}.`;
           }
+        }
+      } else if (f === 'date') {
+        if (!form.date) {
+          e.date = 'Date is required';
+        } else if (!showSaturday && isSaturday(form.date)) {
+          e.date = 'Slot cannot be booked on Saturday.';
         }
       } else {
         require(f);
@@ -806,9 +813,9 @@ export default function BookSlot({
                             <button
                               key={i}
                               type="button"
-                              disabled={!day || isSundayDate(day) || isSaturdayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)}
+                              disabled={!day || isSundayDate(day) || (!showSaturday && isSaturdayDate(day)) || isLeaveDayDate(day) || isPastDayDate(day)}
                               onClick={() => {
-                                if (day && !isSundayDate(day) && !isSaturdayDate(day) && !isLeaveDayDate(day)) {
+                                if (day && !isSundayDate(day) && (showSaturday || !isSaturdayDate(day)) && !isLeaveDayDate(day)) {
                                   const yyyymmdd = formatDateForInput(day);
                                   setForm((f) => ({ ...f, date: yyyymmdd, dateDisplay: formatDateForDisplay(yyyymmdd) }));
                                   setShowCalendar(false);
@@ -817,7 +824,7 @@ export default function BookSlot({
                               className={`py-1.5 rounded text-sm ${
                                 !day
                                   ? 'invisible'
-                                  : isSundayDate(day) || isSaturdayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)
+                                  : isSundayDate(day) || (!showSaturday && isSaturdayDate(day)) || isLeaveDayDate(day) || isPastDayDate(day)
                                   ? 'text-gray-300 cursor-not-allowed'
                                   : isSameDay(day, form.date ? new Date(form.date + 'T12:00:00') : null)
                                   ? 'bg-purple-600 text-white'
@@ -1183,9 +1190,9 @@ export default function BookSlot({
                           <button
                             key={i}
                             type="button"
-                            disabled={!day || isSundayDate(day) || isSaturdayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)}
+                            disabled={!day || isSundayDate(day) || (!showSaturday && isSaturdayDate(day)) || isLeaveDayDate(day) || isPastDayDate(day)}
                             onClick={() => {
-                              if (day && !isSundayDate(day) && !isSaturdayDate(day) && !isLeaveDayDate(day)) {
+                              if (day && !isSundayDate(day) && (showSaturday || !isSaturdayDate(day)) && !isLeaveDayDate(day)) {
                                 const yyyymmdd = formatDateForInput(day);
                                 setForm((f) => ({ ...f, date: yyyymmdd, dateDisplay: formatDateForDisplay(yyyymmdd) }));
                                 setShowCalendar(false);
@@ -1194,7 +1201,7 @@ export default function BookSlot({
                             className={`py-1.5 rounded text-sm ${
                               !day
                                 ? 'invisible'
-                                : isSundayDate(day) || isSaturdayDate(day) || isLeaveDayDate(day) || isPastDayDate(day)
+                                : isSundayDate(day) || (!showSaturday && isSaturdayDate(day)) || isLeaveDayDate(day) || isPastDayDate(day)
                                 ? 'text-gray-300 cursor-not-allowed'
                                 : isSameDay(day, form.date ? new Date(form.date + 'T12:00:00') : null)
                                 ? 'bg-purple-600 text-white'

@@ -6,7 +6,12 @@ import interactionPlugin from '@fullcalendar/interaction';
 import scrollGridPlugin from '@fullcalendar/scrollgrid';
 import '../assets/css/calendar-responsive.css';
 import Header from '../Components/Header';
-import { subscribeToApprovedSlots, getLeaves } from '../firebase/slotsService';
+import {
+  subscribeToApprovedSlots,
+  getLeaves,
+  subscribeToSlotSettings,
+  getStoredSlotSettings,
+} from '../firebase/slotsService';
 import { toSafeDate, isSameDay } from '../utils/dateUtils';
 
 const Calender = () => {
@@ -16,7 +21,20 @@ const Calender = () => {
   const [todayEventCount, setTodayEventCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [settings, setSettings] = useState(() => getStoredSlotSettings());
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSlotSettings((s) => setSettings(s));
+    return () => unsubscribe();
+  }, []);
+
+  const showSaturday = settings?.showSaturday !== false;
+  const startHour = settings?.startHour ?? 11;
+  const endHour = settings?.endHour ?? 19;
+  const slotMinTime = `${String(startHour).padStart(2, '0')}:00:00`;
+  const slotMaxTime = `${String(endHour + 1).padStart(2, '0')}:00:00`;
+  const hiddenDays = showSaturday ? [0] : [0, 6];
 
   // Subscribe to approved slots (real-time, same logic as other calendars)
   useEffect(() => {
@@ -203,9 +221,9 @@ const Calender = () => {
                       initialView="timeGridWeek"
                       expandRows
                       nowIndicator
-                      slotMinTime="12:00:00"
-                      slotMaxTime="20:00:00"
-                      hiddenDays={[0, 6]}
+                      slotMinTime={slotMinTime}
+                      slotMaxTime={slotMaxTime}
+                      hiddenDays={hiddenDays}
                       headerToolbar={{
                         left: 'next today',
                         center: 'title',

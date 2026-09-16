@@ -1072,7 +1072,9 @@ export async function getLeaves(forceRefresh = false) {
     try {
       const ref = collection(db, LEAVES_COLLECTION);
       const snapshot = await getDocs(ref);
-      const list = snapshot.docs.map((d) => ({
+      const list = snapshot.docs
+        .filter((d) => d.id !== 'slotSettings')
+        .map((d) => ({
         id: d.id,
         // Normalise to YYYY-MM-DD string for consumers like BookSlot/WeekCalendar.
         date: (() => {
@@ -1185,3 +1187,5 @@ export async function syncCandidateDisplayNameOnEvents({
 
   await Promise.all(updates);
 }
+
+export * from './settingsService';
