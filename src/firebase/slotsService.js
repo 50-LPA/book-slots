@@ -28,16 +28,16 @@ const SLOTS_COLLECTION = 'events';
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /**
- * Format date as DD-MMM-YYYY (e.g. 21-Feb-2026). Use everywhere for consistent display.
+ * Format date as DD MMM YYYY (e.g. 15 Sep 2026). Use everywhere for consistent display.
  */
 export function formatDateDDMMYYYY(dateVal) {
   if (!dateVal) return '';
   const d = dateVal?.toDate ? dateVal.toDate() : new Date(dateVal);
   if (Number.isNaN(d.getTime())) return '';
-  const day = String(d.getDate()).padStart(2, '0');
+  const day = d.getDate();
   const month = MONTHS_SHORT[d.getMonth()];
   const year = d.getFullYear();
-  return `${day}-${month}-${year}`;
+  return `${day} ${month} ${year}`;
 }
 
 /**

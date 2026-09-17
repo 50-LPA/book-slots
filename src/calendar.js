@@ -42,12 +42,12 @@ export function getWeekEndExclusive(weekStart, dayCount = 5) {
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-/** DD-MMM-YYYY (e.g. 21-Feb-2026) */
+/** DD MMM YYYY (e.g. 15 Sep 2026) */
 function fmtDDMMMYYYY(d) {
-  const day = String(d.getDate()).padStart(2, '0');
+  const day = d.getDate();
   const month = SHORT_MONTHS[d.getMonth()];
   const year = d.getFullYear();
-  return `${day}-${month}-${year}`;
+  return `${day} ${month} ${year}`;
 }
 
 export function formatHeaderToday(date) {

@@ -18,43 +18,18 @@ export const DEFAULT_SLOT_SETTINGS = {
 };
 
 export const START_TIME_OPTIONS = [
-  { value: 6, label: '06:00 AM', time24: '06:00' },
-  { value: 7, label: '07:00 AM', time24: '07:00' },
-  { value: 8, label: '08:00 AM', time24: '08:00' },
-  { value: 9, label: '09:00 AM', time24: '09:00' },
+  { value: 9, label: '9:00 AM', time24: '09:00' },
   { value: 10, label: '10:00 AM', time24: '10:00' },
   { value: 11, label: '11:00 AM', time24: '11:00' },
   { value: 12, label: '12:00 PM', time24: '12:00' },
-  { value: 13, label: '01:00 PM', time24: '13:00' },
-  { value: 14, label: '02:00 PM', time24: '14:00' },
-  { value: 15, label: '03:00 PM', time24: '15:00' },
-  { value: 16, label: '04:00 PM', time24: '16:00' },
-  { value: 17, label: '05:00 PM', time24: '17:00' },
-  { value: 18, label: '06:00 PM', time24: '18:00' },
-  { value: 19, label: '07:00 PM', time24: '19:00' },
-  { value: 20, label: '08:00 PM', time24: '20:00' },
-  { value: 21, label: '09:00 PM', time24: '21:00' },
-  { value: 22, label: '10:00 PM', time24: '22:00' },
+  { value: 13, label: '1:00 PM', time24: '13:00' },
 ];
 
 export const END_TIME_OPTIONS = [
-  { value: 7, label: '07:00 AM', time24: '07:00' },
-  { value: 8, label: '08:00 AM', time24: '08:00' },
-  { value: 9, label: '09:00 AM', time24: '09:00' },
-  { value: 10, label: '10:00 AM', time24: '10:00' },
-  { value: 11, label: '11:00 AM', time24: '11:00' },
-  { value: 12, label: '12:00 PM', time24: '12:00' },
-  { value: 13, label: '01:00 PM', time24: '13:00' },
-  { value: 14, label: '02:00 PM', time24: '14:00' },
-  { value: 15, label: '03:00 PM', time24: '15:00' },
-  { value: 16, label: '04:00 PM', time24: '16:00' },
-  { value: 17, label: '05:00 PM', time24: '17:00' },
-  { value: 18, label: '06:00 PM', time24: '18:00' },
-  { value: 19, label: '07:00 PM', time24: '19:00' },
-  { value: 20, label: '08:00 PM', time24: '20:00' },
-  { value: 21, label: '09:00 PM', time24: '21:00' },
-  { value: 22, label: '10:00 PM', time24: '22:00' },
-  { value: 23, label: '11:00 PM', time24: '23:00' },
+  { value: 18, label: '6:00 PM', time24: '18:00' },
+  { value: 19, label: '7:00 PM', time24: '19:00' },
+  { value: 20, label: '8:00 PM', time24: '20:00' },
+  { value: 21, label: '9:00 PM', time24: '21:00' },
 ];
 
 const SETTINGS_COLLECTION = 'adminLeaves';

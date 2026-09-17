@@ -8,6 +8,40 @@ function hourLabel(hour24) {
   return `${hour12}:00 ${isPM ? 'PM' : 'AM'}`;
 }
 
+
+function getBestHourForEvent(event, hoursList) {
+  if (
+    !(event.__startDate instanceof Date) ||
+    Number.isNaN(event.__startDate.getTime()) ||
+    !(event.__endDate instanceof Date) ||
+    Number.isNaN(event.__endDate.getTime())
+  ) {
+    return { bestHour: null, maxDur: 0 };
+  }
+
+  const slotStartMins = event.__startDate.getHours() * 60 + event.__startDate.getMinutes();
+  const slotEndMins = event.__endDate.getHours() * 60 + event.__endDate.getMinutes();
+
+  let bestHour = null;
+  let maxDur = -1;
+
+  for (const h of hoursList) {
+    const hStart = h * 60;
+    const hEnd = (h + 1) * 60;
+    if (slotEndMins > hStart && slotStartMins < hEnd) {
+      const cStart = Math.max(slotStartMins, hStart);
+      const cEnd = Math.min(slotEndMins, hEnd);
+      const dur = cEnd - cStart;
+      if (dur > maxDur) {
+        maxDur = dur;
+        bestHour = h;
+      }
+    }
+  }
+
+  return { bestHour, maxDur };
+}
+
 function dayToYYYYMMDD(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -127,10 +161,11 @@ function SlotCalendar({
                     {/* Mobile: match home calendar day + date format (e.g. Mon 24 Feb) */}
                     <div className="sm:hidden flex items-center justify-center leading-tight">
                       <span className="text-[10px] font-semibold text-slate-800">
-                        {day.toLocaleDateString('en-US', {
+                        {day.toLocaleDateString('en-GB', {
                           weekday: 'short',
                           day: 'numeric',
                           month: 'short',
+                          year: 'numeric',
                         })}
                       </span>
                     </div>
@@ -259,50 +294,43 @@ function SlotCalendar({
                             isCandidateView &&
                             slotMatchesCandidateKeys(event, candidateIds);
 
-                          let mainLabel = event.title;
-
-                          // Candidate calendar:
-                          // - Own slots: "<Name or You>" on first line, time on second line
-                          // - Other slots: "Slot Booked" on first line, time on second line (no other name)
-                          if (isCandidateView && event.__startDate && event.__endDate) {
+                          let mainLabel = '';
+                          if (event.title === 'Slot Booked') {
+                            mainLabel = 'Slot Booked';
+                          } else if (isCandidateView) {
                             if (isOwnSlot) {
                               const name = (event.candidateName || '').trim();
                               mainLabel = name || 'You';
                             } else {
                               mainLabel = 'Slot Booked';
                             }
-                          } else if (isCandidateView && !isOwnSlot) {
-                            // Fallback when we don't have parsed dates: no name, generic label
-                            mainLabel = 'Slot Booked';
-                          }
-
-                          if (!isCandidateView) {
-                            mainLabel = event.title;
+                          } else {
+                            // Admin view: show candidate name
+                            mainLabel = (event.candidateName || event.title || 'Slot Booked').trim();
                           }
 
                           // Compute vertical position and height within this hour cell
                           let topPct = 0;
                           let heightPct = 100;
+                          let visibleDurationMinutes = 60;
+                          let slotStartMinutesTotal = hourStartMinutes;
+                          let slotEndMinutesTotal = hourEndMinutes;
+
                           if (
                             event.__startDate instanceof Date &&
                             !Number.isNaN(event.__startDate.getTime()) &&
                             event.__endDate instanceof Date &&
                             !Number.isNaN(event.__endDate.getTime())
                           ) {
-                            const slotStartMinutesTotal =
+                            slotStartMinutesTotal =
                               event.__startDate.getHours() * 60 + event.__startDate.getMinutes();
-                            const slotEndMinutesTotal =
+                            slotEndMinutesTotal =
                               event.__endDate.getHours() * 60 + event.__endDate.getMinutes();
-
-                            // Determine if this row is where the event starts
-                            const isFirstHourRowForEvent =
-                              slotStartMinutesTotal >= hourStartMinutes &&
-                              slotStartMinutesTotal < hourEndMinutes;
 
                             const clippedStart = Math.max(slotStartMinutesTotal, hourStartMinutes);
                             const clippedEnd = Math.min(slotEndMinutesTotal, hourEndMinutes);
                             const visibleStartWithinHour = clippedStart - hourStartMinutes; // 0–60
-                            const visibleDurationMinutes = Math.max(
+                            visibleDurationMinutes = Math.max(
                               5,
                               clippedEnd - clippedStart,
                             );
@@ -314,11 +342,18 @@ function SlotCalendar({
                               100 - topPct,
                               (visibleDurationMinutes / 60) * 100,
                             );
+                          }
 
-                            // For continuation rows, hide labels so it looks like one long block
-                            if (!isFirstHourRowForEvent) {
-                              mainLabel = '';
-                            }
+                          const { bestHour } = getBestHourForEvent(event, hours);
+                          const isPrimary = hour === bestHour;
+
+                          let sliceContent = null;
+                          if (isPrimary) {
+                            sliceContent = (
+                              <div className="font-bold truncate text-[11px] sm:text-[13px] leading-tight">
+                                {mainLabel}
+                              </div>
+                            );
                           }
 
                           let colorClass = 'bg-indigo-600';
@@ -338,12 +373,19 @@ function SlotCalendar({
                             }
                           }
 
+                          const paddingClasses =
+                            visibleDurationMinutes < 20
+                              ? 'px-1 sm:px-1.5 py-0 flex flex-col justify-center'
+                              : visibleDurationMinutes < 35
+                              ? 'px-1.5 sm:px-2 py-0.5 flex flex-col justify-center'
+                              : 'px-1.5 sm:px-2.5 py-1 sm:py-1.5 flex flex-col justify-start';
+
                           const eventKey = event.id ? `${event.id}-${hour}-${idx}` : `${event.title}-${hour}-${idx}`;
                           const eventCount = hourEvents.length;
                           return (
                             <div
                               key={eventKey}
-                              className={`absolute inset-x-0.5 sm:inset-x-1 ${colorClass} px-1 py-1 sm:px-3 sm:py-2 text-[10px] sm:text-[14px] text-white shadow-sm w-auto max-w-full break-words overflow-hidden`}
+                              className={`absolute inset-x-0.5 sm:inset-x-1 ${colorClass} text-white shadow-sm w-auto max-w-full overflow-hidden cursor-pointer hover:brightness-95 transition-all select-none rounded-none ${paddingClasses}`}
                               onClick={() => {
                                 if (onEventClick) {
                                   onEventClick(event);
@@ -352,11 +394,10 @@ function SlotCalendar({
                               style={{
                                 top: `${topPct}%`,
                                 height: `${heightPct}%`,
+                                zIndex: isPrimary ? 2 : 1,
                               }}
                             >
-                              <div className="text-[10px] sm:text-[14px] font-semibold">
-                                {mainLabel}
-                              </div>
+                              {sliceContent}
                               {eventCount > 1 && idx < eventCount - 1 && (
                                 <div className="absolute left-0 right-0 bottom-0 h-px bg-slate-300" />
                               )}

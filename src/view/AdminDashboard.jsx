@@ -35,6 +35,7 @@ import {
   parseHourFromLabel,
   START_TIME_OPTIONS,
   END_TIME_OPTIONS,
+  DEFAULT_SLOT_SETTINGS,
 } from '../firebase/settingsService';
 import { getHrDuplicateFieldErrors } from '../firebase/hrService';
 import {
@@ -5018,7 +5019,11 @@ function AdminSettingsTab({
           </label>
           <select
             id="settings-start-time-select"
-            value={slotSettings.startHour}
+            value={
+              START_TIME_OPTIONS.some((opt) => opt.value === slotSettings.startHour)
+                ? slotSettings.startHour
+                : DEFAULT_SLOT_SETTINGS.startHour
+            }
             onChange={(e) => onUpdateStartTime(parseInt(e.target.value, 10))}
             className="text-xs sm:text-sm font-bold text-purple-800 bg-white border border-purple-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-400 focus:outline-none cursor-pointer transition-colors shadow-2xs"
           >
@@ -5048,7 +5053,11 @@ function AdminSettingsTab({
           </label>
           <select
             id="settings-end-time-select"
-            value={slotSettings.endHour}
+            value={
+              END_TIME_OPTIONS.some((opt) => opt.value === slotSettings.endHour)
+                ? slotSettings.endHour
+                : DEFAULT_SLOT_SETTINGS.endHour
+            }
             onChange={(e) => onUpdateEndTime(parseInt(e.target.value, 10))}
             className="text-xs sm:text-sm font-bold text-purple-800 bg-white border border-purple-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-400 focus:outline-none cursor-pointer transition-colors shadow-2xs"
           >

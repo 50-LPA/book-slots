@@ -65,7 +65,7 @@ const Calender = () => {
   const formatDate = (date) => {
     return date.toLocaleDateString('en-GB', {
       day: 'numeric',
-      month: 'long',
+      month: 'short',
       year: 'numeric',
     });
   };
@@ -81,23 +81,6 @@ const Calender = () => {
     }).length;
   };
 
-  const formatEventDateTime = (start, end) => {
-    const startTime = new Date(start).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-    const endTime = new Date(end).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-    const date = new Date(start).toLocaleDateString('en-US', {
-      day: 'numeric',
-      month: 'short',
-    });
-    return `${date}, ${startTime} - ${endTime}`;
-  };
 
   const isLeaveDay = useCallback(
     (date) => {
@@ -178,7 +161,7 @@ const Calender = () => {
               <button
                 type="button"
                 onClick={handleLoginClick}
-                className="rounded-lg bg-purple-600 px-4 py-1.5 text-sm font-semibold text-white shadow hover:bg-purple-700"
+                className="min-w-[100px] sm:min-w-[140px] h-9 sm:h-10 inline-flex items-center justify-center rounded-lg bg-purple-600 px-5 sm:px-8 text-sm sm:text-base font-bold text-white shadow hover:bg-purple-700 transition"
               >
                 Login
               </button>
@@ -255,41 +238,22 @@ const Calender = () => {
                       eventDisplay="block"
                       eventColor="#3788d8"
                       eventTextColor="#ffffff"
+                      eventContent={(arg) => {
+                        const title = arg.event.title || 'Slot Booked';
+                        return {
+                          html: `
+                            <div class="fc-event-custom-content p-1 h-full w-full overflow-hidden flex flex-col justify-center leading-tight select-none">
+                              <div class="font-bold text-xs truncate text-white">${title}</div>
+                            </div>
+                          `,
+                        };
+                      }}
                       eventDidMount={(info) => {
                         const eventEl = info.el;
-                        const titleEl = eventEl.querySelector('.fc-event-title');
-                        const startTime = new Date(info.event.start);
-                        const endTime = new Date(info.event.end);
-                        const dateTimeStr = formatEventDateTime(info.event.start, info.event.end);
-                        const eventDuration = (endTime - startTime) / (60 * 1000);
-                        let last20MinPercentage = ((eventDuration - 20) / eventDuration) * 100;
-                        if (last20MinPercentage < 0) last20MinPercentage = 0;
-
-                        eventEl.style.background = `linear-gradient(to bottom, #3788d8 ${last20MinPercentage}%, #3788d8 ${last20MinPercentage}%)`;
-                        eventEl.style.borderColor = '#FFA500';
+                        eventEl.style.backgroundColor = '#3788d8';
                         eventEl.style.color = '#ffffff';
-
-                        if (titleEl) {
-                          titleEl.innerHTML = `
-                            <div class="event-content" style="font-size: 12px; line-height: 1.2;">
-                              <div class="event-details">
-                                <div style="font-weight:bold;">Slot Booked</div>
-                                <div style="font-size: 10px; margin-top: 2px;">${dateTimeStr}</div>
-                              </div>
-                            </div>
-                          `;
-                        }
+                        eventEl.removeAttribute('title');
                       }}
-                      eventContent={(arg) => ({
-                        html: `
-                          <div class="fc-event-main-frame">
-                            <div class="fc-event-time"></div>
-                            <div class="fc-event-title-container">
-                              <div class="fc-event-title"></div>
-                            </div>
-                          </div>
-                        `,
-                      })}
                       dayCellClassNames={(arg) => {
                         const classes = [];
                         if (arg.date.getDay() === 0) classes.push('sunday-cell');
@@ -332,9 +296,10 @@ const Calender = () => {
                               weekday: window.innerWidth < 768 ? 'short' : 'long',
                               day: 'numeric',
                               month: 'short',
+                              year: 'numeric',
                             };
                             const element = document.createElement('span');
-                            element.innerHTML = args.date.toLocaleDateString('en-US', options);
+                            element.innerHTML = args.date.toLocaleDateString('en-GB', options);
                             if (day === 0 || isLeave) {
                               element.style.color = '#dc3545';
                               element.style.fontWeight = 'bold';

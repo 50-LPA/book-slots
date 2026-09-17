@@ -7,8 +7,8 @@ function Header({ fullWidth = false }) {
       <div
         className={
           fullWidth
-            ? 'w-full px-4 py-2 h-14 flex items-center'
-            : 'mx-auto max-w-6xl px-4 py-2 h-14 flex items-center'
+            ? 'w-full px-4 py-2 sm:py-3 min-h-14 sm:min-h-16 flex items-center'
+            : 'mx-auto max-w-6xl px-4 py-2 sm:py-3 min-h-14 sm:min-h-16 flex items-center'
         }
       >
         <div className="flex items-center justify-between w-full gap-2">
@@ -19,13 +19,13 @@ function Header({ fullWidth = false }) {
             </span>
           </div>
 
-                    <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center">
           </div>
 
           {/* Right: Login button */}
           <Link
             to="/login"
-            className="min-w-[96px] sm:min-w-[150px] text-center rounded-lg bg-purple-600 px-4 sm:px-10 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow hover:bg-purple-700 transition"
+            className="min-w-[120px] sm:min-w-[180px] h-10 sm:h-12 inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 sm:px-12 text-sm sm:text-base font-bold text-white shadow-md hover:bg-purple-700 hover:shadow-lg transition active:scale-95"
           >
             Login
           </Link>

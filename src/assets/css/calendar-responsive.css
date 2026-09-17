@@ -6,9 +6,9 @@
 .calendar-container .fc .fc-col-header-cell-cushion,
 .calendar-container .fc .fc-timegrid-slot-label,
 .calendar-container .fc .fc-event {
-  font-size: 14px;
+  font-size: 13px;
 }
-/* Remove outer border and rounded corners from FullCalendar events */
+/* Clean rectangular shape for FullCalendar events */
 .calendar-container .fc .fc-event {
   border: none !important;
   border-radius: 0 !important;
@@ -16,6 +16,15 @@
 .calendar-container .fc .fc-timegrid-event,
 .calendar-container .fc .fc-daygrid-event {
   border-radius: 0 !important;
+  min-height: 22px !important;
+  overflow: hidden !important;
+}
+.calendar-container .fc .fc-timegrid-event .fc-event-main {
+  height: 100%;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 /* Allow header text to wrap instead of overflowing into next column */
 .calendar-container .fc .fc-col-header-cell-cushion {

@@ -93,6 +93,11 @@ export default function CalendarPage() {
       weekEvents.map((event) => ({
         ...event,
         title: 'Slot Booked',
+        candidateName: '',
+        extendedProps: {
+          ...event.extendedProps,
+          candidateName: '',
+        },
       })),
     [weekEvents],
   );
