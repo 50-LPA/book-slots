@@ -120,6 +120,28 @@ function normaliseTechLabelAdmin(raw) {
   return v;
 }
 
+const CANDIDATE_TECH_OPTIONS = [
+  'PHP',
+  '.Net',
+  'Python',
+  'Data Science',
+  'MERN Stack',
+  'MEAN Stack',
+  'Java',
+  'React Devloper',
+  'App Support',
+  'Busness Analyst',
+  'Manual Testing',
+  'Automation Testing',
+  'DevOps (AWS)',
+  'DevOps (Azure)',
+  'Data Analysts',
+  'AEM',
+  'Power BI',
+  'Security',
+  'Other',
+];
+
 function startOfLocalDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -507,12 +529,15 @@ function AdminCandidatesTable({
   candidates,
   slots = [],
   selectionFilter,
+  technologyFilter = 'all',
   referredByFilter,
   statusFilter,
   search,
+  techOptions = CANDIDATE_TECH_OPTIONS,
   onBackToHome,
   onOpenAddForm,
   onChangeSelectionFilter,
+  onChangeTechnologyFilter,
   onChangeReferredByFilter,
   onChangeStatusFilter,
   onChangeSearch,
@@ -546,7 +571,7 @@ function AdminCandidatesTable({
   // Reset to page 1 when data/filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [candidates.length]);
+  }, [candidates.length, selectionFilter, technologyFilter, referredByFilter, statusFilter, search]);
 
   return (
     <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
@@ -571,6 +596,7 @@ function AdminCandidatesTable({
             type="button"
             onClick={() => {
               onChangeSelectionFilter('unselected');
+              if (onChangeTechnologyFilter) onChangeTechnologyFilter('all');
               onChangeReferredByFilter('all');
               onChangeStatusFilter('active');
               onChangeSearch('');
@@ -610,7 +636,7 @@ function AdminCandidatesTable({
         </div>
 
         {/* Right: filters grouped and right-aligned */}
-        <div className="flex items-center justify-end gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
           {/* Selected / Unselected pill */}
           <div className="flex w-36 sm:w-48 rounded-full border border-purple-400 overflow-hidden text-[11px] sm:text-xs h-8">
             <button
@@ -634,6 +660,20 @@ function AdminCandidatesTable({
                 Unselected
             </button>
           </div>
+
+          {/* Technology filter dropdown */}
+          <select
+            value={technologyFilter}
+            onChange={(e) => onChangeTechnologyFilter && onChangeTechnologyFilter(e.target.value)}
+            className="h-8 w-36 sm:w-44 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700"
+          >
+            <option value="all">All Technologies</option>
+            {techOptions.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
 
           {/* Referred By filter dropdown */}
           <select
@@ -756,7 +796,7 @@ function AdminCandidatesTable({
                 </td>
                 <td className="px-3 py-2 text-center border-r border-slate-200">
                   <div className="inline-flex flex-wrap gap-1 justify-center">
-                    {c.technologies.map((t) => (
+                    {(Array.isArray(c.technologies) ? c.technologies : []).map((t) => (
                       <span
                         key={t}
                         className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700"
@@ -5495,6 +5535,7 @@ export default function AdminDashboard() {
   const [showAddForm, setShowAddForm] = useState(false);
   // Default to showing Unselected candidates, matching your other project
   const [candidateSelectionFilter, setCandidateSelectionFilter] = useState('unselected'); // 'selected' | 'unselected'
+  const [candidateTechnologyFilter, setCandidateTechnologyFilter] = useState('all');
   const [candidateReferredByFilter, setCandidateReferredByFilter] = useState('all'); // 'all' | 'anil_sir' | 'viraj_sir' | 'nilesh_sir' | 'vishal_sir'
   const [candidateStatusFilter, setCandidateStatusFilter] = useState('active'); // 'all' | 'active' | 'inactive'
   const [candidateSearch, setCandidateSearch] = useState('');
@@ -5621,8 +5662,12 @@ export default function AdminDashboard() {
 
           // Normalise technology into array for this UI
           let technologies = [];
-          if (Array.isArray(d.technology)) {
+          if (Array.isArray(d.technologies)) {
+            technologies = d.technologies;
+          } else if (Array.isArray(d.technology)) {
             technologies = d.technology;
+          } else if (typeof d.technologies === 'string' && d.technologies.trim()) {
+            technologies = d.technologies.split(',').map((t) => t.trim()).filter(Boolean);
           } else if (typeof d.technology === 'string' && d.technology.trim()) {
             technologies = d.technology.split(',').map((t) => t.trim()).filter(Boolean);
           }
@@ -6046,6 +6091,36 @@ export default function AdminDashboard() {
     });
   }, [slots, slotFilter, slotSearch]);
 
+  const candidateTechOptions = useMemo(() => {
+    const seen = new Set();
+    CANDIDATE_TECH_OPTIONS.forEach((t) => {
+      const norm = normaliseTechLabelAdmin(t).trim();
+      if (norm) seen.add(norm);
+    });
+    candidates.forEach((c) => {
+      const cTechs = (
+        Array.isArray(c.technologies)
+          ? c.technologies
+          : Array.isArray(c.technology)
+          ? c.technology
+          : typeof c.technology === 'string'
+          ? c.technology.split(',')
+          : typeof c.technologies === 'string'
+          ? c.technologies.split(',')
+          : []
+      );
+      cTechs.forEach((t) => {
+        const norm = normaliseTechLabelAdmin(String(t).trim()).trim();
+        if (norm) seen.add(norm);
+      });
+    });
+    return Array.from(seen).sort((a, b) => {
+      if (a.toLowerCase() === 'other') return 1;
+      if (b.toLowerCase() === 'other') return -1;
+      return a.localeCompare(b);
+    });
+  }, [candidates]);
+
   const filteredCandidates = useMemo(() => {
     const filtered = candidates.filter((c) => {
       const isSelected = !!(c.selected || c.isSelected);
@@ -6058,6 +6133,28 @@ export default function AdminDashboard() {
 
       if (candidateStatusFilter === 'active' && effectiveStatus !== 'Active') return false;
       if (candidateStatusFilter === 'inactive' && effectiveStatus !== 'Inactive') return false;
+
+      if (candidateTechnologyFilter && candidateTechnologyFilter !== 'all') {
+        const candidateTechs = (
+          Array.isArray(c.technologies)
+            ? c.technologies
+            : Array.isArray(c.technology)
+            ? c.technology
+            : typeof c.technology === 'string'
+            ? c.technology.split(',')
+            : typeof c.technologies === 'string'
+            ? c.technologies.split(',')
+            : []
+        )
+          .map((t) => normaliseTechLabelAdmin(String(t).trim()).toLowerCase())
+          .filter(Boolean);
+
+        const target = normaliseTechLabelAdmin(candidateTechnologyFilter).trim().toLowerCase();
+        if (!candidateTechs.includes(target)) {
+          return false;
+        }
+      }
+
       if (candidateReferredByFilter === 'anil_sir') {
         const ref = (c.referredBy || '').toLowerCase();
         if (!ref.includes('anil')) return false;
@@ -6088,7 +6185,7 @@ export default function AdminDashboard() {
       const idB = typeof b.id === 'number' ? b.id : parseInt(b.id, 10) || 0;
       return idB - idA;
     });
-  }, [candidates, slots, candidateSelectionFilter, candidateReferredByFilter, candidateStatusFilter, candidateSearch]);
+  }, [candidates, slots, candidateSelectionFilter, candidateTechnologyFilter, candidateReferredByFilter, candidateStatusFilter, candidateSearch]);
 
   const filteredHRs = useMemo(() => {
     return hrs.filter((hr) => {
@@ -6589,6 +6686,8 @@ export default function AdminDashboard() {
               candidates={filteredCandidates}
               slots={slots}
               selectionFilter={candidateSelectionFilter}
+              technologyFilter={candidateTechnologyFilter}
+              techOptions={candidateTechOptions}
               referredByFilter={candidateReferredByFilter}
               statusFilter={candidateStatusFilter}
               search={candidateSearch}
@@ -6602,6 +6701,7 @@ export default function AdminDashboard() {
                   setCandidateStatusFilter('active');
                 }
               }}
+              onChangeTechnologyFilter={setCandidateTechnologyFilter}
               onChangeReferredByFilter={setCandidateReferredByFilter}
               onChangeStatusFilter={setCandidateStatusFilter}
               onChangeSearch={setCandidateSearch}
