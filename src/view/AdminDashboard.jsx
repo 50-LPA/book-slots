@@ -633,7 +633,7 @@ function AdminCandidatesTable({
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
               <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
             </span>
-            <span>Add Candidate</span>
+            <span>Add New Candidate</span>
           </button>
         </div>
       </div>
@@ -652,35 +652,21 @@ function AdminCandidatesTable({
 
         {/* Right: filters grouped and right-aligned */}
         <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
-          {/* Selected / Unselected pill */}
-          <div className="flex w-36 sm:w-48 rounded-full border border-purple-400 overflow-hidden text-[11px] sm:text-xs h-8">
-            <button
-              onClick={() => onChangeSelectionFilter('selected')}
-              className={`flex-1 px-3 font-semibold flex items-center justify-center h-full ${
-                selectionFilter === 'selected'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-white text-purple-600'
-              }`}
-            ><i className="fa-solid fa-circle-check mr-1.5" aria-hidden="true" />
-                Selected
-            </button>
-            <button
-              onClick={() => onChangeSelectionFilter('unselected')}
-              className={`flex-1 px-3 font-semibold flex items-center justify-center h-full ${
-                selectionFilter === 'unselected'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-white text-purple-600'
-              }`}
-            ><i className="fa-solid fa-circle-xmark mr-1.5" aria-hidden="true" />
-                Unselected
-            </button>
-          </div>
+          {/* Selected / Unselected filter */}
+          <select
+            value={selectionFilter}
+            onChange={(e) => onChangeSelectionFilter(e.target.value)}
+            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
+          >
+            <option value="unselected">Unselected</option>
+            <option value="selected">Selected</option>
+          </select>
 
           {/* Technology filter dropdown */}
           <select
             value={technologyFilter}
             onChange={(e) => onChangeTechnologyFilter && onChangeTechnologyFilter(e.target.value)}
-            className="h-8 w-36 sm:w-44 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700"
+            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
           >
             <option value="all">All Technologies</option>
             {techOptions.map((opt) => (
@@ -694,7 +680,7 @@ function AdminCandidatesTable({
           <select
             value={referredByFilter}
             onChange={(e) => onChangeReferredByFilter(e.target.value)}
-            className="h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700"
+            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
           >
             <option value="all">All</option>
             <option value="anil_sir">Anil sir</option>
@@ -707,7 +693,7 @@ function AdminCandidatesTable({
           <select
             value={statusFilter}
             onChange={(e) => onChangeStatusFilter(e.target.value)}
-            className="h-8 w-28 sm:w-32 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700"
+            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
           >
             <option value="all">All</option>
             <option value="active">Active</option>
@@ -715,7 +701,7 @@ function AdminCandidatesTable({
           </select>
 
           {/* Search */}
-          <div className="relative w-36 sm:w-48">
+          <div className="relative w-32 sm:w-40">
             <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <input
               type="text"
@@ -2538,7 +2524,7 @@ function AdminSlotsTable({
         {/* Center: title + refresh (refresh on right side of text) */}
         <div className="flex-1 flex items-center justify-center gap-2">
           <span className="text-xs sm:text-sm font-semibold text-purple-600">
-            Slots
+            Slots List
           </span>
           <button
             type="button"
@@ -2610,7 +2596,7 @@ function AdminSlotsTable({
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs sm:text-sm text-slate-700"
+            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
             aria-label="Filter by time range"
           >
             <option value="thisWeek">This Week</option>
@@ -2626,7 +2612,7 @@ function AdminSlotsTable({
                 setShowCompanyDropdown((v) => !v);
                 setShowHrDropdown(false);
               }}
-              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
+              className="flex items-center h-8 w-32 sm:w-40 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
               aria-label="Filter by company"
             >
               <span className="truncate">
@@ -2658,7 +2644,7 @@ function AdminSlotsTable({
               </span>
             </button>
             {showCompanyDropdown && (
-              <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
+              <div className="absolute z-20 mt-1 w-full min-w-[12rem] rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
                 <div className="px-2 py-1 border-b border-slate-100 bg-slate-50">
                   <input
                     type="text"
@@ -2697,7 +2683,7 @@ function AdminSlotsTable({
                 setShowHrDropdown((v) => !v);
                 setShowCompanyDropdown(false);
               }}
-              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
+              className="flex items-center h-8 w-32 sm:w-40 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
               aria-label="Filter by HR"
             >
               <span className="truncate">
@@ -2729,7 +2715,7 @@ function AdminSlotsTable({
               </span>
             </button>
             {showHrDropdown && (
-              <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
+              <div className="absolute z-20 mt-1 w-full min-w-[12rem] rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
                 <div className="px-2 py-1 border-b border-slate-100 bg-slate-50">
                   <input
                     type="text"
@@ -2763,7 +2749,7 @@ function AdminSlotsTable({
           <select
             value={filter}
             onChange={(e) => onChangeFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs sm:text-sm text-slate-700"
+            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
           >
             <option value="all">All</option>
             <option value="pending">Pending</option>
@@ -2771,14 +2757,14 @@ function AdminSlotsTable({
             <option value="rejected">Rejected</option>
           </select>
 
-          <div className="relative w-32 sm:w-40">
+          <div className="relative w-28 sm:w-36">
             <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <input
               type="text"
               placeholder="Search slot"
               value={search}
               onChange={(e) => onChangeSearch(e.target.value)}
-              className="w-full rounded-full border border-slate-200 bg-white pl-7 pr-3 py-1.5 text-xs sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="w-full rounded-full border border-slate-200 bg-white pl-7 pr-3 py-1.5 text-[11px] sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
             />
           </div>
         </div>
@@ -3462,9 +3448,12 @@ function AdminHRsTable({
               });
               setShowAddModal(true);
             }}
-            className="bg-green-600 hover:bg-green-700 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-sm font-semibold whitespace-nowrap"
+            className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow hover:bg-emerald-600 whitespace-nowrap"
           >
-            + Add New HR
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+              <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+            </span>
+            <span>Add New HR</span>
           </button>
         </div>
       </div>
@@ -3494,7 +3483,7 @@ function AdminHRsTable({
                 setShowJobTypeDropdown(false);
                 setShowAddedByDropdown(false);
               }}
-              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
+              className="flex items-center h-8 w-32 sm:w-40 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
             >
               <span className="truncate">
                 {companyFilter ? toTitleCase(companyFilter) : 'Company'}
@@ -3525,7 +3514,7 @@ function AdminHRsTable({
               </span>
             </button>
             {showCompanyDropdown && (
-              <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
+              <div className="absolute z-20 mt-1 w-full min-w-[12rem] rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
                 <div className="px-2 py-1.5 border-b border-slate-100 sticky top-0 bg-white">
                   <input
                     type="text"
@@ -3567,7 +3556,7 @@ function AdminHRsTable({
                 setShowJobTypeDropdown(false);
                 setShowAddedByDropdown(false);
               }}
-              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
+              className="flex items-center h-8 w-32 sm:w-40 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
             >
               <span className="truncate">
                 {techFilter ? toTitleCase(techFilter) : 'Technology'}
@@ -3598,7 +3587,7 @@ function AdminHRsTable({
               </span>
             </button>
             {showTechDropdown && (
-              <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
+              <div className="absolute z-20 mt-1 w-full min-w-[12rem] rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
                 <div className="px-2 py-1.5 border-b border-slate-100 sticky top-0 bg-white">
                   <input
                     type="text"
@@ -3640,7 +3629,7 @@ function AdminHRsTable({
                 setShowTechDropdown(false);
                 setShowAddedByDropdown(false);
               }}
-              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
+              className="flex items-center h-8 w-32 sm:w-40 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
             >
               <span className="truncate">
                 {jobTypeFilter ? toTitleCase(jobTypeFilter) : 'Job Type'}
@@ -3671,7 +3660,7 @@ function AdminHRsTable({
               </span>
             </button>
             {showJobTypeDropdown && (
-              <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
+              <div className="absolute z-20 mt-1 w-full min-w-[12rem] rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
                 <button
                   type="button"
                   onClick={() => {
@@ -3717,7 +3706,7 @@ function AdminHRsTable({
                 setShowTechDropdown(false);
                 setShowJobTypeDropdown(false);
               }}
-              className="flex items-center h-8 w-36 sm:w-48 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
+              className="flex items-center h-8 w-32 sm:w-40 rounded-full border border-slate-200 bg-white px-3 text-[11px] sm:text-xs text-slate-700 justify-between"
             >
               <span className="truncate">
                 {addedByFilter ? toTitleCase(addedByFilter) : 'Added By'}
@@ -3748,7 +3737,7 @@ function AdminHRsTable({
               </span>
             </button>
             {showAddedByDropdown && (
-              <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
+              <div className="absolute z-20 mt-1 w-full min-w-[12rem] rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto text-[11px] sm:text-xs">
                 <div className="px-2 py-1.5 border-b border-slate-100 sticky top-0 bg-white">
                   <input
                     type="text"
@@ -3781,7 +3770,7 @@ function AdminHRsTable({
           </div>
 
           {/* Search box */}
-          <div className="relative w-40 sm:w-52">
+          <div className="relative w-28 sm:w-36">
             <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <input
               type="text"
@@ -4780,10 +4769,12 @@ function AdminLeavesTable({ onBackToHome }) {
               setLeaveError('');
               setShowAddLeave(true);
             }}
-            className="inline-flex items-center gap-2 rounded-md bg-lime-500 px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-semibold text-white shadow hover:bg-lime-600 whitespace-nowrap"
+            className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow hover:bg-emerald-600 whitespace-nowrap"
           >
-            <i className="fa-solid fa-plus w-4 h-4" aria-hidden="true" />
-            Add Leave
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+              <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+            </span>
+            <span>Add New Leave</span>
           </button>
         </div>
       </div>
@@ -4930,7 +4921,7 @@ function AdminLeavesTable({ onBackToHome }) {
             {/* Modal header */}
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-slate-800"><i className="fa-solid fa-umbrella-beach mr-1.5" aria-hidden="true" />
-                Add Leave
+                Add New Leave
               </h3>
               <button
                 type="button"
