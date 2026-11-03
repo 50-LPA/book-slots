@@ -1113,8 +1113,8 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       setError('Password is required and must be exactly 6 characters.');
       return;
     }
-    if (!/^\d{6}$/.test(trimmedPassword)) {
-      setError('Password must be exactly 6 digits.');
+    if (!/^[^a-zA-Z\s]{6}$/.test(trimmedPassword)) {
+      setError('Password must be exactly 6 characters (numbers and symbols only).');
       return;
     }
     if (!form.technology || form.technology.length === 0) {
@@ -1644,8 +1644,8 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
     // Blank = keep current password.
     const trimmedPassword = form.password?.trim();
-    if (trimmedPassword && !/^\d{6}$/.test(trimmedPassword)) {
-      setError('Password must be exactly 6 digits.');
+    if (trimmedPassword && !/^[^a-zA-Z\s]{6}$/.test(trimmedPassword)) {
+      setError('Password must be exactly 6 characters (numbers and symbols only).');
       return;
     }
 

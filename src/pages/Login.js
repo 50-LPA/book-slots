@@ -46,8 +46,8 @@ export default function Login() {
       return;
     }
 
-    if (!/^\d{6}$/.test(trimmedPassword)) {
-      setLocalError('Password must be exactly 6 digits.');
+    if (!/^[^a-zA-Z\s]{6}$/.test(trimmedPassword)) {
+      setLocalError('Password must be exactly 6 characters (numbers and symbols only).');
       setLoading(false);
       return;
     }
@@ -244,7 +244,6 @@ export default function Login() {
             <div className="relative">
               <input
                 type={passwordVisible ? 'text' : 'password'}
-                inputMode="numeric"
                 maxLength={6}
                 placeholder="Enter password"
                 value={password}
