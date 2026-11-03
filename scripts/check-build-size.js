@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Enforce: requests below 8 per page, total static size below 2 MB.
- * Code-splitting ensures each page loads only 1 route chunk (4–6 requests total).
+ * Each route is its own lazy chunk; a page loads the entry files plus its route's chunks.
  */
 
 const fs = require('fs');
@@ -58,12 +58,20 @@ function main() {
 
   const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
   const sizeOk = totalBytes < MAX_SIZE_BYTES; // below 2 MB
-  const requestEstimate = 1 + jsCount + cssCount + 1; // HTML + all JS + all CSS + favicon
+
+  // Per page = entry files + the chunks of the heaviest lazy route (not every chunk in the build).
+  const manifest = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, 'asset-manifest.json'), 'utf8'));
+  const entryCount = (manifest.entrypoints || []).length;
+  const mainJs = (manifest.entrypoints || []).find((f) => f.endsWith('.js'));
+  const mainSrc = mainJs ? fs.readFileSync(path.join(BUILD_DIR, mainJs), 'utf8') : '';
+  const routeLoads = mainSrc.match(/Promise\.all\(\[(?:\w\.e\(\d+\),?)+\]\)|\w\.e\(\d+\)\.then/g) || [];
+  const maxRouteChunks = Math.max(0, ...routeLoads.map((m) => (m.match(/\.e\(\d+\)/g) || []).length));
+  const requestEstimate = 1 + entryCount + maxRouteChunks + 1; // HTML + entry JS/CSS + heaviest route + favicon
   const requestsOk = requestEstimate <= MAX_REQUESTS_PER_PAGE;
 
   console.log(`\nBuild check: requests below ${MAX_REQUESTS_PER_PAGE}, size below ${MAX_SIZE_MB} MB`);
   console.log(`  Total static JS + CSS: ${totalMB} MB ${sizeOk ? '✓' : '✗ (must be below 2 MB)'}`);
-  console.log(`  Asset count: ${jsCount} JS + ${cssCount} CSS → ~${requestEstimate} requests per page ${requestsOk ? '✓' : '✗ (max 8)'}`);
+  console.log(`  Asset count: ${jsCount} JS + ${cssCount} CSS; heaviest page loads ${entryCount} entry + ${maxRouteChunks} route files → ~${requestEstimate} requests ${requestsOk ? '✓' : '✗ (max 8)'}`);
   if (!sizeOk) {
     console.error(`\nTotal size ${totalMB} MB must be below ${MAX_SIZE_MB} MB. Reduce bundle size.`);
     process.exit(1);
