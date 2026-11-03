@@ -7,7 +7,8 @@ import React, {
   useState,
 } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { signOut } from 'firebase/auth';
+import { db, auth } from '../firebase/firebase';
 
 const AuthContext = createContext(null);
 
@@ -86,6 +87,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try {
       sessionStorage.removeItem('sb_user');
+      await signOut(auth);
     } catch {
       // ignore
     }

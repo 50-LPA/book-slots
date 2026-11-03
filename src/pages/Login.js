@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { db, auth, mobileToAuthEmail, normalizeMobile, toAuthPassword } from '../firebase/firebase';
 import {
   fetchCandidateEventsFromFirestore,
   isCandidateInterviewOlderThanTwoWeeks,
@@ -39,66 +40,80 @@ export default function Login() {
       return;
     }
 
+    // Any early return below must also sign out of Firebase Auth.
+    const reject = async (msg) => {
+      await signOut(auth).catch(() => {});
+      setLocalError(msg);
+    };
+
     try {
-      const normalizedMobile = trimmedMobile;
+      const normalizedMobile = normalizeMobile(trimmedMobile);
 
-      // --- Admin login (admin collection) ---
-      const adminsRef = collection(db, 'admin');
-      const adminQuery = query(adminsRef, where('phone', '==', normalizedMobile));
-      const adminSnapshot = await getDocs(adminQuery);
-
-      if (!adminSnapshot.empty) {
-        const adminDoc = adminSnapshot.docs[0];
-        const adminData = adminDoc.data();
-
-        if (trimmedPassword === String(adminData.password || '').trim()) {
-          const adminSession = {
-            id: adminDoc.id,
-            name: adminData.name || 'Admin',
-            role: 'admin',
-            phone: adminData.phone,
-            loginTime: Date.now(),
-            isAdmin: true,
-          };
-
-          // Preserve original app’s admin session keys for compatibility
-          localStorage.setItem('user', JSON.stringify(adminSession));
-          localStorage.setItem('adminToken', Date.now().toString());
-          localStorage.setItem('adminAuth', 'true');
-
-          // Use sessionStorage so pasting URL in another tab/browser opens login page
-          sessionStorage.setItem(
-            'sb_user',
-            JSON.stringify({
-              mobile: normalizedMobile,
-              role: 'admin',
-              name: (adminData.name || '').trim(),
-            }),
-          );
-
-          navigate('/admin-dashboard', { replace: true });
-          return;
+      // Password is verified by Firebase Auth; Firestore never stores or exposes it.
+      let cred;
+      try {
+        cred = await signInWithEmailAndPassword(
+          auth,
+          mobileToAuthEmail(normalizedMobile),
+          toAuthPassword(trimmedPassword),
+        );
+      } catch (authErr) {
+        const code = authErr?.code || '';
+        if (code === 'auth/too-many-requests') {
+          setLocalError('Too many attempts. Please wait a few minutes and try again.');
+        } else if (
+          ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email'].includes(code)
+        ) {
+          setLocalError('Invalid mobile number or password.');
+        } else {
+          throw authErr;
         }
+        return;
+      }
+      const uid = cred.user.uid;
 
-        setLocalError('Invalid password');
+      // --- Admin login (admin/{uid}) ---
+      const adminDoc = await getDoc(doc(db, 'admin', uid));
+      if (adminDoc.exists()) {
+        const adminData = adminDoc.data();
+        const adminSession = {
+          id: adminDoc.id,
+          name: adminData.name || 'Admin',
+          role: 'admin',
+          phone: adminData.phone,
+          loginTime: Date.now(),
+          isAdmin: true,
+        };
+
+        // Preserve original app’s admin session keys for compatibility
+        localStorage.setItem('user', JSON.stringify(adminSession));
+        localStorage.setItem('adminToken', Date.now().toString());
+        localStorage.setItem('adminAuth', 'true');
+
+        // Use sessionStorage so pasting URL in another tab/browser opens login page
+        sessionStorage.setItem(
+          'sb_user',
+          JSON.stringify({
+            mobile: normalizedMobile,
+            role: 'admin',
+            name: (adminData.name || '').trim(),
+          }),
+        );
+
+        navigate('/admin-dashboard', { replace: true });
         return;
       }
 
-      // --- Candidate login (candidates collection) ---
-      const candidatesRef = collection(db, 'candidates');
-      const candidateQuery = query(candidatesRef, where('mobile', '==', normalizedMobile));
-      const candidateSnapshot = await getDocs(candidateQuery);
-
-      if (candidateSnapshot.empty) {
-        setLocalError('No account found with this mobile number.');
+      // --- Candidate login (candidates/{uid}) ---
+      const candidateDoc = await getDoc(doc(db, 'candidates', uid));
+      if (!candidateDoc.exists()) {
+        await reject('No account found with this mobile number.');
         return;
       }
-
-      const candidateDoc = candidateSnapshot.docs[0];
       const candidateData = candidateDoc.data();
 
       if (!candidateData.approvedByAdmin) {
-        setLocalError('Your account has not been approved by the admin.');
+        await reject('Your account has not been approved by the admin.');
         return;
       }
 
@@ -120,19 +135,12 @@ export default function Login() {
             console.error('Failed to auto-update candidate inactive status on login:', updateErr);
           }
         }
-        setLocalError(
-          'Your account is currently inactive. Please contact the administrator.',
-        );
+        await reject('Your account is currently inactive. Please contact the administrator.');
         return;
       }
 
       if (candidateData.isSelected) {
-        setLocalError('Selected candidates cannot login to the system.');
-        return;
-      }
-
-      if (trimmedPassword !== String(candidateData.password || '').trim()) {
-        setLocalError('Invalid password');
+        await reject('Selected candidates cannot login to the system.');
         return;
       }
 
@@ -166,6 +174,7 @@ export default function Login() {
       navigate('/candidate-dashboard', { replace: true });
     } catch (err) {
       console.error(err);
+      await signOut(auth).catch(() => {});
       setLocalError('Failed to login. Please try again.');
     } finally {
       setLoading(false);

@@ -13,8 +13,11 @@ import {
   updateDoc,
   serverTimestamp,
   deleteDoc,
+  setDoc,
+  deleteField,
 } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { signOut } from 'firebase/auth';
+import { db, auth, adminSetCandidateAuth, adminDeleteCandidateAuth } from '../firebase/firebase';
 import {
   updateSlotStatus,
   deleteSlot,
@@ -265,8 +268,19 @@ function AdminHeader({ activeTab, onChangeTab }) {
   const [navOpen, setNavOpen] = useState(false);
   const navigate = useNavigate();
 
+  // Name of the signed-in admin (set by Login.js).
+  const adminName = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('sb_user') || '{}').name || 'Admin';
+    } catch {
+      return 'Admin';
+    }
+  })();
+  const adminInitials = adminName.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+
   const handleLogout = () => {
     sessionStorage.removeItem('sb_user');
+    signOut(auth).catch(() => {});
     setMenuOpen(false);
     navigate('/login', { replace: true });
   };
@@ -319,19 +333,19 @@ function AdminHeader({ activeTab, onChangeTab }) {
           {/* Mobile: show name + role beside avatar, like desktop */}
           <div className="flex flex-col items-end sm:hidden">
             <p className="font-semibold text-[11px] text-gray-900 max-w-[120px] truncate">
-              Viraj Kadam
+              {adminName}
             </p>
             <p className="text-[10px] text-gray-500">Admin</p>
           </div>
           {/* Desktop / tablet: existing name + role */}
           <div className="text-right hidden sm:block">
             <p className="font-semibold text-xs sm:text-sm md:text-base text-gray-900 truncate">
-              Viraj Kadam
+              {adminName}
             </p>
             <p className="text-[10px] sm:text-xs text-gray-500">Admin</p>
           </div>
           <div className="w-8 sm:w-9 md:w-10 h-8 sm:h-9 md:h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center flex-shrink-0">
-            <span className="text-xs sm:text-sm md:text-base font-semibold text-white">VK</span>
+            <span className="text-xs sm:text-sm md:text-base font-semibold text-white">{adminInitials}</span>
           </div>
         </button>
 
@@ -345,7 +359,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
             />
             <div className="absolute right-0 top-10 w-40 rounded-xl bg-white shadow-lg border border-slate-100 z-50 overflow-hidden">
               <div className="px-4 py-3">
-                <p className="text-sm font-semibold text-slate-900">Viraj Kadam</p>
+                <p className="text-sm font-semibold text-slate-900">{adminName}</p>
                 <p className="text-[11px] text-slate-500">Admin</p>
               </div>
               <button
@@ -963,7 +977,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
     name: '',
     mobile: '',
     experience: '',
-    password: '123456',
+    password: process.env.REACT_APP_DEFAULT_CANDIDATE_PASSWORD || '',
     technology: [],
     referredBy: '',
   });
@@ -1148,7 +1162,6 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       const candidateData = {
         name: trimmedName,
         mobile: trimmedMobile,
-        password: trimmedPassword,
         approvedByAdmin: true,
         technology: techString,
         // store both spellings for compatibility with existing data
@@ -1167,7 +1180,15 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
         regimeType: 'new-70',
       };
 
-      const docRef = await addDoc(collection(db, 'candidates'), candidateData);
+      // Password lives only in Firebase Auth. Candidate doc id === Auth uid (firestore.rules rely on it).
+      const { data: authRes } = await adminSetCandidateAuth({ mobile: trimmedMobile, password: trimmedPassword });
+      const docRef = doc(db, 'candidates', authRes.uid);
+      try {
+        await setDoc(docRef, candidateData);
+      } catch (writeErr) {
+        await adminDeleteCandidateAuth({ uid: authRes.uid }).catch(() => {});
+        throw writeErr;
+      }
 
       setSuccessMessage('Candidate added successfully.');
       
@@ -1188,7 +1209,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
         name: '',
         mobile: '',
         experience: '',
-        password: '123456',
+        password: process.env.REACT_APP_DEFAULT_CANDIDATE_PASSWORD || '',
         technology: [],
         referredBy: '',
       });
@@ -1484,7 +1505,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
     name: candidate?.name || '',
     mobile: candidate?.mobile || '',
     experience: candidate?.experience || '',
-    password: String(candidate?.password ?? '').trim(),
+    password: '',
     technology: Array.isArray(candidate?.technologies)
       ? candidate.technologies.map((t) => normaliseTechLabelAdmin(t))
       : [],
@@ -1524,7 +1545,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         name: candidate.name || '',
         mobile: candidate.mobile || '',
         experience: candidate.experience || '',
-        password: String(candidate.password ?? '').trim(),
+        password: '',
         technology: Array.isArray(candidate.technologies)
           ? candidate.technologies.map((t) => normaliseTechLabelAdmin(t))
           : [],
@@ -1616,12 +1637,9 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       return;
     }
 
+    // Blank = keep current password.
     const trimmedPassword = form.password?.trim();
-    if (!trimmedPassword) {
-      setError('Password is required.');
-      return;
-    }
-    if (/[a-zA-Z]/.test(trimmedPassword) || trimmedPassword.length !== 6) {
+    if (trimmedPassword && (/[a-zA-Z]/.test(trimmedPassword) || trimmedPassword.length !== 6)) {
       setError('Password must be exactly 6 characters (numbers and symbols only).');
       return;
     }
@@ -1660,7 +1678,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       const candidateData = {
         name: form.name.trim(),
         mobile: form.mobile.trim(),
-        password: trimmedPassword,
+        password: deleteField(), // purge any legacy plaintext password
         approvedByAdmin: true,
         technology: techString,
         refereedBy: form.referredBy,
@@ -1701,6 +1719,19 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       };
 
       if (candidate?.firestoreId) {
+        const mobileChanged = trimmedMobile !== String(candidate.mobile ?? '').trim();
+        if (trimmedPassword || mobileChanged) {
+          try {
+            await adminSetCandidateAuth({
+              uid: candidate.firestoreId,
+              mobile: trimmedMobile,
+              ...(trimmedPassword && { password: trimmedPassword }),
+            });
+          } catch (authErr) {
+            setError(authErr?.message || 'Failed to update login details.');
+            return;
+          }
+        }
         await updateDoc(doc(db, 'candidates', candidate.firestoreId), candidateData);
         await syncCandidateDisplayNameOnEvents({
           mobile: trimmedMobile,
@@ -1817,14 +1848,14 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         {/* Password with show/hide toggle - 6 digits only (mandatory) */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-slate-700">
-            <span className="text-red-500">*</span> Password
+            New password
           </label>
           <div className="flex items-stretch">
             <input
               type={showPassword ? 'text' : 'password'}
               value={form.password}
               onChange={handleChange('password')}
-              placeholder="Numbers and symbols only"
+              placeholder="Leave blank to keep current"
               className="flex-1 rounded-l-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200 rounded-r-none"
             />
             <button
@@ -6292,6 +6323,7 @@ export default function AdminDashboard() {
       // Delete from Firestore (correct collection based on source)
       const collectionName = candidate.sourceCollection || 'candidates';
       if (candidate.firestoreId) {
+        await adminDeleteCandidateAuth({ uid: candidate.firestoreId });
         await deleteDoc(doc(db, collectionName, candidate.firestoreId));
       } else if (candidate.mobile) {
         // Fallback: look up by mobile if we don't have firestoreId
@@ -6302,7 +6334,11 @@ export default function AdminDashboard() {
         const snap = await getDocs(q);
         const batchDeletions = [];
         snap.forEach((docSnap) => {
-          batchDeletions.push(deleteDoc(doc(db, collectionName, docSnap.id)));
+          batchDeletions.push(
+            adminDeleteCandidateAuth({ uid: docSnap.id }).then(() =>
+              deleteDoc(doc(db, collectionName, docSnap.id)),
+            ),
+          );
         });
         await Promise.all(batchDeletions);
       }

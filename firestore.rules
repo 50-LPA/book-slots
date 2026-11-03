@@ -1,37 +1,82 @@
 rules_version = '2';
+// Identity model: Firebase Auth email/password, email = "<mobile>@<project>.firebaseapp.com".
+// admin/{uid} and candidates/{uid} doc ids equal the Auth uid (see functions/migrate-auth.js).
+// Passwords are NOT stored in Firestore.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Candidates - used by Login and Admin Dashboard
-    match /candidates/{docId} {
-      allow read, write: if true;
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider == 'password';
     }
-    // Users - used by Admin Dashboard (role=candidate)
-    match /users/{docId} {
-      allow read, write: if true;
+    function myMobile() {
+      return request.auth.token.email.split('@')[0];
     }
-    // Admin - used by Login
-    match /admin/{docId} {
-      allow read, write: if true;
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admin/$(request.auth.uid));
     }
-    // Events/slots - used for slot booking
-    match /events/{docId} {
-      allow read, write: if true;
+    function isCandidate() {
+      return signedIn() && exists(/databases/$(database)/documents/candidates/$(request.auth.uid));
     }
-    // HRs
-    match /hrs/{docId} {
-      allow read, write: if true;
+    function activeCandidate() {
+      return isCandidate()
+        && get(/databases/$(database)/documents/candidates/$(request.auth.uid)).data.get('isActive', true) != false
+        && get(/databases/$(database)/documents/candidates/$(request.auth.uid)).data.get('isSelected', false) != true;
     }
-    // Admin leaves
-    match /adminLeaves/{docId} {
-      allow read, write: if true;
+    // Candidates may edit their profile and deactivate themselves (2-week rule), never reactivate.
+    function candidateSelfEditOk() {
+      let keys = request.resource.data.diff(resource.data).affectedKeys();
+      return keys.hasOnly(['experience', 'technologies', 'technology', 'isActive', 'status'])
+        && (!keys.hasAny(['isActive', 'status']) || request.resource.data.get('isActive', true) == false);
     }
-    // Slots (if used separately)
-    match /slots/{docId} {
-      allow read, write: if true;
+    function ownsEvent(data) {
+      return data.get('candidateMobile', '') == myMobile()
+          || data.get('candidateId', '') == request.auth.uid
+          || data.get('candidateId', '') == myMobile();
     }
-    // Settings
-    match /settings/{docId} {
-      allow read, write: if true;
+
+    match /admin/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if false; // manage admins in the Firebase Console
+    }
+
+    match /candidates/{id} {
+      // Own doc by id, or by `where('mobile', '==', <own mobile>)` queries.
+      allow read: if isAdmin()
+        || (signedIn() && (request.auth.uid == id || resource.data.get('mobile', '') == myMobile()));
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (signedIn() && request.auth.uid == id && candidateSelfEditOk());
+    }
+
+    // Interview slots: public calendar reads them.
+    match /events/{id} {
+      allow read: if true;
+      allow create: if isAdmin()
+        || (activeCandidate()
+            && ownsEvent(request.resource.data)
+            && request.resource.data.status == 'Pending Approval'
+            && request.resource.data.get('isApproved', false) == false);
+      allow update: if isAdmin()
+        || (isCandidate() && ownsEvent(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['feedback', 'updatedAt']));
+      allow delete: if isAdmin() || (isCandidate() && ownsEvent(resource.data));
+    }
+
+    // HR contacts: candidates can add, only admins edit/delete. Not public.
+    match /hrs/{id} {
+      allow read: if signedIn();
+      allow create: if isAdmin() || isCandidate();
+      allow update, delete: if isAdmin();
+    }
+
+    // Leaves + slot settings: public calendar reads them.
+    match /adminLeaves/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Unused by the app today; admin-only.
+    match /{col}/{id} {
+      allow read, write: if isAdmin() && col in ['users', 'slots', 'settings'];
     }
   }
 }

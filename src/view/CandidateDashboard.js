@@ -18,7 +18,8 @@ import AddHRModal from '../Components/AddHRModal';
 import BookSlot from './BookSlot';
 import WeekCalendar from '../Components/WeekCalendar';
 import PlacedCandidatesMarquee from '../Components/PlacedCandidatesMarquee';
-import { db } from '../firebase/firebase';
+import { signOut } from 'firebase/auth';
+import { db, auth } from '../firebase/firebase';
 import { formatDateDDMMYYYY, subscribeToCandidateSlots, isSlotPast } from '../firebase/slotsService';
 import { checkHrDuplicates } from '../firebase/hrService';
 import {
@@ -2156,6 +2157,7 @@ export default function CandidateDashboard() {
         }
         onLogout={() => {
           sessionStorage.removeItem('sb_user');
+          signOut(auth).catch(() => {});
           navigate('/login', { replace: true });
         }}
       />

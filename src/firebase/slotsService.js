@@ -13,7 +13,7 @@ import {
   Timestamp,
   onSnapshot,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import {
   getCandidateMatchKeys,
   getPrimaryCandidateLinkId,
@@ -208,6 +208,17 @@ let globalCandidatesCache = null;
 let globalCandidatesPromise = null;
 let globalHrCache = null;
 let globalHrPromise = null;
+// Public visitors / candidates may not read all candidates or HRs (firestore.rules).
+// Remember a denial per signed-in uid so we don't retry on every snapshot; names then
+// come from the event docs themselves.
+const deniedFor = { candidates: undefined, hrs: undefined };
+const currentUid = () => auth.currentUser?.uid ?? null;
+const isDenied = (key) => deniedFor[key] === currentUid();
+const onCacheError = (key, label) => (err) => {
+  if (err?.code === 'permission-denied') deniedFor[key] = currentUid();
+  else console.error(`Error loading ${label} cache:`, err);
+  return {};
+};
 
 export function getCachedCandidatesMap() {
   return globalCandidatesCache;
@@ -220,6 +231,7 @@ export function getCachedHrMap() {
 function fetchCandidatesCache() {
   if (globalCandidatesCache) return Promise.resolve(globalCandidatesCache);
   if (globalCandidatesPromise) return globalCandidatesPromise;
+  if (isDenied('candidates')) return Promise.resolve({});
 
   globalCandidatesPromise = getDocs(collection(db, 'candidates'))
     .then((snap) => {
@@ -237,10 +249,7 @@ function fetchCandidatesCache() {
       globalCandidatesCache = map;
       return map;
     })
-    .catch((err) => {
-      console.error('Error loading candidates cache:', err);
-      return {};
-    })
+    .catch(onCacheError('candidates', 'candidates'))
     .finally(() => {
       globalCandidatesPromise = null;
     });
@@ -251,6 +260,7 @@ function fetchCandidatesCache() {
 function fetchHrCache() {
   if (globalHrCache) return Promise.resolve(globalHrCache);
   if (globalHrPromise) return globalHrPromise;
+  if (isDenied('hrs')) return Promise.resolve({});
 
   globalHrPromise = getDocs(collection(db, 'hrs'))
     .then((snap) => {
@@ -266,10 +276,7 @@ function fetchHrCache() {
       globalHrCache = map;
       return map;
     })
-    .catch((err) => {
-      console.error('Error loading HR cache:', err);
-      return {};
-    })
+    .catch(onCacheError('hrs', 'HR'))
     .finally(() => {
       globalHrPromise = null;
     });

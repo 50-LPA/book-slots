@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { signOut } from 'firebase/auth';
+import { db, auth } from '../firebase/firebase';
 import CandidateDashboard from '../view/CandidateDashboard';
 import {
   fetchCandidateEventsFromFirestore,
@@ -75,6 +76,7 @@ export default function CandidateRouteGuard() {
                 }
               }
               sessionStorage.removeItem('sb_user');
+              signOut(auth).catch(() => {});
               localStorage.removeItem('candidates');
               localStorage.removeItem('name');
               localStorage.removeItem('email');
