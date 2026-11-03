@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
-import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY, slotDocToUI } from '../firebase/slotsService';
+import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY } from '../firebase/slotsService';
 import { subscribeToSlotSettings, getStoredSlotSettings } from '../firebase/settingsService';
 import {
   getPrimaryCandidateLinkId,
@@ -11,7 +11,7 @@ import {
   getCandidateMatchKeys,
   slotMatchesCandidateKeys,
 } from '../utils/candidateIdentity';
-import { isCandidateInterviewOlderThanTwoWeeks } from '../utils/candidateStatus';
+import { isCandidateInterviewOlderThanTwoWeeks, fetchCandidateEventsFromFirestore } from '../utils/candidateStatus';
 
 function normaliseKey(value) {
   return String(value || '').trim().toLowerCase();
@@ -531,9 +531,12 @@ export default function BookSlot({
         mobile: candidateMobile,
         id: candidateFirestoreId,
       });
-      const eventsSnap = await getDocs(collection(db, 'events'));
-      const unfeedbackedSlots = eventsSnap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
+      // Only this candidate's slots (was: the whole events collection).
+      const candidateUiSlots = await fetchCandidateEventsFromFirestore(
+        { mobile: candidateMobile, id: candidateFirestoreId },
+        db,
+      );
+      const unfeedbackedSlots = candidateUiSlots
         .filter((s) => {
           const matches = slotMatchesCandidateKeys(s, matchKeys);
           const isRejected = String(s.status || '').trim().toLowerCase() === 'rejected';
@@ -564,8 +567,7 @@ export default function BookSlot({
         }
       }
 
-      const allCandidateUiSlots = eventsSnap.docs.map((d) => slotDocToUI(d));
-      if (isCandidateInterviewOlderThanTwoWeeks(allCandidateUiSlots, liveCandidateData || matchKeys)) {
+      if (isCandidateInterviewOlderThanTwoWeeks(candidateUiSlots, liveCandidateData || matchKeys)) {
         // eslint-disable-next-line no-alert
         alert('Your account is currently inactive because your last interview was more than two weeks ago. Please contact the administrator.');
         if (onClose) onClose();
@@ -719,7 +721,7 @@ export default function BookSlot({
             >
               <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
             </button>
-            <h2 className="flex-1 text-center text-purple-600 font-semibold text-sm md:text-base"><i className="fa-solid fa-calendar-plus mr-1.5" aria-hidden="true" />Create Slot</h2>
+            <h2 className="flex-1 text-center text-purple-600 font-semibold text-sm md:text-base"><i className="fa-solid fa-calendar-plus mr-1.5" aria-hidden="true" />Add New Slot</h2>
           </div>
 
           {/* Tab view only (768px–1023px): reordered layout */}
@@ -1036,7 +1038,7 @@ export default function BookSlot({
                             ) : (
                               <li className="px-3 py-2 text-sm text-gray-600">
                                 No HR found.
-                                <button type="button" onMouseDown={(ev) => { ev.preventDefault(); setShowHrDropdown(false); onOpenAddHR(); }} className="ml-2 text-purple-600 underline"><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />Create new HR</button>
+                                <button type="button" onMouseDown={(ev) => { ev.preventDefault(); setShowHrDropdown(false); onOpenAddHR(); }} className="ml-2 text-purple-600 underline"><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />Add New HR</button>
                               </li>
                             )}
                           </ul>
@@ -1046,7 +1048,7 @@ export default function BookSlot({
                     </div>
                     {errors.hr && <p className="text-xs text-red-500 mt-1">{errors.hr}</p>}
                     <div className="mt-1">
-                      <p className="text-xs text-red-500">• Create new HR if not listed.</p>
+                      <p className="text-xs text-red-500">• Add New HR if not listed.</p>
                       <p className="text-xs text-green-600">• Search HR name or Company name.</p>
                     </div>
                   </div>
@@ -1504,7 +1506,7 @@ export default function BookSlot({
                               }}
                               className="ml-2 text-purple-600 underline"
                             ><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />
-                              Create new HR
+                              Add New HR
                             </button>
                           </li>
                         )}
@@ -1520,7 +1522,7 @@ export default function BookSlot({
                   {errors.hr && <p className="text-xs text-red-500 mt-1">{errors.hr}</p>}
                   {/* helper text */}
                   <div className="mt-1">
-                    <p className="text-xs text-red-500">• Create new HR if not listed.</p>
+                    <p className="text-xs text-red-500">• Add New HR if not listed.</p>
                     <p className="text-xs text-green-600">• Search HR name or Company name.</p>
                   </div>
                 </div>
@@ -1763,7 +1765,7 @@ export default function BookSlot({
                               }}
                               className="ml-2 text-purple-600 underline"
                             ><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />
-                              Create new HR
+                              Add New HR
                             </button>
                           </li>
                         )}

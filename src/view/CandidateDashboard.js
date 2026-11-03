@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   collection,
@@ -262,7 +262,7 @@ function FeedbackRequiredModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="relative w-full max-w-lg rounded-2xl bg-white p-5 sm:p-6 shadow-2xl border border-slate-200">
+      <div className="relative w-full max-w-lg rounded-2xl bg-white p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[90dvh] overflow-y-auto">
         {/* Header with Lock icon & warning */}
         <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-3">
@@ -648,23 +648,25 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
               <button
                 type="button"
                 onClick={onOpenAddHR}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap"
+                className="flex-1 justify-center inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap bg-emerald-500 hover:bg-emerald-600"
               >
-                <i className="fa-regular fa-square-plus w-3 h-3" aria-hidden="true" />
-                <span>Create HR</span>
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+                  <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                </span>
+                <span>Add New HR</span>
               </button>
               <button
                 type="button"
                 onClick={onOpenBookSlot}
-                title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Create Slot'}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${
-                  hasPendingFeedback
-                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
+                title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Add New Slot'}
+                className={`flex-1 justify-center inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap ${
+                  hasPendingFeedback ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'
                 }`}
               >
-                <i className={`${hasPendingFeedback ? 'fa-solid fa-lock' : 'fa-regular fa-square-plus'} w-3 h-3`} aria-hidden="true" />
-                <span>{hasPendingFeedback ? 'Create Slot (Locked)' : 'Create Slot'}</span>
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+                  <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-plus'} text-xs`} aria-hidden="true" />
+                </span>
+                <span>{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
               </button>
             </div>
 
@@ -701,23 +703,25 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
               <button
                 type="button"
                 onClick={onOpenAddHR}
-                className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap"
+                className="inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap bg-emerald-500 hover:bg-emerald-600"
               >
-                <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
-                <span>Create HR</span>
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+                  <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                </span>
+                <span>Add New HR</span>
               </button>
               <button
                 type="button"
                 onClick={onOpenBookSlot}
-                title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Create Slot'}
-                className={`inline-flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap ${
-                  hasPendingFeedback
-                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
+                title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Add New Slot'}
+                className={`inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap ${
+                  hasPendingFeedback ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'
                 }`}
               >
-                <i className={`${hasPendingFeedback ? 'fa-solid fa-lock' : 'fa-regular fa-square-plus'} w-3 h-3 sm:w-4 sm:h-4`} aria-hidden="true" />
-                <span>{hasPendingFeedback ? 'Create Slot (Locked)' : 'Create Slot'}</span>
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+                  <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-plus'} text-xs`} aria-hidden="true" />
+                </span>
+                <span>{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
               </button>
 
             </div>
@@ -739,11 +743,11 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
       {/* Calendar slot details popup (candidate calendar, only own slots) */}
       {calendarSelectedEvent && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4"
           onClick={() => setCalendarSelectedEvent(null)}
         >
           <div
-            className="relative w-full max-w-md rounded-xl bg-white shadow-lg px-5 py-4"
+            className="relative w-full max-w-md rounded-xl bg-white shadow-lg px-5 py-4 max-h-[90dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -1005,160 +1009,14 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
   const startIdx = (currentPage - 1) * itemsPerPage;
   const paginatedSlots = filteredSlots.slice(startIdx, startIdx + itemsPerPage);
 
-  return (
-    <div className="bg-white rounded-lg sm:rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
-      {/* Header: back button left, title centered, Book New Slot button right */}
-      <div className="flex items-center justify-between mb-4 gap-3">
-        {/* Left: back button */}
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={onBackToHome}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Center: title + reload button */}
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <h2 className="text-sm sm:text-base font-semibold text-slate-900"><i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
-            My Slots
-          </h2>
-          <button
-            type="button"
-            onClick={() => setRefreshKey((k) => k + 1)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
-            aria-label="Reload slots"
-          >
-            <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Right: Book New Slot button */}
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={onBookNewSlot}
-            title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Create Slot'}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold shadow whitespace-nowrap ${
-              hasPendingFeedback
-                ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
-          >
-            <i className={`${hasPendingFeedback ? 'fa-solid fa-lock' : 'fa-regular fa-square-plus'} w-3 h-3 sm:w-4 sm:h-4`} aria-hidden="true" />
-            <span>{hasPendingFeedback ? 'Create Slot (Locked)' : 'Create Slot'}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Metrics + search row */}
-      <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-6 text-xs sm:text-sm text-slate-700">
-          {/* Total slots card */}
-          <div className="flex flex-col items-center">
-            <span className="text-sm sm:text-base font-semibold text-slate-800">
-              {totalSlots}
-            </span>
-            <span className="text-[11px] text-slate-500">Total Slots</span>
-          </div>
-
-          {/* Per-round cards, same style as total */}
-          {ROUND_LABELS.map((label) => (
-            <div key={label} className="flex flex-col items-center">
-              <span className="text-sm sm:text-base font-semibold text-slate-800">
-                {roundCounts[label] || 0}
-              </span>
-              <span className="text-[11px] text-slate-500 text-center whitespace-nowrap">
-                {label}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center justify-end gap-3">
-          <div className="relative w-32 sm:w-40">
-            <input
-              type="text"
-              placeholder="Search slots..."
-              value={slotSearch}
-              onChange={(e) => setSlotSearch(e.target.value)}
-              className="w-full rounded-full border border-slate-200 bg-white pl-3 pr-8 py-1.5 text-xs sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-            {slotSearch && (
-              <button
-                type="button"
-                onClick={() => setSlotSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-                aria-label="Clear search"
-              >
-                <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Table content */}
-      {filteredSlots.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 sm:py-16">
-          <p className="text-sm sm:text-base text-gray-500">No slots found</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-xs sm:text-sm border border-slate-200">
-            <thead>
-              <tr className="bg-slate-50 text-slate-600">
-                <th className="px-3 py-2 text-center font-semibold border-b border-r border-slate-200 w-10">
-                  Sr.
-                </th>
-                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
-                  Company Name
-                </th>
-                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
-                  Technology
-                </th>
-                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
-                  HR
-                </th>
-                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
-                  Round
-                </th>
-                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
-                  Date
-                </th>
-                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
-                  Feedback
-                </th>
-                <th className="px-3 py-2 text-center font-semibold border-b border-slate-200">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedSlots.map((slot, index) => {
-                const slotDate = slot.date?.toDate ? slot.date.toDate() : (slot.date ? new Date(slot.date) : null);
-                const slotDateStr = slotDate ? slotDate.toISOString().slice(0, 10) : '';
-                const isToday = slotDateStr === todayStr;
-                const displayDate = formatDateDDMMYYYY(slot.date);
-                const timeLabel = formatTimeLabel(slot);
-
-                return (
-                  <tr
-                    key={slot.id}
-                    className="border-b border-slate-200 hover:bg-slate-50"
-                  >
-                    <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">
-                      {startIdx + index + 1}
-                    </td>
-                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                      {slot.company || slot.companyName || '-'}
-                    </td>
-                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                      {slot.technology || '-'}
-                    </td>
-                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                      {(() => {
+  // Per-slot pieces shared by the desktop table and the phone cards.
+  const getSlotParts = (slot) => {
+    const slotDate = slot.date?.toDate ? slot.date.toDate() : (slot.date ? new Date(slot.date) : null);
+    const slotDateStr = slotDate ? slotDate.toISOString().slice(0, 10) : '';
+    const isToday = slotDateStr === todayStr;
+    const displayDate = formatDateDDMMYYYY(slot.date);
+    const timeLabel = formatTimeLabel(slot);
+    const hrCell = (() => {
                         const rawHrName = slot.hrName || '';
                         const rawHrMobile = slot.hrMobile || '';
                         const rawHrEmail = slot.hrEmail || '';
@@ -1205,28 +1063,8 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                             )}
                           </div>
                         );
-                      })()}
-                    </td>
-                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                      {normaliseRoundLabel(slot.round || slot.interviewRound) || '-'}
-                    </td>
-                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                      <div className="flex flex-col">
-                        <span>
-                          {displayDate || '-'}
-                          {isToday && (
-                            <span className="text-emerald-600 font-semibold ml-1">
-                              (Today)
-                            </span>
-                          )}
-                        </span>
-                        {timeLabel && (
-                          <span className="text-[11px] text-slate-500">{timeLabel}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                      {slot.feedback ? (
+    })();
+    const feedbackCell = slot.feedback ? (
                         <span className="block max-w-[260px] whitespace-pre-wrap break-words">
                           {String(slot.feedback)}
                         </span>
@@ -1258,10 +1096,8 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                             Add Feedback
                           </button>
                         );
-                      })()}
-                    </td>
-                    <td className="px-3 py-2 text-slate-700 text-center">
-                      {!isSlotPast(slot) && (
+    })();
+    const deleteBtn = (!isSlotPast(slot) && (
                         <button
                           type="button"
                           onClick={() => {
@@ -1275,7 +1111,217 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                         >
                           <i className="fa-solid fa-trash" aria-hidden="true" />
                         </button>
-                      )}
+                      ));
+    return { isToday, displayDate, timeLabel, hrCell, feedbackCell, deleteBtn };
+  };
+
+  return (
+    <div className="bg-white rounded-lg sm:rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
+      {/* Header: back button left, title centered, Book New Slot button right */}
+      <div className="flex items-center justify-between mb-4 gap-3">
+        {/* Left: back button */}
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={onBackToHome}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+          >
+            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Center: title + reload button */}
+        <div className="flex-1 flex items-center justify-center gap-2">
+          <h2 className="text-sm sm:text-base font-semibold text-slate-900"><i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
+            My Slots
+          </h2>
+          <button
+            type="button"
+            onClick={() => setRefreshKey((k) => k + 1)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
+            aria-label="Reload slots"
+          >
+            <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Right: Book New Slot button */}
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={onBookNewSlot}
+            title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Add New Slot'}
+            className={`inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap ${
+                  hasPendingFeedback ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'
+                }`}
+              >
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+                  <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-plus'} text-xs`} aria-hidden="true" />
+                </span>
+                <span>{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Metrics + search row */}
+      <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-6 text-xs sm:text-sm text-slate-700">
+          {/* Total slots card */}
+          <div className="flex flex-col items-center">
+            <span className="text-sm sm:text-base font-semibold text-slate-800">
+              {totalSlots}
+            </span>
+            <span className="text-[11px] text-slate-500">Total Slots</span>
+          </div>
+
+          {/* Per-round cards, same style as total */}
+          {ROUND_LABELS.map((label) => (
+            <div key={label} className="flex flex-col items-center">
+              <span className="text-sm sm:text-base font-semibold text-slate-800">
+                {roundCounts[label] || 0}
+              </span>
+              <span className="text-[11px] text-slate-500 text-center whitespace-nowrap">
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-end gap-3">
+          <div className="relative w-28 sm:w-36">
+            <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input
+              type="text"
+              placeholder="Search slots..."
+              value={slotSearch}
+              onChange={(e) => setSlotSearch(e.target.value)}
+              className="w-full rounded-full border border-slate-200 bg-white pl-7 pr-8 py-1.5 text-[11px] sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+            {slotSearch && (
+              <button
+                type="button"
+                onClick={() => setSlotSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                aria-label="Clear search"
+              >
+                <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Table content */}
+      {filteredSlots.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 sm:py-16">
+          <p className="text-sm sm:text-base text-gray-500">No slots found</p>
+        </div>
+      ) : (
+        <>
+        {/* Phones: one card per slot instead of an 8-column table */}
+        <ul className="sm:hidden space-y-3">
+          {paginatedSlots.map((slot) => {
+            const { isToday, displayDate, timeLabel, hrCell, feedbackCell, deleteBtn } = getSlotParts(slot);
+            const round = normaliseRoundLabel(slot.round || slot.interviewRound);
+            return (
+              <li key={slot.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900 truncate">
+                      <i className="fa-solid fa-building mr-1.5 text-purple-500" aria-hidden="true" />
+                      {slot.company || slot.companyName || '-'}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {[slot.technology, round].filter(Boolean).join(' · ') || '-'}
+                    </p>
+                  </div>
+                  {deleteBtn}
+                </div>
+                <p className="mt-2 text-sm text-slate-700">
+                  <i className="fa-solid fa-calendar-day mr-1.5 text-slate-400" aria-hidden="true" />
+                  {displayDate || '-'}
+                  {isToday && <span className="ml-1 font-semibold text-emerald-600">(Today)</span>}
+                  {timeLabel && <span className="ml-2 text-slate-500">{timeLabel}</span>}
+                </p>
+                <div className="mt-2 text-xs text-slate-700">{hrCell}</div>
+                <div className="mt-3 border-t border-slate-100 pt-2 text-xs text-slate-700">{feedbackCell}</div>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="min-w-full border-collapse text-xs sm:text-sm border border-slate-200">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600">
+                <th className="px-3 py-2 text-center font-semibold border-b border-r border-slate-200 w-10">
+                  Sr.
+                </th>
+                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
+                  Company Name
+                </th>
+                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
+                  Technology
+                </th>
+                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
+                  HR
+                </th>
+                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
+                  Round
+                </th>
+                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
+                  Date
+                </th>
+                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
+                  Feedback
+                </th>
+                <th className="px-3 py-2 text-center font-semibold border-b border-slate-200">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedSlots.map((slot, index) => {
+                const { isToday, displayDate, timeLabel, hrCell, feedbackCell, deleteBtn } = getSlotParts(slot);
+
+                return (
+                  <tr
+                    key={slot.id}
+                    className="border-b border-slate-200 hover:bg-slate-50"
+                  >
+                    <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">
+                      {startIdx + index + 1}
+                    </td>
+                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
+                      {slot.company || slot.companyName || '-'}
+                    </td>
+                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
+                      {slot.technology || '-'}
+                    </td>
+                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
+                      {hrCell}
+                    </td>
+                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
+                      {normaliseRoundLabel(slot.round || slot.interviewRound) || '-'}
+                    </td>
+                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
+                      <div className="flex flex-col">
+                        <span>
+                          {displayDate || '-'}
+                          {isToday && (
+                            <span className="text-emerald-600 font-semibold ml-1">
+                              (Today)
+                            </span>
+                          )}
+                        </span>
+                        {timeLabel && (
+                          <span className="text-[11px] text-slate-500">{timeLabel}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
+                      {feedbackCell}
+                    </td>
+                    <td className="px-3 py-2 text-slate-700 text-center">
+                      {deleteBtn}
                     </td>
                   </tr>
                 );
@@ -1283,18 +1329,19 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
             </tbody>
           </table>
         </div>
+        </>
       )}
       {/* Delete slot confirmation modal */}
       {confirmDeleteSlotId && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4"
           onClick={() => {
             setConfirmDeleteSlotId(null);
             setConfirmDeleteSlotLabel('');
           }}
         >
           <div
-            className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-5 py-4"
+            className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-5 py-4 max-h-[90dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -1349,7 +1396,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
       {/* Add Feedback modal */}
       {feedbackSlot && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4"
           onClick={() => {
             if (!savingFeedback) {
               setFeedbackSlot(null);
@@ -1358,7 +1405,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
           }}
         >
           <div
-            className="relative w-full max-w-md rounded-xl bg-white shadow-lg px-5 py-4"
+            className="relative w-full max-w-md rounded-xl bg-white shadow-lg px-5 py-4 max-h-[90dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -1523,10 +1570,12 @@ function CandidateHrsList({
           <button
             type="button"
             onClick={onAddNewHR}
-            className="inline-flex items-center gap-1.5 rounded-full bg-green-600 hover:bg-green-700 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white"
-          >
-            <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
-            <span>Create HR</span>
+            className="inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap bg-emerald-500 hover:bg-emerald-600"
+              >
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+                  <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                </span>
+                <span>Add New HR</span>
           </button>
         </div>
       </div>
@@ -1538,7 +1587,42 @@ function CandidateHrsList({
       ) : hrs.length === 0 ? (
         <p className="text-sm text-slate-500">No HRs added by you yet.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+        {/* Phones: one card per HR */}
+        <ul className="sm:hidden space-y-3">
+          {hrs.map((hr) => (
+            <li key={hr.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm text-sm text-slate-700">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-900 truncate">
+                    <i className="fa-solid fa-user-tie mr-1.5 text-purple-500" aria-hidden="true" />
+                    {hr.name || '-'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500 truncate">
+                    {[hr.company, hr.technology, hr.jobType].filter(Boolean).join(' · ') || '-'}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700">
+                  {hr.interviewCount ?? 0} interviews
+                </span>
+              </div>
+              {hr.mobile && (
+                <a href={`tel:${hr.mobile}`} className="mt-2 flex items-center gap-1.5 text-xs text-slate-700">
+                  <i className="fa-solid fa-phone w-3.5 text-slate-400" aria-hidden="true" />
+                  {hr.mobile}
+                </a>
+              )}
+              {hr.email && (
+                <a href={`mailto:${hr.email}`} className="mt-1 flex items-center gap-1.5 text-xs text-slate-700 break-all">
+                  <i className="fa-solid fa-envelope w-3.5 text-slate-400" aria-hidden="true" />
+                  {hr.email}
+                </a>
+              )}
+              <p className="mt-2 text-[11px] text-slate-400">Added {formatCreatedOn(hr.createdAt)}</p>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden sm:block overflow-x-auto">
           <table className="min-w-full text-xs sm:text-sm">
             <thead>
               <tr className="text-left border-b border-slate-200 text-slate-600">
@@ -1570,6 +1654,7 @@ function CandidateHrsList({
             </tbody>
           </table>
         </div>
+        </>
       )}
       {!loading && refreshing && (
         <p className="mt-2 text-xs text-slate-500">Refreshing data...</p>
@@ -1718,18 +1803,30 @@ export default function CandidateDashboard() {
   }, [navigate]);
 
   // HR list shared state - fetched from Firestore
-  const [hrList, setHrList] = useState([]);
+  const [hrListRaw, setHrList] = useState([]);
+  // Interview count per HR comes from this candidate's live slots (no full events read).
+  const hrList = useMemo(() => {
+    const countByHr = {};
+    candidateSlots.forEach((ev) => {
+      const id = String(ev.hrId || '').trim();
+      if (id) countByHr[id] = (countByHr[id] || 0) + 1;
+    });
+    return hrListRaw.map((hr) => ({ ...hr, interviewCount: countByHr[hr.id] || 0 }));
+  }, [hrListRaw, candidateSlots]);
+  const hrsLoadedKeyRef = useRef(-1);
   const [hrsLoading, setHrsLoading] = useState(true);
   const [hrsRefreshing, setHrsRefreshing] = useState(false);
   const [hrsError, setHrsError] = useState(null);
   const [hrsRefreshKey, setHrsRefreshKey] = useState(0);
 
-  // Fetch HRs from Firestore "hrs" collection (deferred when on calendar to prioritize slots)
+  // Fetch HRs once per refresh (deferred when on calendar to prioritize slots)
   useEffect(() => {
+    if (hrsLoadedKeyRef.current === hrsRefreshKey) return undefined;
     const isHrNeededNow = activeNav === 'hrs' || showBookSlot;
     let timerId = null;
 
     const fetchHRs = async () => {
+      hrsLoadedKeyRef.current = hrsRefreshKey;
       try {
         const hasExistingRows = Array.isArray(hrList) && hrList.length > 0;
         if (hasExistingRows) {
@@ -1740,15 +1837,6 @@ export default function CandidateDashboard() {
         setHrsError(null);
         const q = collection(db, 'hrs');
         const querySnapshot = await getDocs(q);
-        const eventSnap = await getDocs(collection(db, 'events'));
-        const hrInterviewCountById = {};
-        eventSnap.forEach((evDoc) => {
-          const ev = evDoc.data() || {};
-          const evHrId = String(ev.hrId || '').trim();
-          if (!evHrId) return;
-          if (candidateIds.length > 0 && !slotMatchesCandidateKeys(ev, candidateIds)) return;
-          hrInterviewCountById[evHrId] = (hrInterviewCountById[evHrId] || 0) + 1;
-        });
         const hrsData = querySnapshot.docs.map((doc) => ({
           id: doc.id, // Store Firestore document ID
           name: doc.data().name || '',
@@ -1760,12 +1848,12 @@ export default function CandidateDashboard() {
           addedBy: doc.data().addedBy || '',
           addedById: doc.data().addedById || '',
           createdAt: doc.data().createdAt || null,
-          interviewCount: hrInterviewCountById[doc.id] || 0,
         }));
         setHrList(hrsData);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Failed to fetch HRs:', err);
+        hrsLoadedKeyRef.current = -1; // allow retry
         setHrsError('Failed to load HR list. Please try again.');
       } finally {
         setHrsLoading(false);

@@ -8,7 +8,14 @@ import {
   isCandidateInterviewOlderThanTwoWeeks,
 } from '../utils/candidateStatus';
 
+// Fetch the candidate dashboard code while the user types, so login opens it instantly.
+const prefetchCandidateDashboard = () => import('../Components/CandidateRouteGuard');
+
 export default function Login() {
+  React.useEffect(() => {
+    const t = setTimeout(prefetchCandidateDashboard, 1000);
+    return () => clearTimeout(t);
+  }, []);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
@@ -180,6 +187,7 @@ export default function Login() {
           isActive: candidateData.isActive !== false,
           status: candidateData.status || 'Active',
           lastActivatedAt: candidateData.lastActivatedAt || candidateData.reactivatedAt || null,
+          verifiedAt: Date.now(), // lets the route guard skip re-running these same checks
         }),
       );
 

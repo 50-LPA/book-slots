@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { getWeekDays, parseISOToDate, formatDayHeader } from '../calendar';
 import { slotMatchesCandidateKeys } from '../utils/candidateIdentity';
 
@@ -121,8 +121,19 @@ function SlotCalendar({
     currentHour >= hours[0] &&
     currentHour <= hours[hours.length - 1];
 
+  // Phones show ~2 days: scroll the wrapper so today's column sits right after the sticky time column.
+  const rootRef = useRef(null);
+  const weekKey = days[0]?.toDateString();
+  useEffect(() => {
+    const box = rootRef.current?.closest('.overflow-x-auto');
+    if (!box || box.scrollWidth <= box.clientWidth) return;
+    const todayCell = rootRef.current.querySelector('[data-today]');
+    const timeCol = rootRef.current.querySelector('th')?.offsetWidth || 0;
+    box.scrollLeft = todayCell ? Math.max(0, todayCell.offsetLeft - timeCol) : 0;
+  }, [weekKey]);
+
   return (
-    <div className="sb-slot-calendar relative bg-white">
+    <div ref={rootRef} className="sb-slot-calendar relative bg-white">
       <div>
         <table
           className="w-full border-separate border-spacing-0 text-[11px] sm:text-[0.9rem]"
@@ -139,7 +150,7 @@ function SlotCalendar({
             <tr>
               {/* Top-left corner: empty so time column and day headers align */}
               <th
-                className="border border-slate-300 bg-slate-50 align-middle"
+                className="sticky left-0 z-10 border border-slate-300 bg-slate-50 align-middle"
                 style={{ height: 'var(--sb-slot-row-h)' }}
               />
               {days.map((day, dayIdx) => {
@@ -149,6 +160,7 @@ function SlotCalendar({
                 return (
                   <th
                     key={day.toISOString()}
+                    data-today={isToday ? 'true' : undefined}
                     className={`border px-1 py-1 sm:px-2 sm:py-2 text-center ${
                       isLeaveDay
                         ? 'bg-red-100 text-red-800 border-red-300'
@@ -196,7 +208,7 @@ function SlotCalendar({
               <tr key={hour}>
                 {/* Time label cell - same row as the slot row */}
                 <td
-                  className="relative border border-slate-300 bg-slate-50 text-right pr-2 sm:pr-3 text-[10px] sm:text-[14px] font-medium text-slate-500 align-top overflow-visible"
+                  className="sticky left-0 z-10 border border-slate-300 bg-slate-50 text-right pr-2 sm:pr-3 text-[10px] sm:text-[14px] font-medium text-slate-500 align-top overflow-visible"
                   style={{ height: 'var(--sb-slot-row-h)' }}
                 >
                   {hourLabel(hour)}

@@ -218,9 +218,9 @@ export default function AddHRModal({
       />
 
       {/* modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-xl mx-4 z-10">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-xl mx-4 z-10 max-h-[90dvh] overflow-y-auto">
         <div className="px-6 py-4 border-b flex items-center justify-between relative">
-          <h3 className="text-base font-semibold text-gray-800">Create HR</h3>
+          <h3 className="text-base font-semibold text-gray-800">Add New HR</h3>
           <button
             type="button"
             onClick={onClose}

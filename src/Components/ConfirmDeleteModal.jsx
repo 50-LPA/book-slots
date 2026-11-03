@@ -32,7 +32,7 @@ export default function ConfirmDeleteModal({
       onClick={onCancel}
     >
       <div
-        className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5"
+        className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-6 py-5 max-h-[90dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-2">

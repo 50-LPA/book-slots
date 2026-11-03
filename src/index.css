@@ -92,3 +92,12 @@ input[type="date"]::-moz-clear {
 
 /* Keep marquee running across browsers/devices; do not disable via reduced-motion here. */
 
+
+/* Phones: 16px form text stops iOS Safari zooming the page on every field tap. */
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

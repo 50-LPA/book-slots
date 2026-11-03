@@ -38,6 +38,12 @@ export default function CandidateRouteGuard() {
           return;
         }
 
+        // Login just ran these exact checks; don't repeat them right away.
+        if (parsed.verifiedAt && Date.now() - parsed.verifiedAt < 60 * 1000) {
+          if (!cancelled) setState('allow');
+          return;
+        }
+
         // For candidates: verify they are still active (admin deactivated or last interview > 2 weeks ago)
         const candidateId = String(parsed?.id || '').trim();
         const candidateMobile = String(parsed?.mobile || '').trim();
