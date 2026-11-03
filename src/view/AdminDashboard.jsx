@@ -316,7 +316,8 @@ function AdminHeader({ activeTab, onChangeTab }) {
             <i className="fa-solid fa-bars w-4 h-4" aria-hidden="true" />
           </button>
         <h1 className="text-sm sm:text-base md:text-xl font-bold text-gray-900 truncate">
-          Slot Booking
+          <i className="fa-solid fa-user-shield mr-2 text-purple-600" aria-hidden="true" />
+          Book Slots
         </h1>
       </div>
 
@@ -366,7 +367,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
                 type="button"
                 onClick={handleLogout}
                 className="w-full bg-red-500 hover:bg-red-600 text-white text-sm font-semibold py-2"
-              >
+              ><i className="fa-solid fa-right-from-bracket mr-1.5" aria-hidden="true" />
                 Log Out
               </button>
             </div>
@@ -660,7 +661,7 @@ function AdminCandidatesTable({
                   ? 'bg-purple-600 text-white'
                   : 'bg-white text-purple-600'
               }`}
-            >
+            ><i className="fa-solid fa-circle-check mr-1.5" aria-hidden="true" />
                 Selected
             </button>
             <button
@@ -670,7 +671,7 @@ function AdminCandidatesTable({
                   ? 'bg-purple-600 text-white'
                   : 'bg-white text-purple-600'
               }`}
-            >
+            ><i className="fa-solid fa-circle-xmark mr-1.5" aria-hidden="true" />
                 Unselected
             </button>
           </div>
@@ -919,7 +920,7 @@ function AdminCandidatesTable({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-slate-900">
+              <h3 className="text-sm font-semibold text-slate-900"><i className="fa-solid fa-triangle-exclamation text-amber-500 mr-1.5" aria-hidden="true" />
                 Are you sure you want to delete this candidate?
               </h3>
               <button
@@ -948,7 +949,7 @@ function AdminCandidatesTable({
                   setConfirmDeleteCandidateName('');
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
-              >
+              ><i className="fa-solid fa-xmark mr-1.5" aria-hidden="true" />
                 Cancel
               </button>
               <button
@@ -961,7 +962,7 @@ function AdminCandidatesTable({
                   setConfirmDeleteCandidateName('');
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
-              >
+              ><i className="fa-solid fa-trash-can mr-1.5" aria-hidden="true" />
                 Delete
               </button>
             </div>
@@ -972,11 +973,9 @@ function AdminCandidatesTable({
   );
 }
 
-// Fresh random password per candidate; admin shares it with them.
+// Fresh random 6-digit password per candidate; admin shares it with them.
 const randomPassword = () =>
-  Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) =>
-    'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'[b % 56]
-  ).join('');
+  String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
 
 function AdminAddCandidateForm({ onBack, onSubmit }) {
   const [form, setForm] = useState({
@@ -1114,8 +1113,8 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       setError('Password is required and must be exactly 6 characters.');
       return;
     }
-    if (/[a-zA-Z]/.test(trimmedPassword) || trimmedPassword.length !== 6) {
-      setError('Password must be exactly 6 characters (numbers and symbols only).');
+    if (!/^\d{6}$/.test(trimmedPassword)) {
+      setError('Password must be exactly 6 digits.');
       return;
     }
     if (!form.technology || form.technology.length === 0) {
@@ -1250,7 +1249,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
 
         {/* Center: title */}
         <div className="flex-1 text-center">
-          <h2 className="text-sm sm:text-base font-semibold text-purple-600">
+          <h2 className="text-sm sm:text-base font-semibold text-purple-600"><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />
             Add New Candidate
           </h2>
         </div>
@@ -1274,7 +1273,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
         {/* Name of Candidate */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Name of Candidate
           </label>
           <input
@@ -1288,7 +1287,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
 
         {/* Mobile */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Mobile
           </label>
           <input
@@ -1304,7 +1303,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
 
         {/* Password with random generator + show/hide icon - 6 chars (numbers/symbols) */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-lock mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Password
           </label>
           <div className="flex items-stretch">
@@ -1320,7 +1319,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
               type="button"
               onClick={handleGeneratePassword}
               className="inline-flex items-center justify-center border-y border-slate-200 bg-slate-50 px-2 text-[11px] sm:text-xs text-slate-700 hover:bg-slate-100"
-            >
+            ><i className="fa-solid fa-shuffle mr-1.5" aria-hidden="true" />
               Random
             </button>
             <button
@@ -1339,7 +1338,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
 
         {/* Technology (custom multi-select dropdown, tags inside input like screenshot) */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-code mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Technology
           </label>
           <div ref={techDropdownRef} className="relative">
@@ -1435,7 +1434,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
 
         {/* Referred By (single-select) */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user-group mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Referred By
           </label>
           <select
@@ -1453,7 +1452,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
 
         {/* Experience - required, 0–20, digits and decimal only */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-briefcase mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Experience
           </label>
           <input
@@ -1645,8 +1644,8 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
     // Blank = keep current password.
     const trimmedPassword = form.password?.trim();
-    if (trimmedPassword && (/[a-zA-Z]/.test(trimmedPassword) || trimmedPassword.length !== 6)) {
-      setError('Password must be exactly 6 characters (numbers and symbols only).');
+    if (trimmedPassword && !/^\d{6}$/.test(trimmedPassword)) {
+      setError('Password must be exactly 6 digits.');
       return;
     }
 
@@ -1806,7 +1805,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         </div>
 
         <div className="flex-1 text-center">
-          <h2 className="text-sm sm:text-base font-semibold text-purple-600">
+          <h2 className="text-sm sm:text-base font-semibold text-purple-600"><i className="fa-solid fa-pen-to-square mr-1.5" aria-hidden="true" />
             Edit {form.name ? form.name : 'Name of Candidate'}
           </h2>
         </div>
@@ -1823,7 +1822,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
         {/* Name of Candidate */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Name of Candidate
           </label>
           <input
@@ -1837,7 +1836,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
         {/* Mobile */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Mobile
           </label>
           <input
@@ -1853,7 +1852,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
         {/* Password with show/hide toggle - 6 digits only (mandatory) */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-key mr-1.5 text-purple-500" aria-hidden="true" />
             New password
           </label>
           <div className="flex items-stretch">
@@ -1880,7 +1879,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
         {/* Technology (multi-select with tags) */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-code mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Technology
           </label>
           <div ref={techDropdownRef} className="relative">
@@ -1972,7 +1971,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
         {/* Referred By dropdown - always visible in main form */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user-group mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Referred By
           </label>
           <select
@@ -1990,7 +1989,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
         {/* Experience - required, 0–20, digits and decimal only */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-briefcase mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Experience
           </label>
           <input
@@ -2005,7 +2004,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
         {/* Selected toggle - always visible (placed last in second row) */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-circle-check mr-1.5 text-purple-500" aria-hidden="true" />
             Selected
           </label>
           <div className="flex items-center gap-2">
@@ -2036,7 +2035,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start mt-4 pt-4 border-t border-slate-200">
           {/* Selected Date */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-calendar-day mr-1.5 text-purple-500" aria-hidden="true" />
               <span className="text-red-500">*</span> Selected Date
             </label>
             <div className="relative">
@@ -2049,7 +2048,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Joining Date */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-calendar-check mr-1.5 text-purple-500" aria-hidden="true" />
               <span className="text-red-500">*</span> Joining Date
             </label>
             <div className="relative">
@@ -2062,7 +2061,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Selected Company */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-building-circle-check mr-1.5 text-purple-500" aria-hidden="true" />
               Selected Company
             </label>
             <input
@@ -2076,7 +2075,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Package */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-indian-rupee-sign mr-1.5 text-purple-500" aria-hidden="true" />
               <span className="text-red-500">*</span> Package
             </label>
             <input
@@ -2090,7 +2089,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* HR Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user-tie mr-1.5 text-purple-500" aria-hidden="true" />
               HR Name
             </label>
             <input
@@ -2104,7 +2103,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* HR Mobile */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />
               HR Mobile
             </label>
             <input
@@ -2120,7 +2119,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* HR Email */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-envelope mr-1.5 text-purple-500" aria-hidden="true" />
               HR Email
             </label>
             <input
@@ -2134,7 +2133,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* HR LinkedIn Profile */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-link mr-1.5 text-purple-500" aria-hidden="true" />
               HR Linkedin profile
             </label>
             <input
@@ -2148,7 +2147,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Candidate Email */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-envelope mr-1.5 text-purple-500" aria-hidden="true" />
               Candidate email
             </label>
             <input
@@ -2162,7 +2161,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Candidate Mobile */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />
               Candidate mobile
             </label>
             <input
@@ -2178,7 +2177,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Mother Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
               Mother name
             </label>
             <input
@@ -2192,7 +2191,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Mother Mobile No. */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-phone mr-1.5 text-purple-500" aria-hidden="true" />
               Mother mobile No.
             </label>
             <input
@@ -2208,7 +2207,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Father Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
               Father Name
             </label>
             <input
@@ -2222,7 +2221,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Father Mobile No. */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-phone mr-1.5 text-purple-500" aria-hidden="true" />
               Father mobile no.
             </label>
             <input
@@ -2238,7 +2237,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Brother Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
               Brother Name
             </label>
             <input
@@ -2252,7 +2251,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Brother Mobile No. */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-phone mr-1.5 text-purple-500" aria-hidden="true" />
               Brother mobile no.
             </label>
             <input
@@ -2268,7 +2267,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Sister Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
               Sister Name
             </label>
             <input
@@ -2282,7 +2281,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Sister Mobile No. */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-phone mr-1.5 text-purple-500" aria-hidden="true" />
               Sister Mobile no.
             </label>
             <input
@@ -2298,7 +2297,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Aadhar */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-id-card mr-1.5 text-purple-500" aria-hidden="true" />
               Aadhar
             </label>
             <input
@@ -2314,7 +2313,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* PAN */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-id-card-clip mr-1.5 text-purple-500" aria-hidden="true" />
               PAN
             </label>
             <input
@@ -2329,7 +2328,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Perm address */}
           <div className="flex flex-col gap-1 md:col-span-2">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-house mr-1.5 text-purple-500" aria-hidden="true" />
               Perm address
             </label>
             <input
@@ -2343,7 +2342,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
 
           {/* Temp address */}
           <div className="flex flex-col gap-1 md:col-span-2">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-location-dot mr-1.5 text-purple-500" aria-hidden="true" />
               Temp address
             </label>
             <input
@@ -3120,7 +3119,7 @@ function AdminSlotsTable({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-slate-900">
+              <h3 className="text-sm font-semibold text-slate-900"><i className="fa-solid fa-triangle-exclamation text-amber-500 mr-1.5" aria-hidden="true" />
                 Are you sure you want to delete this slot?
               </h3>
               <button
@@ -3149,7 +3148,7 @@ function AdminSlotsTable({
                   setConfirmDeleteSlotName('');
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
-              >
+              ><i className="fa-solid fa-xmark mr-1.5" aria-hidden="true" />
                 Cancel
               </button>
               <button
@@ -3162,7 +3161,7 @@ function AdminSlotsTable({
                   setConfirmDeleteSlotName('');
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
-              >
+              ><i className="fa-solid fa-trash-can mr-1.5" aria-hidden="true" />
                 Delete
               </button>
             </div>
@@ -3973,7 +3972,7 @@ function AdminHRsTable({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-slate-900">
+              <h3 className="text-sm font-semibold text-slate-900"><i className="fa-solid fa-triangle-exclamation text-amber-500 mr-1.5" aria-hidden="true" />
                 Are you sure you want to delete?
               </h3>
               <button
@@ -4002,7 +4001,7 @@ function AdminHRsTable({
                   setConfirmDeleteName('');
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
-              >
+              ><i className="fa-solid fa-xmark mr-1.5" aria-hidden="true" />
                 Cancel
               </button>
               <button
@@ -4015,7 +4014,7 @@ function AdminHRsTable({
                   setConfirmDeleteName('');
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
-              >
+              ><i className="fa-solid fa-trash-can mr-1.5" aria-hidden="true" />
                 Delete
               </button>
             </div>
@@ -4056,7 +4055,7 @@ function AdminHRsTable({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Row 1: HR Name | Technology */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user-tie mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> HR Name
                 </label>
                 <input
@@ -4072,7 +4071,7 @@ function AdminHRsTable({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-code mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Technology
                 </label>
                 <select
@@ -4094,7 +4093,7 @@ function AdminHRsTable({
 
               {/* Row 2: Email | Mobile */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-envelope mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Email
                 </label>
                 <input
@@ -4110,7 +4109,7 @@ function AdminHRsTable({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />
                   Mobile
                 </label>
                 <input
@@ -4127,7 +4126,7 @@ function AdminHRsTable({
 
               {/* Row 3: Job Type (same as email field) */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-business-time mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Job Type
                 </label>
                 <select
@@ -4149,7 +4148,7 @@ function AdminHRsTable({
 
               {/* Row 4: Company Name full width */}
               <div className="flex flex-col gap-1 md:col-span-2">
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-building mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Company Name
                 </label>
                 <input
@@ -4868,7 +4867,7 @@ function AdminLeavesTable({ onBackToHome }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-slate-900">
+              <h3 className="text-sm font-semibold text-slate-900"><i className="fa-solid fa-triangle-exclamation text-amber-500 mr-1.5" aria-hidden="true" />
                 Are you sure you want to delete this leave?
               </h3>
               <button
@@ -4897,7 +4896,7 @@ function AdminLeavesTable({ onBackToHome }) {
                   setConfirmDeleteLeaveLabel('');
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
-              >
+              ><i className="fa-solid fa-xmark mr-1.5" aria-hidden="true" />
                 Cancel
               </button>
               <button
@@ -4911,7 +4910,7 @@ function AdminLeavesTable({ onBackToHome }) {
                   }
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
-              >
+              ><i className="fa-solid fa-trash-can mr-1.5" aria-hidden="true" />
                 Delete
               </button>
             </div>
@@ -4930,7 +4929,7 @@ function AdminLeavesTable({ onBackToHome }) {
           >
             {/* Modal header */}
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-800">
+              <h3 className="text-sm font-semibold text-slate-800"><i className="fa-solid fa-umbrella-beach mr-1.5" aria-hidden="true" />
                 Add Leave
               </h3>
               <button
@@ -4945,7 +4944,7 @@ function AdminLeavesTable({ onBackToHome }) {
 
             {/* Date field with single calendar icon */}
             <div className="mb-4">
-              <label className="block text-xs font-medium text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-slate-700 mb-1"><i className="fa-solid fa-calendar-day mr-1.5 text-purple-500" aria-hidden="true" />
                 Date
               </label>
               <input
@@ -4971,7 +4970,7 @@ function AdminLeavesTable({ onBackToHome }) {
                 type="button"
                 onClick={() => setShowAddLeave(false)}
                 className="rounded-md border border-slate-200 px-4 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50"
-              >
+              ><i className="fa-solid fa-xmark mr-1.5" aria-hidden="true" />
                 Close
               </button>
               <button
@@ -4979,7 +4978,7 @@ function AdminLeavesTable({ onBackToHome }) {
                 disabled={savingLeave}
                 onClick={handleSaveLeave}
                 className="rounded-md bg-lime-500 disabled:opacity-50 px-5 py-1.5 text-xs sm:text-sm font-semibold text-white hover:bg-lime-600"
-              >
+              ><i className="fa-solid fa-floppy-disk mr-1.5" aria-hidden="true" />
                 {savingLeave ? 'Saving...' : 'Save'}
               </button>
             </div>
@@ -5041,7 +5040,7 @@ function AdminSettingsTab({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/60">
         <div>
           <div className="flex items-center gap-2.5">
-            <h3 className="text-sm sm:text-base font-bold text-gray-900">
+            <h3 className="text-sm sm:text-base font-bold text-gray-900"><i className="fa-solid fa-calendar-week mr-1.5" aria-hidden="true" />
               Saturday Calendar & Slot Booking
             </h3>
             <span
@@ -5082,7 +5081,7 @@ function AdminSettingsTab({
       {/* Option 2: Slot Start Time setting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/60">
         <div>
-          <h3 className="text-sm sm:text-base font-bold text-gray-900">
+          <h3 className="text-sm sm:text-base font-bold text-gray-900"><i className="fa-solid fa-clock mr-1.5" aria-hidden="true" />
             Slot Start Time
           </h3>
           <p className="text-xs text-gray-500 mt-1">
@@ -5091,7 +5090,7 @@ function AdminSettingsTab({
         </div>
 
         <div className="flex items-center gap-2">
-          <label htmlFor="settings-start-time-select" className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+          <label htmlFor="settings-start-time-select" className="text-xs font-semibold text-slate-700 whitespace-nowrap"><i className="fa-solid fa-clock mr-1.5 text-purple-500" aria-hidden="true" />
             Start Time:
           </label>
           <select
@@ -5116,7 +5115,7 @@ function AdminSettingsTab({
       {/* Option 3: Slot End Time setting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/60">
         <div>
-          <h3 className="text-sm sm:text-base font-bold text-gray-900">
+          <h3 className="text-sm sm:text-base font-bold text-gray-900"><i className="fa-solid fa-hourglass-end mr-1.5" aria-hidden="true" />
             Slot End Time
           </h3>
           <p className="text-xs text-gray-500 mt-1">
@@ -5125,7 +5124,7 @@ function AdminSettingsTab({
         </div>
 
         <div className="flex items-center gap-2">
-          <label htmlFor="settings-end-time-select" className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+          <label htmlFor="settings-end-time-select" className="text-xs font-semibold text-slate-700 whitespace-nowrap"><i className="fa-solid fa-hourglass-end mr-1.5 text-purple-500" aria-hidden="true" />
             End Time:
           </label>
           <select
@@ -5319,7 +5318,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
   return (
     <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-5 sm:px-6 sm:py-6">
       <div className="flex items-center justify-center gap-2">
-        <h2 className="text-sm sm:text-base font-semibold text-slate-800">
+        <h2 className="text-sm sm:text-base font-semibold text-slate-800"><i className="fa-solid fa-chart-column mr-1.5" aria-hidden="true" />
           Statistic
         </h2>
         {typeof onReload === 'function' && (
@@ -5335,7 +5334,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
       </div>
 
       <div className="mt-4 max-w-lg mx-auto w-full relative" ref={statsCandidatePickerRef}>
-        <label htmlFor="stats-candidate-search" className="block text-xs font-medium text-slate-600 mb-1">
+        <label htmlFor="stats-candidate-search" className="block text-xs font-medium text-slate-600 mb-1"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
           Candidate
         </label>
         <div className="relative">
@@ -5390,7 +5389,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
                   setCandidateSearchQuery('');
                   setCandidatePickerOpen(false);
                 }}
-              >
+              ><i className="fa-solid fa-users mr-1.5" aria-hidden="true" />
                 All candidates
               </button>
             </li>
@@ -6992,18 +6991,7 @@ export default function AdminDashboard() {
                       onClick={() => downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')}
                       className="inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-sky-600"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M12 3v12" />
-                        <path d="M8 11l4 4 4-4" />
-                        <rect x="4" y="17" width="16" height="3" rx="1" />
-                      </svg>
+                      <i className="fa-solid fa-file-arrow-down text-sm" aria-hidden="true" />
                       <span>Download Personal Detail Form 3.0</span>
                     </button>
                   </div>
@@ -7041,18 +7029,7 @@ export default function AdminDashboard() {
                       onClick={() => downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')}
                       className="inline-flex items-center gap-2 rounded-md bg-sky-500 px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold text-white shadow hover:bg-sky-600 whitespace-nowrap"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M12 3v12" />
-                        <path d="M8 11l4 4 4-4" />
-                        <rect x="4" y="17" width="16" height="3" rx="1" />
-                      </svg>
+                      <i className="fa-solid fa-file-arrow-down text-sm" aria-hidden="true" />
                       <span>Download Personal Detail Form 3.0</span>
                     </button>
                     </div>
@@ -7083,7 +7060,7 @@ export default function AdminDashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-800">
+              <h3 className="text-sm font-semibold text-slate-800"><i className="fa-solid fa-circle-info mr-1.5" aria-hidden="true" />
                 Slot Details
               </h3>
               <button
@@ -7284,19 +7261,7 @@ export default function AdminDashboard() {
       {showHrSuccessToast && (
         <div className="fixed top-4 right-4 z-50 transition-opacity duration-300">
           <div className="bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+            <i className="fa-solid fa-circle-check text-base" aria-hidden="true" />
             <span className="font-semibold text-sm">HR Created Successfully</span>
           </div>
         </div>

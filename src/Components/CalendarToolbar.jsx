@@ -27,16 +27,7 @@ function CalendarToolbar({
           className="inline-flex h-7 md:h-8 w-7 md:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 flex-shrink-0"
         >
           <span className="sr-only">Next week</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="h-3.5 md:h-4 w-3.5 md:w-4"
-          >
-            <path d="M9 6l6 6-6 6" />
-          </svg>
+          <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -79,16 +70,7 @@ function CalendarToolbar({
           className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 flex-shrink-0"
         >
           <span className="sr-only">Next week</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="h-3 w-3"
-          >
-            <path d="M9 6l6 6-6 6" />
-          </svg>
+          <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
         </button>
         <span className="text-[10px] font-semibold text-slate-800 whitespace-nowrap">
           {rangeLabel}

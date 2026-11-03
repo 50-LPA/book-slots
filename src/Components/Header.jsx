@@ -15,7 +15,8 @@ function Header({ fullWidth = false }) {
           {/* Left: app title */}
           <div className="flex items-center">
             <span className="text-lg sm:text-2xl font-bold text-black truncate">
-              Slot Booking
+              <i className="fa-solid fa-calendar-check mr-2 text-purple-600" aria-hidden="true" />
+              Book Slots
             </span>
           </div>
 

@@ -78,6 +78,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </Suspense>
+          <span className="fixed bottom-1 right-2 text-[10px] text-slate-400 pointer-events-none select-none">v1</span>
         </NoDashboardViaBackForward>
       </AuthProvider>
     </Router>

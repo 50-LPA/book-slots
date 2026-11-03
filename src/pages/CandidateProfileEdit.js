@@ -131,7 +131,7 @@ export function CandidateProfileEditForm({ userName = '', onBack }) {
         ) : (
           <div className="w-8" />
         )}
-        <h1 className="text-sm sm:text-base font-semibold text-purple-600 text-center">
+        <h1 className="text-sm sm:text-base font-semibold text-purple-600 text-center"><i className="fa-solid fa-pen-to-square mr-1.5" aria-hidden="true" />
           Edit {displayName}
         </h1>
         <div className="w-8" />
@@ -146,7 +146,7 @@ export function CandidateProfileEditForm({ userName = '', onBack }) {
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4 mt-10">
             <div className="flex flex-col gap-1 md:col-span-1">
-              <label className="text-xs sm:text-sm font-semibold text-slate-700">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700"><i className="fa-solid fa-code mr-1.5 text-purple-500" aria-hidden="true" />
                 <span className="text-red-500">*</span> Technology
               </label>
               <input
@@ -157,7 +157,7 @@ export function CandidateProfileEditForm({ userName = '', onBack }) {
               />
             </div>
             <div className="flex flex-col gap-1 md:col-span-1">
-              <label className="text-xs sm:text-sm font-semibold text-slate-700">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700"><i className="fa-solid fa-briefcase mr-1.5 text-purple-500" aria-hidden="true" />
                 <span className="text-red-500">*</span> Experience
               </label>
               <input

@@ -154,12 +154,12 @@ export default function CalendarPage() {
         <div className="fixed inset-0 z-50 bg-white">
           <div className="h-full flex flex-col">
             <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Select date</h3>
+              <h3 className="text-sm font-semibold"><i className="fa-solid fa-calendar-day mr-1.5" aria-hidden="true" />Select date</h3>
               <button
                 type="button"
                 onClick={() => setShowMobileCalendar(false)}
                 className="px-3 py-1 rounded bg-gray-100"
-              >
+              ><i className="fa-solid fa-xmark mr-1.5" aria-hidden="true" />
                 Close
               </button>
             </div>
@@ -171,7 +171,7 @@ export default function CalendarPage() {
                 type="button"
                 onClick={() => setShowMobileCalendar(false)}
                 className="w-full inline-flex items-center justify-center px-4 py-2 rounded bg-purple-600 text-white"
-              >
+              ><i className="fa-solid fa-check mr-1.5" aria-hidden="true" />
                 Done
               </button>
             </div>

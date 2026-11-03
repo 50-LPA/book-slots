@@ -719,7 +719,7 @@ export default function BookSlot({
             >
               <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
             </button>
-            <h2 className="flex-1 text-center text-purple-600 font-semibold text-sm md:text-base">Create Slot</h2>
+            <h2 className="flex-1 text-center text-purple-600 font-semibold text-sm md:text-base"><i className="fa-solid fa-calendar-plus mr-1.5" aria-hidden="true" />Create Slot</h2>
           </div>
 
           {/* Tab view only (768px–1023px): reordered layout */}
@@ -727,7 +727,7 @@ export default function BookSlot({
             {/* Row 1: Date | Start Time */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600">
+                <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-calendar-day mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Date
                 </label>
                 <div className="mt-1 relative">
@@ -848,7 +848,7 @@ export default function BookSlot({
                 </div>
               </div>
               <div className="min-w-0">
-                <label className="block text-xs font-medium text-gray-600">
+                <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-clock mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Start Time
                 </label>
                 <div className="mt-1 flex gap-2 items-center w-full">
@@ -893,7 +893,7 @@ export default function BookSlot({
             {/* Row 2: Meeting Duration | Check Availability */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600">
+                <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-hourglass-half mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Meeting Duration
                 </label>
                 <select
@@ -918,7 +918,7 @@ export default function BookSlot({
                     onClick={checkAvailability}
                     disabled={checkingAvailability}
                     className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-yellow-200 hover:bg-yellow-300 text-sm h-9 w-full disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
+                  ><i className="fa-solid fa-magnifying-glass mr-1.5" aria-hidden="true" />
                     {checkingAvailability ? 'Checking…' : 'Check Availability'}
                   </button>
                 )}
@@ -961,7 +961,7 @@ export default function BookSlot({
                     {!isTechnologyRestricted && <p className="text-xs text-slate-500 mt-1">Your profile has no technology assigned. Please contact admin.</p>}
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600">
+                    <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-layer-group mr-1.5 text-purple-500" aria-hidden="true" />
                       <span className="text-red-500">*</span> Round
                     </label>
                     <select
@@ -986,7 +986,7 @@ export default function BookSlot({
                 {/* Row 4: Select HR | Book My Slot */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="min-w-0" ref={hrDropdownRefTab}>
-                    <label className="block text-xs font-medium text-gray-600">
+                    <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-user-tie mr-1.5 text-purple-500" aria-hidden="true" />
                       <span className="text-red-500">*</span> Select HR
                     </label>
                     <div className="mt-1 flex items-center gap-3">
@@ -1036,7 +1036,7 @@ export default function BookSlot({
                             ) : (
                               <li className="px-3 py-2 text-sm text-gray-600">
                                 No HR found.
-                                <button type="button" onMouseDown={(ev) => { ev.preventDefault(); setShowHrDropdown(false); onOpenAddHR(); }} className="ml-2 text-purple-600 underline">Create new HR</button>
+                                <button type="button" onMouseDown={(ev) => { ev.preventDefault(); setShowHrDropdown(false); onOpenAddHR(); }} className="ml-2 text-purple-600 underline"><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />Create new HR</button>
                               </li>
                             )}
                           </ul>
@@ -1055,7 +1055,7 @@ export default function BookSlot({
                       type="button"
                       onClick={bookSlot}
                       className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded bg-emerald-400 hover:bg-emerald-500 text-white font-semibold h-9 w-full"
-                    >
+                    ><i className="fa-solid fa-calendar-plus mr-1.5" aria-hidden="true" />
                       Book My Slot
                     </button>
                   </div>
@@ -1072,7 +1072,7 @@ export default function BookSlot({
             <div className="flex flex-col gap-3">
               {/* Date field */}
               <div>
-                <label className="block text-xs font-medium text-gray-600">
+                <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-calendar-day mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Date
                 </label>
                 <div className="mt-1 relative">
@@ -1302,7 +1302,7 @@ export default function BookSlot({
             <div className="flex flex-col gap-3 min-w-0">
               {/* Start Time */}
               <div className="w-full min-w-0">
-                <label className="block text-xs font-medium text-gray-600">
+                <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-clock mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Start Time
                 </label>
                 <div className="mt-1 flex gap-2 items-center w-full">
@@ -1349,7 +1349,7 @@ export default function BookSlot({
               {/* Round dropdown - visible only after availability confirmed (desktop lg only; iPad gets it in row below) */}
               {availabilityState === 'available' && (
                 <div className="hidden lg:block">
-                  <label className="block text-xs font-medium text-gray-600 mt-6">
+                  <label className="block text-xs font-medium text-gray-600 mt-6"><i className="fa-solid fa-layer-group mr-1.5 text-purple-500" aria-hidden="true" />
                     <span className="text-red-500">*</span> Round
                   </label>
                   <select
@@ -1376,7 +1376,7 @@ export default function BookSlot({
             <div className="flex flex-col gap-3 overflow-visible">
               {/* Meeting Duration */}
                 <div>
-                <label className="block text-xs font-medium text-gray-600">
+                <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-hourglass-half mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Meeting Duration
                 </label>
                 <select
@@ -1423,7 +1423,7 @@ export default function BookSlot({
               {/* Select HR + Add New HR (same row) - visible only after availability confirmed (desktop/tablet) */}
               {availabilityState === 'available' && (
                 <div className="hidden md:block md:min-w-0">
-                  <label className="block text-xs font-medium text-gray-600">
+                  <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-user-tie mr-1.5 text-purple-500" aria-hidden="true" />
                     <span className="text-red-500">*</span> Select HR
                   </label>
                   <div className="mt-1 flex items-center gap-3">
@@ -1503,7 +1503,7 @@ export default function BookSlot({
                                 onOpenAddHR();
                               }}
                               className="ml-2 text-purple-600 underline"
-                            >
+                            ><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />
                               Create new HR
                             </button>
                           </li>
@@ -1535,7 +1535,7 @@ export default function BookSlot({
                   onClick={checkAvailability}
                   disabled={checkingAvailability}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-yellow-200 hover:bg-yellow-300 text-sm h-9 w-full disabled:opacity-70 disabled:cursor-not-allowed mt-6"
-                >
+                ><i className="fa-solid fa-magnifying-glass mr-1.5" aria-hidden="true" />
                   {checkingAvailability ? 'Checking…' : 'Check Availability'}
                 </button>
               )}
@@ -1580,7 +1580,7 @@ export default function BookSlot({
                     )}
                   </div>
                   <div className="col-start-2">
-                    <label className="block text-xs font-medium text-gray-600">
+                    <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-layer-group mr-1.5 text-purple-500" aria-hidden="true" />
                       <span className="text-red-500">*</span> Round
                     </label>
                     <select
@@ -1607,7 +1607,7 @@ export default function BookSlot({
                   type="button"
                   onClick={bookSlot}
                   className="hidden md:inline-flex mt-auto items-center justify-center gap-2 px-3 py-2 rounded bg-emerald-400 hover:bg-emerald-500 text-white font-semibold h-9 w-full"
-                >
+                ><i className="fa-solid fa-calendar-plus mr-1.5" aria-hidden="true" />
                   Book My Slot
                 </button>
               )}
@@ -1659,7 +1659,7 @@ export default function BookSlot({
 
               {/* Round */}
               <div>
-                <label className="block text-xs font-medium text-gray-600">
+                <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-layer-group mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Round
                 </label>
                 <select
@@ -1682,7 +1682,7 @@ export default function BookSlot({
 
               {/* Select HR */}
               <div>
-                <label className="block text-xs font-medium text-gray-600">
+                <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-user-tie mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Select HR
                 </label>
                 <div className="mt-1 flex items-center gap-3">
@@ -1762,7 +1762,7 @@ export default function BookSlot({
                                 onOpenAddHR();
                               }}
                               className="ml-2 text-purple-600 underline"
-                            >
+                            ><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />
                               Create new HR
                             </button>
                           </li>
@@ -1800,7 +1800,7 @@ export default function BookSlot({
                   type="button"
                   onClick={bookSlot}
                   className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded bg-emerald-400 hover:bg-emerald-500 text-white font-semibold h-9 w-full"
-                >
+                ><i className="fa-solid fa-calendar-plus mr-1.5" aria-hidden="true" />
                   Book My Slot
                 </button>
             </div>

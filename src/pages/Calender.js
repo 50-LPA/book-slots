@@ -147,7 +147,7 @@ const Calender = () => {
         <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm px-4 py-6">
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center gap-2">
-              <h5 className="text-lg font-semibold mb-0 text-purple-600">Slot Booking Calendar</h5>
+              <h5 className="text-lg font-semibold mb-0 text-purple-600"><i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />Slot Booking Calendar</h5>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -162,7 +162,7 @@ const Calender = () => {
                 type="button"
                 onClick={handleLoginClick}
                 className="min-w-[100px] sm:min-w-[140px] h-9 sm:h-10 inline-flex items-center justify-center rounded-lg bg-purple-600 px-5 sm:px-8 text-sm sm:text-base font-bold text-white shadow hover:bg-purple-700 transition"
-              >
+              ><i className="fa-solid fa-right-to-bracket mr-1.5" aria-hidden="true" />
                 Login
               </button>
             </div>
@@ -174,14 +174,14 @@ const Calender = () => {
                 <div className="card-header flex justify-between items-center bg-white border-b border-slate-200 px-4 py-3">
                   <div className="flex items-center" style={{ width: '33%' }}>
                     <i className="fa-regular fa-calendar-days text-2xl text-purple-600 me-2" aria-hidden="true" />
-                    <h5 className="text-base font-semibold mb-0">Today: {formatDate(currentDate)}</h5>
+                    <h5 className="text-base font-semibold mb-0"><i className="fa-solid fa-calendar-day mr-1.5" aria-hidden="true" />Today: {formatDate(currentDate)}</h5>
                   </div>
                   <div className="flex items-center justify-center" style={{ width: '33%' }}>
                   </div>
                   <div className="flex items-center justify-end" style={{ width: '33%' }}>
                     <div className="flex items-center me-3">
                       <i className="fa-solid fa-calendar-check text-2xl text-emerald-600 me-2" aria-hidden="true" />
-                      <h5 className="text-base font-semibold mb-0">
+                      <h5 className="text-base font-semibold mb-0"><i className="fa-solid fa-calendar-day mr-1.5" aria-hidden="true" />
                         Today&apos;s Slots: <span className="text-emerald-600">{todayEventCount}</span>
                       </h5>
                     </div>

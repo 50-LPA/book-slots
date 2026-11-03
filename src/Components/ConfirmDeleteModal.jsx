@@ -60,7 +60,7 @@ export default function ConfirmDeleteModal({
             onClick={onCancel}
             disabled={isDeleting}
             className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
-          >
+          ><i className="fa-solid fa-xmark mr-1.5" aria-hidden="true" />
             {cancelButtonText}
           </button>
           <button

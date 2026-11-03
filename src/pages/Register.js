@@ -56,7 +56,7 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-start pt-16 sm:pt-24 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <h1 className="text-3xl font-bold text-center text-gray-900 mb-2">
+        <h1 className="text-3xl font-bold text-center text-gray-900 mb-2"><i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
           Slot Booking
         </h1>
         <p className="text-center text-sm text-gray-500 mb-6">
@@ -71,7 +71,7 @@ export default function Register() {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-purple-600 mb-2">
+            <label className="block text-sm font-medium text-purple-600 mb-2"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
               Full Name
             </label>
             <input
@@ -84,7 +84,7 @@ export default function Register() {
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-purple-600 mb-2">
+            <label className="block text-sm font-medium text-purple-600 mb-2"><i className="fa-solid fa-envelope mr-1.5 text-purple-500" aria-hidden="true" />
               Email
             </label>
             <input
@@ -97,7 +97,7 @@ export default function Register() {
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-purple-600 mb-2">
+            <label className="block text-sm font-medium text-purple-600 mb-2"><i className="fa-solid fa-lock mr-1.5 text-purple-500" aria-hidden="true" />
               Password
             </label>
             <div className="relative">
@@ -123,7 +123,7 @@ export default function Register() {
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-purple-600 mb-2">
+            <label className="block text-sm font-medium text-purple-600 mb-2"><i className="fa-solid fa-lock mr-1.5 text-purple-500" aria-hidden="true" />
               Confirm Password
             </label>
             <div className="relative">
@@ -152,7 +152,7 @@ export default function Register() {
             type="submit"
             disabled={loading}
             className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-semibold py-3 rounded-lg transition duration-200 ease-in-out"
-          >
+          ><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />
             {loading ? 'Creating account…' : 'Register'}
           </button>
         </form>

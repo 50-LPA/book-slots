@@ -40,6 +40,18 @@ export default function Login() {
       return;
     }
 
+    if (!/^[6-9]\d{9}$/.test(trimmedMobile)) {
+      setLocalError('Mobile must be 10 digits starting with 6, 7, 8 or 9.');
+      setLoading(false);
+      return;
+    }
+
+    if (!/^\d{6}$/.test(trimmedPassword)) {
+      setLocalError('Password must be exactly 6 digits.');
+      setLoading(false);
+      return;
+    }
+
     // Any early return below must also sign out of Firebase Auth.
     const reject = async (msg) => {
       await signOut(auth).catch(() => {});
@@ -188,15 +200,19 @@ export default function Login() {
         onClick={handleGoHome}
         className="mb-4 text-purple-600 text-sm font-medium hover:underline"
       >
+        <i className="fa-solid fa-house mr-1" aria-hidden="true" />
         Home
       </button>
 
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <h1 className="text-3xl font-bold text-center text-gray-900 mb-2">
-          Slot Booking
+        <h1 className="text-3xl font-bold text-center text-gray-900 mb-2"><i className="fa-solid fa-calendar-check mr-1.5" aria-hidden="true" />
+          Book Slots
         </h1>
+        <p className="text-center text-sm text-gray-500 mb-1">
+          Welcome back!
+        </p>
         <p className="text-center text-sm text-gray-500 mb-6">
-          Login with your registered mobile number and password.
+          Enter your number &amp; password and book your slot asap
         </p>
 
         {localError ? (
@@ -207,25 +223,29 @@ export default function Login() {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
-            <label className="block text-sm font-medium text-purple-600 mb-2">
+            <label className="block text-sm font-medium text-purple-600 mb-2"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />
               Mobile
             </label>
             <input
               type="tel"
+              inputMode="numeric"
+              maxLength={10}
               placeholder="Enter mobile number"
               value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
+              onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-purple-600 mb-2">
+            <label className="block text-sm font-medium text-purple-600 mb-2"><i className="fa-solid fa-lock mr-1.5 text-purple-500" aria-hidden="true" />
               Password
             </label>
             <div className="relative">
               <input
                 type={passwordVisible ? 'text' : 'password'}
+                inputMode="numeric"
+                maxLength={6}
                 placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -250,6 +270,7 @@ export default function Login() {
             disabled={loading}
             className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-semibold py-3 rounded-lg transition duration-200 ease-in-out"
           >
+            <i className="fa-solid fa-lock mr-2" aria-hidden="true" />
             {loading ? 'Logging in…' : 'Login'}
           </button>
         </form>

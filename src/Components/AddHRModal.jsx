@@ -21,7 +21,7 @@ function DuplicateFieldMessage({ message, existingHr, onUseExistingHR }) {
             type="button"
             className="text-purple-600 underline font-medium hover:text-purple-800"
             onClick={() => onUseExistingHR(existingHr)}
-          >
+          ><i className="fa-solid fa-user-check mr-1.5" aria-hidden="true" />
             Use this HR
           </button>
         </>
@@ -234,19 +234,7 @@ export default function AddHRModal({
           {showSuccessToast && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 transition-opacity duration-300">
               <div className="bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+                <i className="fa-solid fa-circle-check text-sm" aria-hidden="true" />
                 <span className="font-semibold text-xs">HR Created Successfully</span>
               </div>
             </div>
@@ -258,7 +246,7 @@ export default function AddHRModal({
             {/* Left column */}
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700">
+                <label className="block text-xs font-semibold text-gray-700"><i className="fa-solid fa-user-tie mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> HR Name
                 </label>
                 <input
@@ -272,7 +260,7 @@ export default function AddHRModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700">Email</label>
+                <label className="block text-xs font-semibold text-gray-700"><i className="fa-solid fa-envelope mr-1.5 text-purple-500" aria-hidden="true" />Email</label>
                 <input
                   type="text"
                   name="email"
@@ -289,7 +277,7 @@ export default function AddHRModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700">
+                <label className="block text-xs font-semibold text-gray-700"><i className="fa-solid fa-business-time mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Job Type
                 </label>
                 <select
@@ -307,7 +295,7 @@ export default function AddHRModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700">
+                <label className="block text-xs font-semibold text-gray-700"><i className="fa-solid fa-building mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Company Name
                 </label>
                 <input
@@ -324,7 +312,7 @@ export default function AddHRModal({
             {/* Right column */}
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700">
+                <label className="block text-xs font-semibold text-gray-700"><i className="fa-solid fa-code mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Technology
                 </label>
                 <select
@@ -344,7 +332,7 @@ export default function AddHRModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700">Mobile</label>
+                <label className="block text-xs font-semibold text-gray-700"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />Mobile</label>
                 <input
                   name="mobile"
                   value={form.mobile}
@@ -373,7 +361,8 @@ export default function AddHRModal({
               onClick={onClose}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-200 text-sm text-gray-700 bg-white h-9"
             >
-              ✕ Close
+              <i className="fa-solid fa-xmark" aria-hidden="true" />
+              Close
             </button>
 
             <button
