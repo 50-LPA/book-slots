@@ -972,12 +972,18 @@ function AdminCandidatesTable({
   );
 }
 
+// Fresh random password per candidate; admin shares it with them.
+const randomPassword = () =>
+  Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) =>
+    'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'[b % 56]
+  ).join('');
+
 function AdminAddCandidateForm({ onBack, onSubmit }) {
   const [form, setForm] = useState({
     name: '',
     mobile: '',
     experience: '',
-    password: process.env.REACT_APP_DEFAULT_CANDIDATE_PASSWORD || '',
+    password: randomPassword(),
     technology: [],
     referredBy: '',
   });
@@ -1209,7 +1215,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
         name: '',
         mobile: '',
         experience: '',
-        password: process.env.REACT_APP_DEFAULT_CANDIDATE_PASSWORD || '',
+        password: randomPassword(),
         technology: [],
         referredBy: '',
       });
