@@ -5,7 +5,7 @@ Order matters. Doing a step early breaks logins.
 | # | Where | Step |
 |---|-------|------|
 | 1 | Google Cloud Console → APIs & Services → Credentials | The current key is **expired**. Create a new browser key. Restrict it: *Application restrictions* = Websites (your Netlify domain, `localhost:3002`); *API restrictions* = Identity Toolkit API, Cloud Firestore API, Token Service API, Cloud Functions API (Firebase installations too if used). Delete the old keys afterwards. |
-| 2 | Local `.env` + Netlify → Site configuration → Environment variables | Set every `REACT_APP_*` from `.env.example`, using the new key. Netlify builds fail fast if any are missing. |
+| 2 | Local `.env` + Netlify → Site configuration → Environment variables | Set every `REACT_APP_*` key from `.env` (Netlify needs the same keys), using the new API key. Netlify builds fail fast if any are missing. |
 | 3 | Firebase Console → Authentication → Sign-in method | Enable **Email/Password**. Disable **Anonymous** (no longer used). |
 | 4 | Firebase Console → Usage and billing | Switch to the **Blaze** plan (needed for Cloud Functions; cost is ~₹0 at this scale). Set a budget alert. |
 | 5 | Terminal | `npm i -g firebase-tools && firebase login`, then `firebase deploy --only functions`. |

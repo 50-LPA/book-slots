@@ -23,7 +23,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "GENERATE_SOURCEMAP=false react-scripts build",
     "postbuild": "node scripts/check-build-size.js",
     "serve:prod": "npm run build && npx serve -s build -l 3000",
     "test": "react-scripts test",

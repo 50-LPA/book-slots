@@ -16,7 +16,7 @@ import {
 import { initializeAuth, browserSessionPersistence } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
-// Firebase config is read from environment variables (.env / Netlify env).
+// Firebase config is read from .env (on Netlify: the same keys under Site configuration → Environment variables).
 // NOTE: REACT_APP_* values are bundled into public JS. That is fine for Firebase web
 // config; real protection comes from firestore.rules + Firebase Auth.
 const firebaseConfig = {
@@ -31,7 +31,7 @@ const firebaseConfig = {
 
 const missing = ['apiKey', 'authDomain', 'projectId', 'appId'].filter((k) => !firebaseConfig[k]);
 if (missing.length) {
-  throw new Error(`[firebase] Missing env config: ${missing.join(', ')}. Copy .env.example to .env and fill it in.`);
+  throw new Error(`[firebase] Missing env config: ${missing.join(', ')}. Add the REACT_APP_FIREBASE_* keys to .env.`);
 }
 
 const app = initializeApp(firebaseConfig);
