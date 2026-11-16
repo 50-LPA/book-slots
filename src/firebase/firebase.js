@@ -1,20 +1,8 @@
 import { initializeApp } from 'firebase/app';
 
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-  updateDoc,
-  query,
-  getDoc,
-  where,
-} from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache, memoryLruGarbageCollector } from 'firebase/firestore';
 
 import { initializeAuth, browserSessionPersistence } from 'firebase/auth';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Firebase config is read from .env (on Netlify: the same keys under Site configuration → Environment variables).
 // NOTE: REACT_APP_* values are bundled into public JS. That is fine for Firebase web
@@ -36,36 +24,39 @@ if (missing.length) {
 
 const app = initializeApp(firebaseConfig);
 
-export const db = getFirestore(app);
+// LRU memory cache keeps docs + resume tokens after a listener detaches, so re-subscribing
+// (tab/page switches) only bills changed docs. Not IndexedDB: candidate PII stays off disk.
+export const db = initializeFirestore(app, {
+  localCache: memoryLocalCache({ garbageCollector: memoryLruGarbageCollector() }),
+});
 
 // Per-tab session (matches the app's sessionStorage 'sb_user' model).
 export const auth = initializeAuth(app, { persistence: browserSessionPersistence });
 
-// Must match REGION in functions/index.js.
-const functions = getFunctions(app, 'asia-south1');
-export const adminSetCandidateAuth = httpsCallable(functions, 'adminSetCandidateAuth');
-export const adminDeleteCandidateAuth = httpsCallable(functions, 'adminDeleteCandidateAuth');
+// Admin login management runs on Netlify Functions (netlify/functions/admin-auth.mjs).
+// Resolves { data } like the old httpsCallable so callers are unchanged.
+const callAdminAuth = (action) => async (payload) => {
+  const token = await auth.currentUser?.getIdToken();
+  const res = await fetch('/.netlify/functions/admin-auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+  return { data };
+};
+export const adminSetCandidateAuth = callAdminAuth('set');
+export const adminDeleteCandidateAuth = callAdminAuth('delete');
 
 // Users log in with mobile + password. Firebase Auth needs an email, so each mobile maps
-// to a synthetic address. Must match emailFor() in functions/index.js and functions/migrate-auth.js.
+// to a synthetic address. Must match emailFor() in netlify/functions/admin-auth.mjs.
 export const normalizeMobile = (m) => String(m ?? '').replace(/\D/g, '');
 export const mobileToAuthEmail = (m) =>
   `${normalizeMobile(m)}@${firebaseConfig.projectId}.firebaseapp.com`;
 
 // ponytail: 33 legacy passwords are < 6 chars (Firebase minimum). They were migrated as
-// password + suffix so those users keep logging in unchanged. Suffix must match
-// functions/migrate-auth.js. Drop once every short password has been reset.
+// password + suffix so those users keep logging in unchanged. Drop once every short password
+// has been reset.
 const LEGACY_PW_SUFFIX = '#slots-legacy';
 export const toAuthPassword = (pw) => (pw.length < 6 ? pw + LEGACY_PW_SUFFIX : pw);
-
-export {
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-  updateDoc,
-  query,
-  getDoc,
-  where,
-};

@@ -3,23 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@fullcalendar/interaction": "^6.1.20",
-    "@fullcalendar/react": "^6.1.20",
-    "@fullcalendar/scrollgrid": "^6.1.20",
-    "@fullcalendar/timegrid": "^6.1.20",
-    "@headlessui/react": "^2.2.9",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^13.5.0",
     "file-saver": "^2.0.5",
     "firebase": "^12.9.0",
+    "firebase-admin": "^13.10.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.0",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4",
-    "xlsx": "^0.18.5"
+    "react-scripts": "5.0.1"
   },
   "scripts": {
     "start": "react-scripts start",

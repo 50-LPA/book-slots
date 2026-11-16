@@ -20,7 +20,6 @@ yarn-debug.log*
 yarn-error.log*
 
 # firebase
-/functions/node_modules
 *-firebase-adminsdk-*.json
 service-account*.json
 firebase-debug.log
