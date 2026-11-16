@@ -2,21 +2,17 @@ import {
   collection,
   doc,
   getDocs,
-  getDoc,
   addDoc,
   updateDoc,
   deleteDoc,
   query,
   where,
-  orderBy,
   serverTimestamp,
-  Timestamp,
   onSnapshot,
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import {
   getCandidateMatchKeys,
-  getPrimaryCandidateLinkId,
   normalizeCandidateMobile,
   slotMatchesCandidateKeys,
 } from '../utils/candidateIdentity';
@@ -203,69 +199,85 @@ export function slotToCalendarEvent(slot) {
   };
 }
 
-// Module-level caches to avoid re-fetching candidates and HRs across mounts/snapshots
-let globalCandidatesCache = null;
-let globalCandidatesPromise = null;
-let globalHrCache = null;
-let globalHrPromise = null;
-// Public visitors / candidates may not read all candidates or HRs (firestore.rules).
-// Remember a denial per signed-in uid so we don't retry on every snapshot; names then
-// come from the event docs themselves.
-const deniedFor = { candidates: undefined, hrs: undefined };
+// One shared, TTL-cached full read per collection (candidates, hrs). Every screen that needs the
+// whole list goes through here so a page load reads each collection once, not once per component.
+const COLLECTION_TTL_MS = 5 * 60 * 1000;
+const collectionCache = {}; // name -> { at, promise }
+// Public visitors / candidates may not list candidates (firestore.rules). Remember a denial per
+// signed-in uid so we don't retry on every snapshot; names then come from the event docs.
+const deniedFor = {};
 const currentUid = () => auth.currentUser?.uid ?? null;
-const isDenied = (key) => deniedFor[key] === currentUid();
-const onCacheError = (key, label) => (err) => {
-  if (err?.code === 'permission-denied') deniedFor[key] = currentUid();
-  else console.error(`Error loading ${label} cache:`, err);
-  return {};
-};
 
-export function getCachedCandidatesMap() {
-  return globalCandidatesCache;
+/**
+ * Resolves to the collection's docs (QueryDocumentSnapshot[]). `fresh` forces a server read.
+ * Rejects on error (permission-denied included); a failed read is not cached.
+ */
+export function getCollectionDocs(name, { fresh = false } = {}) {
+  const hit = collectionCache[name];
+  if (!fresh && hit && Date.now() - hit.at < COLLECTION_TTL_MS) return hit.promise;
+  if (deniedFor[name] !== undefined && deniedFor[name] === currentUid()) {
+    return Promise.reject(Object.assign(new Error('permission-denied'), { code: 'permission-denied' }));
+  }
+  const entry = { at: Date.now() };
+  entry.promise = getDocs(collection(db, name))
+    .then((snap) => snap.docs)
+    .catch((err) => {
+      if (err?.code === 'permission-denied') deniedFor[name] = currentUid();
+      if (collectionCache[name] === entry) delete collectionCache[name];
+      throw err;
+    });
+  collectionCache[name] = entry;
+  return entry.promise;
 }
 
-export function getCachedHrMap() {
-  return globalHrCache;
+/** Drop a cached collection after writing to it so the next reader refetches. */
+export function invalidateCollection(name) {
+  delete collectionCache[name];
 }
+
+/** Map of candidate doc id AND mobile -> raw doc data. Empty on error. */
+export async function getCandidatesById() {
+  const map = new Map();
+  try {
+    (await getCollectionDocs('candidates')).forEach((d) => {
+      const data = d.data() || {};
+      map.set(d.id, data);
+      const raw = String(data.mobile ?? data.phone ?? '').trim();
+      if (raw) map.set(raw, data);
+      const mob = normalizeCandidateMobile(raw);
+      if (mob) map.set(mob, data);
+    });
+  } catch (err) {
+    if (err?.code !== 'permission-denied') console.error('Error loading candidates:', err);
+  }
+  return map;
+}
+
+let globalCandidatesCache = null;
+let globalHrCache = null;
 
 function fetchCandidatesCache() {
-  if (globalCandidatesCache) return Promise.resolve(globalCandidatesCache);
-  if (globalCandidatesPromise) return globalCandidatesPromise;
-  if (isDenied('candidates')) return Promise.resolve({});
-
-  globalCandidatesPromise = getDocs(collection(db, 'candidates'))
-    .then((snap) => {
-      const map = {};
-      snap.forEach((d) => {
-        const data = d.data() || {};
-        const name = (data.name || '').trim();
-        const referredBy = (data.referredBy || data.refereedBy || '').trim();
-        const mobile = normalizeCandidateMobile(data.mobile || data.phone);
-        if (name) {
-          map[d.id] = { name, referredBy, mobile };
-          if (mobile) map[mobile] = { name, referredBy, mobile };
-        }
-      });
-      globalCandidatesCache = map;
-      return map;
-    })
-    .catch(onCacheError('candidates', 'candidates'))
-    .finally(() => {
-      globalCandidatesPromise = null;
+  return getCandidatesById().then((byId) => {
+    const map = {};
+    byId.forEach((data, key) => {
+      const name = (data.name || '').trim();
+      if (!name) return;
+      map[key] = {
+        name,
+        referredBy: (data.referredBy || data.refereedBy || '').trim(),
+        mobile: normalizeCandidateMobile(data.mobile || data.phone),
+      };
     });
-
-  return globalCandidatesPromise;
+    globalCandidatesCache = map;
+    return map;
+  });
 }
 
 function fetchHrCache() {
-  if (globalHrCache) return Promise.resolve(globalHrCache);
-  if (globalHrPromise) return globalHrPromise;
-  if (isDenied('hrs')) return Promise.resolve({});
-
-  globalHrPromise = getDocs(collection(db, 'hrs'))
-    .then((snap) => {
+  return getCollectionDocs('hrs')
+    .then((docs) => {
       const map = {};
-      snap.forEach((d) => {
+      docs.forEach((d) => {
         const data = d.data() || {};
         map[d.id] = {
           name: (data.name || '').trim(),
@@ -276,12 +288,10 @@ function fetchHrCache() {
       globalHrCache = map;
       return map;
     })
-    .catch(onCacheError('hrs', 'HR'))
-    .finally(() => {
-      globalHrPromise = null;
+    .catch((err) => {
+      if (err?.code !== 'permission-denied') console.error('Error loading HR cache:', err);
+      return {};
     });
-
-  return globalHrPromise;
 }
 
 function mapDocsToEvents(docs, cCache = globalCandidatesCache, hCache = globalHrCache) {
@@ -340,7 +350,11 @@ function mapDocsToEvents(docs, cCache = globalCandidatesCache, hCache = globalHr
  * eliminating the 3-4s blocking delay. Enriches asynchronously if needed.
  */
 export function subscribeToApprovedSlots(callback) {
-  const slotsRef = collection(db, SLOTS_COLLECTION);
+  // Filter on the server: the public calendar only shows approved slots.
+  const slotsRef = query(
+    collection(db, SLOTS_COLLECTION),
+    where('status', 'in', ['Approved', 'approved']),
+  );
   let isSubscribed = true;
 
   const unsubscribe = onSnapshot(
@@ -447,26 +461,6 @@ export function subscribeToCandidateSlots(matchKeys, callback) {
   return () => {
     unsubs.forEach((unsub) => unsub());
   };
-}
-
-/**
- * Subscribe to all slots (any status) and call callback with calendar events.
- * Returns unsubscribe function.
- */
-export function subscribeToAllSlots(callback) {
-  const slotsRef = collection(db, SLOTS_COLLECTION);
-  return onSnapshot(
-    slotsRef,
-    (snapshot) => {
-      const slots = snapshot.docs.map((d) => slotDocToUI(d));
-      const events = slots.map(slotToCalendarEvent);
-      callback(events);
-    },
-    (err) => {
-      console.error('Error subscribing to all slots:', err);
-      callback([]);
-    },
-  );
 }
 
 /**
@@ -761,173 +755,6 @@ export function isSlotAvailable(existingSlots, startHour, startMinute, durationM
 }
 
 /**
- * Fetch all slots from Firestore
- */
-export async function getAllSlots() {
-  try {
-    const slotsRef = collection(db, SLOTS_COLLECTION);
-    const q = query(slotsRef, orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
-
-    const slots = [];
-    querySnapshot.forEach((doc) => {
-      slots.push(slotDocToUI(doc));
-    });
-
-    return slots;
-  } catch (error) {
-    console.error('Error fetching slots:', error);
-    throw error;
-  }
-}
-
-/**
- * Fetch slots by status
- */
-export async function getSlotsByStatus(status) {
-  try {
-    const slotsRef = collection(db, SLOTS_COLLECTION);
-    const q = query(
-      slotsRef,
-      where('status', '==', status),
-      orderBy('createdAt', 'desc'),
-    );
-    const querySnapshot = await getDocs(q);
-
-    const slots = [];
-    querySnapshot.forEach((doc) => {
-      slots.push(slotDocToUI(doc));
-    });
-
-    return slots;
-  } catch (error) {
-    console.error('Error fetching slots by status:', error);
-    throw error;
-  }
-}
-
-/**
- * Fetch slots by candidate ID
- */
-export async function getSlotsByCandidate(candidateId) {
-  try {
-    const slotsRef = collection(db, SLOTS_COLLECTION);
-    const q = query(
-      slotsRef,
-      where('candidateId', '==', candidateId),
-      orderBy('createdAt', 'desc'),
-    );
-    const querySnapshot = await getDocs(q);
-
-    const slots = [];
-    querySnapshot.forEach((doc) => {
-      slots.push(slotDocToUI(doc));
-    });
-
-    return slots;
-  } catch (error) {
-    console.error('Error fetching slots by candidate:', error);
-    throw error;
-  }
-}
-
-/**
- * Fetch slots by candidate name (for search)
- */
-export async function getSlotsByCandidateName(candidateName) {
-  try {
-    const slotsRef = collection(db, SLOTS_COLLECTION);
-    const q = query(
-      slotsRef,
-      where('candidateName', '>=', candidateName),
-      where('candidateName', '<=', candidateName + '\uf8ff'),
-      orderBy('candidateName'),
-      orderBy('createdAt', 'desc'),
-    );
-    const querySnapshot = await getDocs(q);
-
-    const slots = [];
-    querySnapshot.forEach((doc) => {
-      slots.push(slotDocToUI(doc));
-    });
-
-    return slots;
-  } catch (error) {
-    console.error('Error fetching slots by candidate name:', error);
-    // Fallback: fetch all and filter client-side
-    const allSlots = await getAllSlots();
-    return allSlots.filter((slot) =>
-      slot.candidateName.toLowerCase().includes(candidateName.toLowerCase()),
-    );
-  }
-}
-
-/**
- * Create a new slot booking
- */
-export async function createSlot(slotData) {
-  try {
-    const {
-      candidateId,
-      candidateMobile,
-      candidateName,
-      hrId,
-      hrName,
-      company,
-      technology,
-      round,
-      date, // Date object or string
-      startHour,
-      startMinute,
-      duration,
-    } = slotData;
-
-    // Convert date to Firestore Timestamp
-    let dateTimestamp;
-    if (date instanceof Date) {
-      dateTimestamp = Timestamp.fromDate(date);
-    } else if (typeof date === 'string') {
-      dateTimestamp = Timestamp.fromDate(new Date(date));
-    } else {
-      throw new Error('Invalid date format');
-    }
-
-    const slotRef = collection(db, SLOTS_COLLECTION);
-    const normalizedMobile = normalizeCandidateMobile(candidateMobile || candidateId);
-    const newSlot = {
-      candidateId: getPrimaryCandidateLinkId({
-        mobile: normalizedMobile,
-        firestoreId: candidateId,
-      }),
-      candidateMobile: normalizedMobile,
-      candidateName: candidateName || '',
-      hrId: hrId || '',
-      hrName: hrName || '',
-      company: company || '',
-      technology: technology || '',
-      round: round || '',
-      date: dateTimestamp,
-      startHour: parseInt(startHour, 10),
-      startMinute: parseInt(startMinute, 10),
-      duration: parseInt(duration, 10),
-      status: 'Pending',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-
-    const docRef = await addDoc(slotRef, newSlot);
-    console.log('Slot created with ID:', docRef.id);
-
-    // Fetch and return the created slot
-    const docSnapshot = await getDoc(docRef);
-    return slotDocToUI(docSnapshot);
-  } catch (error) {
-    console.error('Error creating slot:', error);
-    throw error;
-  }
-}
-
-/**
  * Update slot status (Approve/Reject)
  */
 export async function updateSlotStatus(slotId, status) {
@@ -941,10 +768,7 @@ export async function updateSlotStatus(slotId, status) {
       status,
       updatedAt: serverTimestamp(),
     });
-
-    // Fetch and return updated slot
-    const docSnapshot = await getDoc(slotRef);
-    return slotDocToUI(docSnapshot);
+    return true;
   } catch (error) {
     console.error('Error updating slot status:', error);
     throw error;
@@ -958,96 +782,9 @@ export async function deleteSlot(slotId) {
   try {
     const slotRef = doc(db, SLOTS_COLLECTION, slotId);
     await deleteDoc(slotRef);
-    console.log('Slot deleted:', slotId);
     return true;
   } catch (error) {
     console.error('Error deleting slot:', error);
-    throw error;
-  }
-}
-
-/**
- * Get slot statistics
- */
-export async function getSlotStatistics() {
-  try {
-    const allSlots = await getAllSlots();
-    const now = new Date();
-
-    // Normalize to start of today
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-    );
-
-    // Define calendar weeks starting on Monday
-    const startOfWeek = new Date(startOfToday);
-    const day = startOfWeek.getDay(); // 0 (Sun) .. 6 (Sat)
-    const diffToMonday = (day + 6) % 7; // 0 if Monday, 1 if Tuesday, etc.
-    startOfWeek.setDate(startOfWeek.getDate() - diffToMonday);
-
-    const startOfNextWeek = new Date(startOfWeek);
-    startOfNextWeek.setDate(startOfNextWeek.getDate() + 7);
-
-    const startOfLastWeek = new Date(startOfWeek);
-    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-
-    const endOfToday = new Date(startOfToday);
-    endOfToday.setDate(endOfToday.getDate() + 1);
-
-    const getSlotDateOnly = (slot) => {
-      const d = slot.date?.toDate ? slot.date.toDate() : new Date(slot.date);
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    };
-
-    // Only consider approved slots for statistics
-    const approvedSlots = allSlots.filter((slot) => slot.status === 'Approved');
-
-    // Last Week: previous calendar week (Mon–Sun)
-    const lastWeekSlots = allSlots.filter((slot) => {
-      const slotDate = getSlotDateOnly(slot);
-      return slotDate >= startOfLastWeek && slotDate < startOfWeek;
-    });
-
-    // This Week: current calendar week (full Mon–Sun)
-    const thisWeekSlots = allSlots.filter((slot) => {
-      const slotDate = getSlotDateOnly(slot);
-      return slotDate >= startOfWeek && slotDate < startOfNextWeek;
-    });
-
-    // Average per week over the last 4 calendar weeks (including this week)
-    const startOfFourWeeksAgo = new Date(startOfWeek);
-    startOfFourWeeksAgo.setDate(startOfFourWeeksAgo.getDate() - 21); // 3 weeks before current week
-
-    const fourWeekSlots = approvedSlots.filter((slot) => {
-      const slotDate = getSlotDateOnly(slot);
-      return slotDate >= startOfFourWeeksAgo && slotDate < startOfNextWeek;
-    });
-    const avgPerWeek = fourWeekSlots.length / 4;
-
-    // Average per day over the last 30 days (including today)
-    const thirtyDaysAgo = new Date(startOfToday);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-
-    const dailySlots = approvedSlots.filter((slot) => {
-      const slotDate = getSlotDateOnly(slot);
-      return slotDate >= thirtyDaysAgo && slotDate < endOfToday;
-    });
-    const avgPerDay = dailySlots.length / 30;
-
-    return {
-      total: approvedSlots.length,
-      lastWeek: lastWeekSlots.filter((s) => s.status === 'Approved').length,
-      thisWeek: thisWeekSlots.filter((s) => s.status === 'Approved').length,
-      avgPerWeek: Math.round(avgPerWeek * 10) / 10,
-      avgPerDay: Math.round(avgPerDay * 10) / 10,
-      pending: allSlots.filter((s) => s.status === 'Pending').length,
-      approved: allSlots.filter((s) => s.status === 'Approved').length,
-      rejected: allSlots.filter((s) => s.status === 'Rejected').length,
-    };
-  } catch (error) {
-    console.error('Error calculating slot statistics:', error);
     throw error;
   }
 }
@@ -1060,7 +797,7 @@ const LEAVES_COLLECTION = 'adminLeaves';
 let globalLeavesCache = null;
 let globalLeavesPromise = null;
 let lastLeavesFetchTime = 0;
-const LEAVES_TTL_MS = 60 * 1000; // 1 minute
+const LEAVES_TTL_MS = 10 * 60 * 1000; // leaves change rarely; admin writes invalidate
 
 /**
  * Get all leave dates from Firestore. Returns array of { id, date } where date is YYYY-MM-DD.

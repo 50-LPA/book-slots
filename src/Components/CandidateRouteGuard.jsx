@@ -10,7 +10,7 @@ import {
 } from '../utils/candidateStatus';
 
 /**
- * Route-level guard for /candidate-dashboard (and /candidate-event-list).
+ * Route-level guard for /candidate-dashboard.
  * Verifies session and that candidate is still active (admin may have deactivated,
  * or last interview was > 2 weeks ago).
  */
@@ -38,8 +38,9 @@ export default function CandidateRouteGuard() {
           return;
         }
 
-        // Login just ran these exact checks; don't repeat them right away.
-        if (parsed.verifiedAt && Date.now() - parsed.verifiedAt < 60 * 1000) {
+        // Login (or a previous visit) ran these exact checks recently; don't repeat them on every
+        // reload. UI gate only — firestore.rules enforce activeCandidate() on bookings anyway.
+        if (parsed.verifiedAt && Date.now() - parsed.verifiedAt < 10 * 60 * 1000) {
           if (!cancelled) setState('allow');
           return;
         }
@@ -105,6 +106,7 @@ export default function CandidateRouteGuard() {
                   isActive: data.isActive !== false,
                   status: data.status || 'Active',
                   lastActivatedAt: data.lastActivatedAt || data.reactivatedAt || null,
+                  verifiedAt: Date.now(),
                 }),
               );
             } catch {

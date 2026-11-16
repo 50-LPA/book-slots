@@ -1,6 +1,6 @@
 rules_version = '2';
 // Identity model: Firebase Auth email/password, email = "<mobile>@<project>.firebaseapp.com".
-// admin/{uid} and candidates/{uid} doc ids equal the Auth uid (see functions/migrate-auth.js).
+// admin/{uid} and candidates/{uid} doc ids equal the Auth uid.
 // Passwords are NOT stored in Firestore.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -72,11 +72,6 @@ service cloud.firestore {
     match /adminLeaves/{id} {
       allow read: if true;
       allow write: if isAdmin();
-    }
-
-    // Unused by the app today; admin-only.
-    match /{col}/{id} {
-      allow read, write: if isAdmin() && col in ['users', 'slots', 'settings'];
     }
   }
 }

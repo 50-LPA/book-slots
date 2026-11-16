@@ -20,7 +20,13 @@ import WeekCalendar from '../Components/WeekCalendar';
 import PlacedCandidatesMarquee from '../Components/PlacedCandidatesMarquee';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../firebase/firebase';
-import { formatDateDDMMYYYY, subscribeToCandidateSlots, isSlotPast } from '../firebase/slotsService';
+import {
+  formatDateDDMMYYYY,
+  subscribeToCandidateSlots,
+  isSlotPast,
+  getCollectionDocs,
+  invalidateCollection,
+} from '../firebase/slotsService';
 import { checkHrDuplicates } from '../firebase/hrService';
 import {
   getCandidateMatchKeys,
@@ -31,10 +37,8 @@ import { isCandidateInterviewOlderThanTwoWeeks } from '../utils/candidateStatus'
 import { parseISOToDate } from '../calendar';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
 import { CandidateProfileEditForm } from '../pages/CandidateProfileEdit';
-// import { formatDayHeader } from '../calendar';
 import { useAuth } from '../context/AuthContext';
 
-// const MOCK_EVENTS = [];
 
 // Normalise legacy round labels for candidate views (calendar + lists)
 const ROUND_LABELS = [
@@ -1675,12 +1679,11 @@ export default function CandidateDashboard() {
   // If coming from a successful booking with openSlots, prefer "slots" once.
   const [activeNav, setActiveNav] = useState(() => {
     try {
-      if (location.state?.openProfile) return 'profile';
       const stored = sessionStorage.getItem('sb_candidate_active_nav');
       if (stored) return stored;
       return location.state?.openSlots ? 'slots' : 'home';
     } catch {
-      return location.state?.openProfile ? 'profile' : location.state?.openSlots ? 'slots' : 'home';
+      return location.state?.openSlots ? 'slots' : 'home';
     }
   });
   const [userName, setUserName] = useState('');
@@ -1835,9 +1838,9 @@ export default function CandidateDashboard() {
           setHrsLoading(true);
         }
         setHrsError(null);
-        const q = collection(db, 'hrs');
-        const querySnapshot = await getDocs(q);
-        const hrsData = querySnapshot.docs.map((doc) => ({
+        // Shared cached read (the calendar already loads hrs); Reload forces a fresh one.
+        const hrDocs = await getCollectionDocs('hrs', { fresh: hrsRefreshKey > 0 });
+        const hrsData = hrDocs.map((doc) => ({
           id: doc.id, // Store Firestore document ID
           name: doc.data().name || '',
           email: doc.data().email || '',
@@ -2117,6 +2120,7 @@ export default function CandidateDashboard() {
         createdAt: serverTimestamp(),
       });
 
+      invalidateCollection('hrs');
       // Update local state with Firestore ID
       setHrList((prev) => [
         {
@@ -2138,13 +2142,6 @@ export default function CandidateDashboard() {
       throw err; // Re-throw so modal can handle error
     }
   };
-
-  useEffect(() => {
-    if (location.state?.openProfile) {
-      setActiveNav('profile');
-      navigate('/candidate-dashboard', { replace: true, state: {} });
-    }
-  }, [location.state?.openProfile, navigate]);
 
   // Persist candidate active nav so refresh keeps the same section
   useEffect(() => {

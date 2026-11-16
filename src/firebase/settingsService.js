@@ -1,6 +1,5 @@
 import {
   doc,
-  getDoc,
   setDoc,
   onSnapshot,
   serverTimestamp,
@@ -159,26 +158,6 @@ export function getStoredSlotSettings() {
 }
 
 let activeSettingsCache = getStoredSlotSettings();
-
-export async function fetchSlotSettings() {
-  try {
-    const docRef = doc(db, SETTINGS_COLLECTION, SETTINGS_DOC_ID);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      const normalized = normalizeSlotSettings(snap.data());
-      activeSettingsCache = normalized;
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
-      } catch {
-        // ignore
-      }
-      return normalized;
-    }
-  } catch (err) {
-    console.warn('Error fetching slot settings:', err);
-  }
-  return activeSettingsCache;
-}
 
 export function subscribeToSlotSettings(callback) {
   if (typeof callback !== 'function') return () => {};

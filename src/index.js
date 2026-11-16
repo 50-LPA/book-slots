@@ -16,7 +16,3 @@ auth.authStateReady().then(() => {
     </React.StrictMode>
   );
 });
-
-if (process.env.NODE_ENV === 'development') {
-  import('./reportWebVitals').then(({ default: reportWebVitals }) => reportWebVitals(console.log));
-}

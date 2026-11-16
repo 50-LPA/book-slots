@@ -4,11 +4,9 @@ import './index.css';
 import { AuthProvider } from './context/AuthContext';
 
 const Login = React.lazy(() => import('./pages/Login'));
-const Register = React.lazy(() => import('./pages/Register'));
 const AdminRouteGuard = React.lazy(() => import('./Components/AdminRouteGuard'));
 const CandidateRouteGuard = React.lazy(() => import('./Components/CandidateRouteGuard'));
 const CalendarPage = React.lazy(() => import('./pages/CalendarPage'));
-const Calender = React.lazy(() => import('./pages/Calender'));
 
 // When a logged-in user lands on "/", send them to the correct dashboard
 function RootRoute() {
@@ -65,16 +63,9 @@ function App() {
           <Suspense fallback={<div className="min-h-screen bg-slate-100 flex items-center justify-center"><span className="text-purple-600 font-medium">Loading…</span></div>}>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
             <Route path="/admin-dashboard" element={<AdminRouteGuard />} />
             <Route path="/candidate-dashboard" element={<CandidateRouteGuard />} />
-            <Route
-              path="/candidate-profile-edit"
-              element={<Navigate to="/candidate-dashboard" state={{ openProfile: true }} replace />}
-            />
-            <Route path="/candidate-event-list" element={<CandidateRouteGuard />} />
             <Route path="/" element={<RootRoute />} />
-            <Route path="/calender" element={<Calender />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </Suspense>

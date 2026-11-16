@@ -3,7 +3,6 @@ import {
   getLastInterviewSlot,
   getLastInterviewInfo,
   getCandidateAccountStatus,
-  TWO_WEEKS_MS,
 } from './candidateStatus';
 
 describe('Candidate Inactivity based on Last Interview', () => {

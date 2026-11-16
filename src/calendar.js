@@ -50,10 +50,6 @@ function fmtDDMMMYYYY(d) {
   return `${day} ${month} ${year}`;
 }
 
-export function formatHeaderToday(date) {
-  return fmtDDMMMYYYY(date);
-}
-
 export function formatWeekRangeLabel(weekStart, weekEnd) {
   return `${fmtDDMMMYYYY(weekStart)} – ${fmtDDMMMYYYY(weekEnd)}`;
 }

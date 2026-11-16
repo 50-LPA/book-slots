@@ -184,11 +184,3 @@ export function CandidateProfileEditForm({ userName = '', onBack }) {
     </form>
   );
 }
-
-export default function CandidateProfileEdit() {
-  return (
-    <div className="min-h-screen bg-slate-100 px-3 py-4 sm:px-5">
-      <CandidateProfileEditForm />
-    </div>
-  );
-}

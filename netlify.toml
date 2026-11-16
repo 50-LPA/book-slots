@@ -1,5 +1,4 @@
-# Netlify configuration
-# Temporary CI change to prevent ESLint warnings from failing builds
+# CI=false: CRA would otherwise fail the build on existing ESLint warnings.
 
 [build]
   command = "npm run build"

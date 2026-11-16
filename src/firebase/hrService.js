@@ -1,5 +1,4 @@
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from './firebase';
+import { getCollectionDocs } from './slotsService';
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -41,10 +40,11 @@ export async function checkHrDuplicates({
     return { errors, existingHrForEmail, existingHrForMobile };
   }
 
-  const snap = await getDocs(collection(db, 'hrs'));
+  // Fresh read (duplicates must be exact); it also refreshes the shared hrs cache.
+  const docs = await getCollectionDocs('hrs', { fresh: true });
   const excludeId = String(excludeFirestoreId || '').trim();
 
-  for (const docSnap of snap.docs) {
+  for (const docSnap of docs) {
     if (excludeId && docSnap.id === excludeId) continue;
 
     const data = docSnap.data() || {};

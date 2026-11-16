@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
-import { useAuth } from '../context/AuthContext';
 import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY } from '../firebase/slotsService';
 import { subscribeToSlotSettings, getStoredSlotSettings } from '../firebase/settingsService';
 import {
@@ -68,7 +67,6 @@ export default function BookSlot({
   onSelectHrApplied = null,
 }) {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
   const [form, setForm] = useState({
     date: '',
     dateDisplay: '',
@@ -142,11 +140,6 @@ export default function BookSlot({
     const { name, value } = e.target;
     setForm((f) => {
       const updated = { ...f, [name]: value };
-      // Auto-update AM/PM based on hour selection
-      if (name === 'hour' && value) {
-        const hourNum = parseInt(value, 10);
-        // AM/PM will be calculated dynamically in render
-      }
       if (name === 'technology') {
         // Technology controls which HRs are shown; clear selection when it changes.
         updated.hr = '';
@@ -425,7 +418,7 @@ export default function BookSlot({
       // Compute meeting end time label
       let endLabel = '';
       try {
-        const [hh, mm] = String(form.hour || '')
+        const [hh] = String(form.hour || '')
           .split(':')
           .map((v) => parseInt(v, 10));
         const minuteVal = parseInt(form.minute, 10);

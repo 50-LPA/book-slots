@@ -27,6 +27,9 @@ import {
   deleteLeave as deleteLeaveFromFirestore,
   formatDateDDMMYYYY,
   syncCandidateDisplayNameOnEvents,
+  getCollectionDocs,
+  getCandidatesById,
+  invalidateCollection,
 } from '../firebase/slotsService';
 import {
   subscribeToSlotSettings,
@@ -527,18 +530,10 @@ function AdminTopNav({ activeTab, onChange, pendingApprovals = 0 }) {
   );
 }
 
-// Placeholder events for admin calendar (no fixed dates; real data should come from backend)
-const ADMIN_EVENTS = [];
-
 function toTitleCase(value) {
   const str = String(value || '').toLowerCase();
   return str.replace(/\b\w/g, (c) => c.toUpperCase());
 }
-
-// Dummy data removed – use Firestore only
-const MOCK_CANDIDATES = [];
-const MOCK_SLOTS = [];
-const MOCK_HRS = [];
 
 function AdminCandidatesTable({
   candidates,
@@ -5144,7 +5139,6 @@ function AdminSettingsTab({
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const CHART_BODY_HEIGHT = 320;
 const Y_AXIS_MAX = 80; // Fixed scale 0–80 when showing all candidates
-const Y_TICKS = [0, 20, 40, 60, 80];
 
 function statsCandidateRecordKey(candidate) {
   const mobile = normalizeCandidateMobile(candidate?.mobile);
@@ -5566,9 +5560,7 @@ export default function AdminDashboard() {
   const [candidateReferredByFilter, setCandidateReferredByFilter] = useState('all'); // 'all' | 'anil_sir' | 'viraj_sir' | 'nilesh_sir' | 'vishal_sir'
   const [candidateStatusFilter, setCandidateStatusFilter] = useState('active'); // 'all' | 'active' | 'inactive'
   const [candidateSearch, setCandidateSearch] = useState('');
-  const [candidates, setCandidates] = useState(MOCK_CANDIDATES);
-  const candidateByIdCacheRef = useRef(new Map());
-  const hrByIdCacheRef = useRef(new Map());
+  const [candidates, setCandidates] = useState([]);
   const [showHrSuccessToast, setShowHrSuccessToast] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [calendarSelectedEvent, setCalendarSelectedEvent] = useState(null);
@@ -5678,13 +5670,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     const loadCandidatesFromFirestore = async () => {
       try {
-        const snap = await getDocs(collection(db, 'candidates'));
-        if (snap.empty) {
+        const docs = await getCollectionDocs('candidates');
+        if (docs.length === 0) {
           setCandidates([]);
           return;
         }
 
-        const list = snap.docs.map((docSnap) => {
+        const createdSec = {};
+        const list = docs.map((docSnap) => {
           const d = docSnap.data() || {};
 
           // Normalise technology into array for this UI
@@ -5701,6 +5694,7 @@ export default function AdminDashboard() {
 
           // Keep both spellings so filters work
           const referredBy = d.referredBy || d.refereedBy || '';
+          createdSec[docSnap.id] = d.createdAt?.seconds || 0;
 
           return {
             id: docSnap.id,
@@ -5750,10 +5744,8 @@ export default function AdminDashboard() {
 
         // Sort newest first by createdAt if present, otherwise by id
         list.sort((a, b) => {
-          const aCreated = snap.docs.find((d) => d.id === a.id)?.data()?.createdAt;
-          const bCreated = snap.docs.find((d) => d.id === b.id)?.data()?.createdAt;
-          const aSec = aCreated?.seconds || 0;
-          const bSec = bCreated?.seconds || 0;
+          const aSec = createdSec[a.id];
+          const bSec = createdSec[b.id];
           if (aSec !== bSec) return bSec - aSec;
           return String(b.id).localeCompare(String(a.id));
         });
@@ -5767,6 +5759,9 @@ export default function AdminDashboard() {
     };
 
     loadCandidatesFromFirestore();
+    // This screen keeps its own list in state while mounted; drop the shared copy on leave
+    // so the next visit (or another screen) doesn't see edits made here as stale data.
+    return () => invalidateCollection('candidates');
   }, []);
 
   // Persist admin active tab so refresh keeps the same section
@@ -5802,7 +5797,7 @@ export default function AdminDashboard() {
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           firestoreHRs.push({
-            id: `firestore_${doc.id}`, // Prefix to distinguish from mock HRs
+            id: doc.id, // stable key; numbering per snapshot made local handlers hit the wrong row
             firestoreId: doc.id, // Keep original Firestore ID
             name: data.name || '',
             email: data.email || '',
@@ -5834,33 +5829,8 @@ export default function AdminDashboard() {
           ),
         ];
 
-        await Promise.all(
-          needAddedByIds.map(async (addedById) => {
-            if (!addedById || candidateByIdCacheRef.current.has(addedById)) return;
-            try {
-              // 1) Try direct doc id lookup
-              const directSnap = await getDoc(doc(db, 'candidates', addedById));
-              if (directSnap.exists()) {
-                candidateByIdCacheRef.current.set(addedById, directSnap.data());
-                return;
-              }
-            } catch {
-              // ignore
-            }
-
-            // 2) Fallback: candidates where mobile == addedById (when we store mobile as uid)
-            try {
-              const mobileQ = query(collection(db, 'candidates'), where('mobile', '==', addedById));
-              const mobileSnap = await getDocs(mobileQ);
-              const first = mobileSnap.docs[0];
-              if (first?.exists?.()) {
-                candidateByIdCacheRef.current.set(addedById, first.data());
-              }
-            } catch {
-              // ignore
-            }
-          }),
-        );
+        // Resolve from the shared candidates list (one cached read) instead of a getDoc per HR.
+        const candidatesById = needAddedByIds.length ? await getCandidatesById() : new Map();
 
         if (cancelled) return;
 
@@ -5872,7 +5842,7 @@ export default function AdminDashboard() {
           }
 
           const key = String(h.addedById || '').trim() || (looksLikeIdOrMobile(rawAddedBy) ? rawAddedBy : '');
-          const candidateDoc = key ? candidateByIdCacheRef.current.get(key) : null;
+          const candidateDoc = key ? candidatesById.get(key) : null;
           const resolved = String(candidateDoc?.name || '').trim();
           return {
             ...h,
@@ -5887,28 +5857,7 @@ export default function AdminDashboard() {
           return bTime - aTime; // Descending order (newest first)
         });
 
-        // Merge Firestore HRs with mock HRs, avoiding duplicates by email
-        setHrs((prev) => {
-          const mockHRs = prev.filter((h) => !String(h.id).startsWith('firestore_'));
-          
-          // Filter out duplicates from Firestore HRs
-          const uniqueFirestoreHRs = enrichedFirestoreHRs.filter(
-            (h) => !mockHRs.some((m) => m.email?.toLowerCase() === h.email?.toLowerCase())
-          );
-          
-          // Assign numeric IDs for display consistency (starting from max mock ID + 1)
-          let maxMockId = mockHRs.length > 0 
-            ? Math.max(...mockHRs.map((h) => (typeof h.id === 'number' ? h.id : 0))) 
-            : 0;
-          
-          const numberedFirestoreHRs = uniqueFirestoreHRs.map((h, idx) => ({
-            ...h,
-            id: maxMockId + idx + 1, // Numeric ID for table display
-          }));
-          
-          // Prepend Firestore HRs (newest first) before mock HRs to show new HRs at top
-          return [...numberedFirestoreHRs, ...mockHRs];
-        });
+        setHrs(enrichedFirestoreHRs);
       },
       (err) => {
         console.error('Error listening to HRs collection:', err);
@@ -5923,7 +5872,7 @@ export default function AdminDashboard() {
 
   const [slotFilter, setSlotFilter] = useState('all');
   const [slotSearch, setSlotSearch] = useState('');
-  const [slots, setSlots] = useState(MOCK_SLOTS);
+  const [slots, setSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(true);
   const [slotsError, setSlotsError] = useState(null);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
@@ -5945,62 +5894,14 @@ export default function AdminDashboard() {
         .filter((s) => !String(s.hrName || '').trim() && String(s.hrId || '').trim())
         .map((s) => String(s.hrId).trim());
 
-      const uniqueCandidateIds = [...new Set(needCandidate)].filter(
-        (id) => id && !candidateByIdCacheRef.current.has(id),
-      );
-      const uniqueHrIds = [...new Set(needHr)].filter(
-        (id) => id && !hrByIdCacheRef.current.has(id),
-      );
+      if (needCandidate.length === 0 && needHr.length === 0) return;
 
-      // Fetch missing candidate docs
-      await Promise.all(
-        uniqueCandidateIds.map(async (id) => {
-          try {
-            const snap = await getDoc(doc(db, 'candidates', id));
-            if (snap.exists()) {
-              const data = snap.data();
-              candidateByIdCacheRef.current.set(id, data);
-              const mob = normalizeCandidateMobile(data?.mobile || data?.phone);
-              if (mob) candidateByIdCacheRef.current.set(mob, data);
-              return;
-            }
-          } catch {
-            // ignore
-          }
-
-          const mobileLookup = normalizeCandidateMobile(id);
-          if (/^[6-9]\d{9}$/.test(mobileLookup)) {
-            try {
-              const mobileQ = query(
-                collection(db, 'candidates'),
-                where('mobile', '==', mobileLookup),
-              );
-              const mobileSnap = await getDocs(mobileQ);
-              const first = mobileSnap.docs[0];
-              if (first?.exists?.()) {
-                const data = first.data();
-                candidateByIdCacheRef.current.set(id, data);
-                candidateByIdCacheRef.current.set(first.id, data);
-                candidateByIdCacheRef.current.set(mobileLookup, data);
-              }
-            } catch {
-              // ignore
-            }
-          }
-        }),
-      );
-
-      // Fetch missing HR docs
-      await Promise.all(
-        uniqueHrIds.map(async (id) => {
-          try {
-            const snap = await getDoc(doc(db, 'hrs', id));
-            if (snap.exists()) hrByIdCacheRef.current.set(id, snap.data());
-          } catch {
-            // ignore
-          }
-        }),
-      );
+      // One shared cached read of candidates/hrs instead of a getDoc per missing id.
+      const [candidatesById, hrDocs] = await Promise.all([
+        getCandidatesById(),
+        needHr.length ? getCollectionDocs('hrs').catch(() => []) : [],
+      ]);
+      const hrById = new Map(hrDocs.map((d) => [d.id, d.data()]));
 
       if (cancelled) return;
 
@@ -6014,10 +5915,10 @@ export default function AdminDashboard() {
         const lookupKeys = [candidateMobile, candidateId].filter(Boolean);
         let candidateDoc = null;
         for (const key of lookupKeys) {
-          candidateDoc = candidateByIdCacheRef.current.get(key);
+          candidateDoc = candidatesById.get(key);
           if (candidateDoc) break;
         }
-        const hrDoc = hrId ? hrByIdCacheRef.current.get(hrId) : null;
+        const hrDoc = hrId ? hrById.get(hrId) : null;
 
         const candidateName =
           String(candidateDoc?.name || '').trim() ||
@@ -6060,21 +5961,24 @@ export default function AdminDashboard() {
   }, [statsRefreshKey]);
 
   // Automatically sync candidate account inactivity to Firestore if their last interview was > 2 weeks ago
+  // Each doc is written once per session and mirrored into local state; previously every slots
+  // snapshot re-wrote the same docs because local status stayed 'Active'.
+  const autoDeactivatedRef = useRef(new Set());
   useEffect(() => {
     if (!slots || slots.length === 0 || !candidates || candidates.length === 0) return;
 
     candidates.forEach(async (c) => {
-      const isOlder = isCandidateInterviewOlderThanTwoWeeks(slots, c);
-      if (isOlder && c.status === 'Active') {
-        const docId = c.firestoreId || c.id;
-        const collectionName = c.sourceCollection || 'candidates';
-        if (docId) {
-          try {
-            await updateDoc(doc(db, collectionName, docId), { isActive: false, status: 'Inactive' });
-          } catch (err) {
-            console.error('Failed to auto-update candidate inactive status in Firestore:', err);
-          }
-        }
+      const docId = c.firestoreId || c.id;
+      if (!docId || c.status !== 'Active' || autoDeactivatedRef.current.has(docId)) return;
+      if (!isCandidateInterviewOlderThanTwoWeeks(slots, c)) return;
+      autoDeactivatedRef.current.add(docId);
+      try {
+        await updateDoc(doc(db, c.sourceCollection || 'candidates', docId), { isActive: false, status: 'Inactive' });
+        setCandidates((prev) =>
+          prev.map((x) => ((x.firestoreId || x.id) === docId ? { ...x, isActive: false, status: 'Inactive' } : x)),
+        );
+      } catch (err) {
+        console.error('Failed to auto-update candidate inactive status in Firestore:', err);
       }
     });
   }, [slots, candidates]);
@@ -6082,7 +5986,7 @@ export default function AdminDashboard() {
   const [selectedSlotsCandidate, setSelectedSlotsCandidate] = useState(null);
   const [selectedViewCandidate, setSelectedViewCandidate] = useState(null);
   const [editingCandidate, setEditingCandidate] = useState(null);
-  const [hrs, setHrs] = useState(MOCK_HRS);
+  const [hrs, setHrs] = useState([]);
   const [hrSearch, setHrSearch] = useState('');
   const filteredSlots = useMemo(() => {
     return slots.filter((slot) => {
@@ -6497,13 +6401,10 @@ export default function AdminDashboard() {
         await deleteDoc(doc(db, 'hrs', hrToDelete.firestoreId));
       }
       
-      // Remove from local state
-      setHrs((prev) => prev.filter((h) => h.id !== id));
+      // The hrs listener drops the row (instantly, via latency compensation).
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('Failed to delete HR:', err);
-      // Still remove from local state even if Firestore delete fails
-      setHrs((prev) => prev.filter((h) => h.id !== id));
     }
   };
 
@@ -6822,10 +6723,6 @@ export default function AdminDashboard() {
                 throw err;
               }
 
-              const nextId = hrs.length
-                ? Math.max(...hrs.map((h) => (typeof h.id === 'number' ? h.id : 0))) + 1
-                : 1;
-
               // Resolve admin identity for "Added By"
               let adminName = 'Admin';
               let adminId = null;
@@ -6839,8 +6736,7 @@ export default function AdminDashboard() {
               }
 
               const newHr = {
-                id: nextId,
-                name: data.name || `HR ${nextId}`,
+                name: data.name || '',
                 email: data.email || '',
                 mobile: data.mobile || '',
                 company: data.company || '',
@@ -6864,16 +6760,14 @@ export default function AdminDashboard() {
                   createdAt: serverTimestamp(),
                 });
                 
-                // Update local state immediately - prepend new HR at first position
-                setHrs((prev) => [newHr, ...prev]);
+                // The hrs listener adds the row (instantly, via latency compensation).
                 
                 // Show success toast
                 setShowHrSuccessToast(true);
                 setTimeout(() => {
                   setShowHrSuccessToast(false);
                 }, 2000);
-                
-                console.log('Saved HR to Firestore from Admin:', newHr);
+
               } catch (err) {
                 console.error('Failed to save HR to Firestore:', err);
               }

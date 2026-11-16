@@ -4,7 +4,6 @@ import {
   formatHourToLabel,
   formatHourTo24,
   normalizeSlotSettings,
-  getStoredSlotSettings,
 } from './settingsService';
 
 describe('Admin Slot Booking Settings Service', () => {

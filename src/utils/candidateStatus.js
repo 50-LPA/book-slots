@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import {
   getCandidateMatchKeys,
@@ -195,10 +195,11 @@ export async function fetchCandidateEventsFromFirestore(candidateOrSession, fire
   const results = [];
   const seenIds = new Set();
 
-  // Query by candidateId
-  for (const key of keys) {
+  // Query by candidateId: one `in` query for all keys (Firestore allows up to 30 values).
+  for (let i = 0; i < keys.length; i += 30) {
     try {
-      const q = query(slotsRef, where('candidateId', '==', key));
+      const chunk = keys.slice(i, i + 30);
+      const q = query(slotsRef, where('candidateId', 'in', chunk));
       const snap = await getDocs(q);
       snap.forEach((docSnap) => {
         if (!seenIds.has(docSnap.id)) {
@@ -231,43 +232,4 @@ export async function fetchCandidateEventsFromFirestore(candidateOrSession, fire
   }
 
   return results;
-}
-
-/**
- * Checks if candidate's last interview was > 2 weeks ago, and if so,
- * automatically deactivates their account in Firestore if not already inactive.
- *
- * @param {Object} candidate - Candidate object or doc data
- * @param {Object} [firestoreDb] - Firestore instance
- * @param {Array} [optionalSlots] - Pre-fetched slots, or null to fetch from Firestore
- * @returns {Promise<{ isInactive: boolean, lastInterview: Object|null }>}
- */
-export async function checkAndSyncCandidateInactivity(candidate, firestoreDb, optionalSlots = null) {
-  const dbInstance = firestoreDb || db;
-  const slots =
-    optionalSlots || (await fetchCandidateEventsFromFirestore(candidate, dbInstance));
-  const isOlder = isCandidateInterviewOlderThanTwoWeeks(slots, candidate);
-  const lastInterview = getLastInterviewInfo(slots, candidate);
-
-  if (isOlder) {
-    const docId = candidate.firestoreId || candidate.id;
-    const collectionName = candidate.sourceCollection || 'candidates';
-    if (docId && candidate.isActive !== false) {
-      try {
-        await updateDoc(doc(dbInstance, collectionName, docId), { isActive: false, status: 'Inactive' });
-      } catch (err) {
-        console.error('Failed to auto-deactivate candidate in Firestore:', err);
-      }
-    }
-    return {
-      isInactive: true,
-      lastInterview,
-    };
-  }
-
-  const isInactive = candidate.isActive === false || candidate.status === 'Inactive';
-  return {
-    isInactive,
-    lastInterview,
-  };
 }
