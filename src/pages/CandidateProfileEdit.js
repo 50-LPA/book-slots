@@ -140,7 +140,13 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
   const previewRows = [
     ['Technology', form.technology.join(', ')],
     ['Experience', `${form.experience} years`],
-    ...SELECTION_FIELD_LABELS.map(([k, label]) => [label, k === 'package' ? `${form[k]} LPA` : form[k]]),
+    ...SELECTION_FIELD_LABELS.map(([k, label]) => {
+      if (k === 'package') return [label, `${form[k]} LPA`];
+      if (k === 'selectedDate' || k === 'joiningDate') {
+        return [label, new Date(`${form[k]}T00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })];
+      }
+      return [label, form[k]];
+    }),
   ];
 
   return (

@@ -380,15 +380,7 @@ export default function BookSlot({
   };
 
   const checkAvailability = async () => {
-    const ok = validate(['date', 'hour', 'minute', 'duration']);
-    if (!ok) {
-      setAvailabilityState('needs_fields');
-      setAvailabilityMessage(
-        'Please select date, start time, and meeting duration.',
-      );
-      return;
-    }
-
+    // Weekend first: validate() also rejects weekends, which would hide this specific message.
     if (isSunday(form.date)) {
       setAvailabilityState('unavailable');
       setAvailabilityMessage('Slot cannot be booked on Sunday.');
@@ -397,6 +389,15 @@ export default function BookSlot({
     if (!showSaturday && isSaturday(form.date)) {
       setAvailabilityState('unavailable');
       setAvailabilityMessage('Slot cannot be booked on Saturday.');
+      return;
+    }
+
+    const ok = validate(['date', 'hour', 'minute', 'duration']);
+    if (!ok) {
+      setAvailabilityState('needs_fields');
+      setAvailabilityMessage(
+        'Please select date, start time, and meeting duration.',
+      );
       return;
     }
     if (isLeaveDay(form.date)) {
