@@ -3790,61 +3790,32 @@ const normaliseRoundLabelAdmin = (raw) => {
         </div>
       </div>
 
-      {/* Summary row 1: core stats + company/package */}
-      <div className="mb-2 flex flex-row flex-wrap items-stretch gap-4 sm:gap-6 text-slate-700">
-        <div className="flex flex-col items-center text-center min-w-[120px]">
-          <span className="text-sm font-semibold text-slate-800">
-            {experience} yrs
-          </span>
-          <span className="text-[11px] text-slate-500">Experience</span>
-        </div>
-        <div className="flex flex-col items-center text-center min-w-[140px]">
-          <span className="text-sm font-semibold text-slate-800">{totalCount}</span>
-          <span className="text-[11px] text-slate-500">Total Slots Booked</span>
-        </div>
-        <div className="flex flex-col items-center text-center min-w-[140px]">
-          <span className="text-sm font-semibold text-slate-800">
-            {roundCounts['Technical Round 1'] || 0}
-          </span>
-          <span className="text-[11px] text-slate-500">Technical Round 1</span>
-        </div>
-        <div className="flex flex-col items-center text-center min-w-[140px]">
-          <span className="text-sm font-semibold text-slate-800">
-            {roundCounts['Screening Round'] || 0}
-          </span>
-          <span className="text-[11px] text-slate-500">Screening Round</span>
-        </div>
-        <div className="flex flex-col items-center text-center min-w-[140px]">
-          <span className="text-sm font-semibold text-slate-800">
-            {roundCounts['Technical Round 2'] || 0}
-          </span>
-          <span className="text-[11px] text-slate-500">Technical Round 2</span>
-        </div>
-        <div className="flex flex-col items-center text-center min-w-[140px]">
-          <span className="text-sm font-semibold text-slate-800">
-            {roundCounts['Technical Round 3'] || 0}
-          </span>
-          <span className="text-[11px] text-slate-500">Technical Round 3</span>
-        </div>
-        <div className="flex flex-col items-center text-center min-w-[140px]">
-          <span className="text-sm font-semibold text-slate-800">
-            {roundCounts['Manageral Round'] || 0}
-          </span>
-          <span className="text-[11px] text-slate-500">Manageral Round</span>
-        </div>
-        <div className="flex flex-col items-center text-center min-w-[140px]">
-          <span className="text-sm font-semibold text-slate-800">
-            {roundCounts['HR Round'] || 0}
-          </span>
-          <span className="text-[11px] text-slate-500">HR Round</span>
-        </div>
-        <div className="flex flex-col items-center text-center min-w-[140px]">
-          <span className="text-sm font-semibold text-slate-800">
-            {roundCounts['Task Assesment'] || 0}
-          </span>
-          <span className="text-[11px] text-slate-500">Task Assesment</span>
-        </div>
-        {/* Selected candidate details moved to row 2 */}
+      {/* Summary row: always one line; cells share the width and text shrinks on small screens */}
+      <div className="mb-2 flex flex-nowrap items-start justify-between gap-1 sm:gap-3 text-slate-700">
+        {[
+          [`${experience} yrs`, 'Experience', 'Exp yrs', experience],
+          [totalCount, 'Total Slots Booked', 'Total'],
+          ...[
+            ['Technical Round 1', 'Tech 1'],
+            ['Screening Round', 'Screen'],
+            ['Technical Round 2', 'Tech 2'],
+            ['Technical Round 3', 'Tech 3'],
+            ['Manageral Round', 'Mgr'],
+            ['HR Round', 'HR'],
+            ['Task Assesment', 'Task'],
+          ].map(([round, short]) => [roundCounts[round] || 0, round, short]),
+        ].map(([value, label, short, shortValue = value]) => (
+          <div key={label} title={label} className="flex flex-1 min-w-0 flex-col items-center text-center">
+            <span className="text-xs sm:text-sm font-semibold text-slate-800 whitespace-nowrap">
+              <span className="md:hidden">{shortValue}</span>
+              <span className="hidden md:inline">{value}</span>
+            </span>
+            <span className="text-[10px] sm:text-[11px] leading-tight text-slate-500">
+              <span className="md:hidden whitespace-nowrap">{short}</span>
+              <span className="hidden md:inline">{label}</span>
+            </span>
+          </div>
+        ))}
       </div>
 
       {/* Summary row 2: selected candidate details */}
