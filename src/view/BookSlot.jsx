@@ -16,21 +16,44 @@ function normaliseKey(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-/** Minutes as string values for the meeting duration <select> */
-const MEETING_DURATION_OPTIONS = [
-  { value: '15', label: '15 minutes' },
-  { value: '30', label: '30 minutes' },
-  { value: '45', label: '45 minutes' },
-  { value: '60', label: '1 hour' },
-  { value: '75', label: '1 hour 15 min' },
-  { value: '90', label: '1 hour 30 min' },
-  { value: '105', label: '1 hour 45 min' },
-  { value: '120', label: '2 hours' },
-  { value: '135', label: '2 hours 15 min' },
-  { value: '150', label: '2 hours 30 min' },
-  { value: '165', label: '2 hours 45 min' },
-  { value: '180', label: '3 hours' },
-];
+const MAX_DURATION_MINS = 180;
+
+/** Meeting duration as hours + minutes dropdowns; `value`/`onChange` carry total minutes as a string. */
+function DurationSelect({ value, onChange }) {
+  const total = parseInt(value, 10);
+  const [draft, setDraft] = useState({ h: '0', m: '' });
+  // A complete draft always yields a duration, so empty value + complete draft = parent reset the form.
+  const shown = Number.isNaN(total) && draft.m !== '' ? { h: '0', m: '' } : draft;
+  const h = Number.isNaN(total) ? shown.h : String(Math.floor(total / 60));
+  const m = Number.isNaN(total) ? shown.m : String(total % 60);
+
+  const update = (nh, nm) => {
+    if (nh === '3') nm = '0'; // 3 hours is the maximum
+    if (nh === '0' && nm === '0') nm = '';
+    setDraft({ h: nh, m: nm });
+    const mins = nm === '' ? 0 : Number(nh) * 60 + Number(nm);
+    onChange(mins > 0 && mins <= MAX_DURATION_MINS ? String(mins) : '');
+  };
+  const cls = 'flex-1 min-w-0 border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white';
+
+  return (
+    <div className="mt-1 flex gap-2 items-center w-full">
+      <select aria-label="Duration hours" value={h} onChange={(e) => update(e.target.value, m)} className={cls}>
+        {['0', '1', '2', '3'].map((v) => (
+          <option key={v} value={v}>{v} hr</option>
+        ))}
+      </select>
+      <select aria-label="Duration minutes" value={m} onChange={(e) => update(h, e.target.value)} className={cls}>
+        <option value="">Min</option>
+        {['0', '15', '30', '45'].map((v) => (
+          <option key={v} value={v} disabled={(h === '0' && v === '0') || (h === '3' && v !== '0')}>
+            {v.padStart(2, '0')} min
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 function timeToMinutes(hour, minute) {
   const hh = parseInt(hour, 10);
@@ -110,7 +133,8 @@ export default function BookSlot({
     return () => unsubscribe();
   }, []);
 
-  const showSaturday = slotSettings?.showSaturday !== false;
+  // Weekends are never bookable, regardless of the admin "show Saturday" calendar setting.
+  const showSaturday = false;
   const startHour = slotSettings?.startHour ?? 11;
   const endHour = slotSettings?.endHour ?? 19;
   const startTime = slotSettings?.startTime || '11:00';
@@ -118,7 +142,7 @@ export default function BookSlot({
   const slotStartTime = slotSettings?.slotStartTime || '11:00 AM';
   const slotEndTime = slotSettings?.slotEndTime || '07:00 PM';
 
-  const bookingTimeHint = `Book slots between ${slotStartTime} to ${slotEndTime}`;
+  const bookingTimeHint = `Book slots between ${slotStartTime} to ${slotEndTime} Only.`;
 
   const allowedBookingHours = useMemo(() => {
     const s = typeof startHour === 'number' ? startHour : 11;
@@ -217,41 +241,28 @@ export default function BookSlot({
     return `${yy}-${mm}-${dd}`;
   };
 
-  const formatShortcutDate = (date) => formatDateDDMMYYYY(date);
+  const formatShortcutDate = (date) => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
-  const handleDateShortcut = (type) => {
-    const today = new Date();
-    let targetDate;
-
-    if (type === 'today') {
-      targetDate = today;
-    } else if (type === 'tomorrow') {
-      targetDate = new Date(today);
-      targetDate.setDate(today.getDate() + 1);
-    } else if (type === 'next2') {
-      targetDate = new Date(today);
-      targetDate.setDate(today.getDate() + 2);
-    } else if (type === 'next3') {
-      targetDate = new Date(today);
-      targetDate.setDate(today.getDate() + 3);
-    } else if (type === 'next4') {
-      targetDate = new Date(today);
-      targetDate.setDate(today.getDate() + 4);
-    }
-
-    if (targetDate) {
-      const yyyymmdd = formatDateForInput(targetDate);
-      setForm((f) => ({ ...f, date: yyyymmdd, dateDisplay: formatDateForDisplay(yyyymmdd) }));
-    }
+  // Next 5 weekdays from today; Sat/Sun never suggested.
+  const today = new Date();
+  const shortcutDates = [];
+  for (let d = new Date(today); shortcutDates.length < 5; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() !== 0 && d.getDay() !== 6) shortcutDates.push(new Date(d));
+  }
+  const shortcutLabel = (date) => {
+    const diff = Math.round(
+      (new Date(date.getFullYear(), date.getMonth(), date.getDate()) -
+        new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000,
+    );
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    return formatShortcutDate(date);
   };
 
-  const today = new Date();
-  const dateIn2Days = new Date(today);
-  dateIn2Days.setDate(today.getDate() + 2);
-  const dateIn3Days = new Date(today);
-  dateIn3Days.setDate(today.getDate() + 3);
-  const dateIn4Days = new Date(today);
-  dateIn4Days.setDate(today.getDate() + 4);
+  const handleDateShortcut = (date) => {
+    const yyyymmdd = formatDateForInput(date);
+    setForm((f) => ({ ...f, date: yyyymmdd, dateDisplay: formatDateForDisplay(yyyymmdd) }));
+  };
 
   // Small calendar popover helpers
   const getCalendarDays = (year, month) => {
@@ -662,6 +673,8 @@ export default function BookSlot({
           e.date = 'Date is required';
         } else if (!showSaturday && isSaturday(form.date)) {
           e.date = 'Slot cannot be booked on Saturday.';
+        } else if (isSunday(form.date)) {
+          e.date = 'Slot cannot be booked on Sunday.';
         }
       } else {
         require(f);
@@ -834,12 +847,10 @@ export default function BookSlot({
                     </>
                   )}
                 </div>
-                <div className="mt-2 text-xs text-purple-600 flex flex-wrap gap-x-3 gap-y-1">
-                  <button type="button" onClick={() => handleDateShortcut('today')} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">Today</button>
-                  <button type="button" onClick={() => handleDateShortcut('tomorrow')} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">Tomorrow</button>
-                  <button type="button" onClick={() => handleDateShortcut('next2')} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">{formatShortcutDate(dateIn2Days)}</button>
-                  <button type="button" onClick={() => handleDateShortcut('next3')} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">{formatShortcutDate(dateIn3Days)}</button>
-                  <button type="button" onClick={() => handleDateShortcut('next4')} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">{formatShortcutDate(dateIn4Days)}</button>
+                <div className="mt-2 text-xs text-purple-600 flex justify-between gap-1 whitespace-nowrap">
+                  {shortcutDates.map((d) => (
+                  <button key={d.toDateString()} type="button" onClick={() => handleDateShortcut(d)} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">{shortcutLabel(d)}</button>
+                  ))}
                 </div>
               </div>
               <div className="min-w-0">
@@ -891,19 +902,10 @@ export default function BookSlot({
                 <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-hourglass-half mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Meeting Duration
                 </label>
-                <select
-                  name="duration"
+                <DurationSelect
                   value={form.duration}
-                  onChange={handleChange}
-                  className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
-                >
-                  <option value="">Select Duration</option>
-                  {MEETING_DURATION_OPTIONS.map(({ value, label }) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(duration) => setForm((f) => ({ ...f, duration }))}
+                />
                 {errors.duration && <p className="text-xs text-red-500 mt-1">{errors.duration}</p>}
               </div>
               <div className="flex flex-col justify-end">
@@ -1212,42 +1214,10 @@ export default function BookSlot({
                   )}
                 </div>
                 {/* Quick date links */}
-                <div className="mt-2 text-xs text-purple-600 flex flex-wrap gap-x-3 gap-y-1">
-                  <button
-                    type="button"
-                    onClick={() => handleDateShortcut('today')}
-                    className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline"
-                  >
-                    Today
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDateShortcut('tomorrow')}
-                    className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline"
-                  >
-                    Tomorrow
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDateShortcut('next2')}
-                    className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline"
-                  >
-                    {formatShortcutDate(dateIn2Days)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDateShortcut('next3')}
-                    className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline"
-                  >
-                    {formatShortcutDate(dateIn3Days)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDateShortcut('next4')}
-                    className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline"
-                  >
-                    {formatShortcutDate(dateIn4Days)}
-                  </button>
+                <div className="mt-2 text-xs text-purple-600 flex justify-between gap-1 whitespace-nowrap">
+                  {shortcutDates.map((d) => (
+                  <button key={d.toDateString()} type="button" onClick={() => handleDateShortcut(d)} className="text-purple-600 hover:text-purple-800 cursor-pointer underline-offset-2 hover:underline">{shortcutLabel(d)}</button>
+                  ))}
                 </div>
               </div>
 
@@ -1374,19 +1344,10 @@ export default function BookSlot({
                 <label className="block text-xs font-medium text-gray-600"><i className="fa-solid fa-hourglass-half mr-1.5 text-purple-500" aria-hidden="true" />
                   <span className="text-red-500">*</span> Meeting Duration
                 </label>
-                <select
-                  name="duration"
+                <DurationSelect
                   value={form.duration}
-                  onChange={handleChange}
-                  className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm h-9 bg-white"
-                >
-                  <option value="">Select Duration</option>
-                  {MEETING_DURATION_OPTIONS.map(({ value, label }) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(duration) => setForm((f) => ({ ...f, duration }))}
+                />
                 {errors.duration && <p className="text-xs text-red-500 mt-1">{errors.duration}</p>}
               </div>
 

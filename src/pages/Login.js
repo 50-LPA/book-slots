@@ -146,6 +146,11 @@ export default function Login() {
       const candidateSlots = await fetchCandidateEventsFromFirestore(candidateInfo, db);
       const isMoreThanTwoWeeks = isCandidateInterviewOlderThanTwoWeeks(candidateSlots, candidateInfo);
 
+      if (candidateData.isSelected) {
+        await reject('Selected candidates cannot login to the system.');
+        return;
+      }
+
       if (candidateData.isActive === false || candidateData.status === 'Inactive' || isMoreThanTwoWeeks) {
         if (candidateData.isActive !== false && isMoreThanTwoWeeks) {
           try {
@@ -155,11 +160,6 @@ export default function Login() {
           }
         }
         await reject('Your account is currently inactive. Please contact the administrator.');
-        return;
-      }
-
-      if (candidateData.isSelected) {
-        await reject('Selected candidates cannot login to the system.');
         return;
       }
 

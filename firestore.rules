@@ -25,7 +25,10 @@ service cloud.firestore {
     // Candidates may edit their profile and deactivate themselves (2-week rule), never reactivate.
     function candidateSelfEditOk() {
       let keys = request.resource.data.diff(resource.data).affectedKeys();
-      return keys.hasOnly(['experience', 'technologies', 'technology', 'isActive', 'status'])
+      return keys.hasOnly(['experience', 'technologies', 'technology', 'isActive', 'status',
+          'selected', 'isSelected', 'selectedDate', 'joiningDate', 'selectedCompany', 'package',
+          'selectedPackage', 'hrName', 'hrMobile', 'hrEmail', 'aadhar', 'pan',
+          'familyMemberName', 'familyMemberMobile', 'permanentAddress', 'permAddress'])
         && (!keys.hasAny(['isActive', 'status']) || request.resource.data.get('isActive', true) == false);
     }
     function ownsEvent(data) {

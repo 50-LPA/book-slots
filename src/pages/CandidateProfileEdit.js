@@ -1,15 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
+import {
+  SelectedFields,
+  SelectedToggle,
+  TechMultiSelect,
+  selectionFormFromDoc,
+  selectionPayload,
+  validateSelection,
+  SELECTION_FIELD_LABELS,
+} from '../Components/CandidateSelectionFields';
 
-function normaliseTechs(value) {
-  return String(value || '')
-    .split(',')
-    .map((t) => t.trim())
-    .filter(Boolean);
-}
-
-export function CandidateProfileEditForm({ userName = '', onBack }) {
+export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLogout }) {
   const session = useMemo(() => {
     try {
       const raw = sessionStorage.getItem('sb_user');
@@ -26,9 +28,11 @@ export function CandidateProfileEditForm({ userName = '', onBack }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [candidateDocId, setCandidateDocId] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
   const [form, setForm] = useState({
     experience: '',
-    technologyInput: '',
+    technology: [],
+    ...selectionFormFromDoc(),
   });
 
   useEffect(() => {
@@ -62,7 +66,8 @@ export function CandidateProfileEditForm({ userName = '', onBack }) {
           setCandidateDocId(d.id);
           setForm({
             experience: String(data.experience || '').trim(),
-            technologyInput: techs.join(', '),
+            technology: techs,
+            ...selectionFormFromDoc(data),
           });
         }
       } catch (err) {
@@ -78,40 +83,65 @@ export function CandidateProfileEditForm({ userName = '', onBack }) {
     };
   }, [mobile, session?.name]);
 
-  const onSave = async (e) => {
-    e.preventDefault();
+  const validate = () => {
+    if (!candidateDocId) return 'Candidate profile not found.';
+    const experience = form.experience.trim();
+    if (!form.technology.length) return 'Select at least one technology.';
+    if (!/^\d+(\.\d{1,2})?$/.test(experience) || parseFloat(experience) > 20) {
+      return 'Experience must be a number between 0 and 20 with at most two decimal places.';
+    }
+    return form.selected ? validateSelection(form) : '';
+  };
+
+  const persist = async () => {
     try {
       setSaving(true);
       setError('');
       setSuccess('');
-      if (!candidateDocId) throw new Error('Candidate profile not found.');
-
-      const technologies = normaliseTechs(form.technologyInput);
+      const technologies = form.technology;
       await updateDoc(doc(db, 'candidates', candidateDocId), {
         experience: form.experience.trim(),
         technologies,
         technology: technologies.join(', '),
+        ...selectionPayload(form),
+        // Selected candidates are deactivated and can no longer log in.
+        ...(form.selected && { isActive: false, status: 'Inactive' }),
       });
 
+      if (form.selected) {
+        onLogout?.();
+        return;
+      }
+
       try {
-        sessionStorage.setItem(
-          'sb_user',
-          JSON.stringify({
-            ...session,
-            technologies,
-          }),
-        );
+        sessionStorage.setItem('sb_user', JSON.stringify({ ...session, technologies }));
       } catch {
         // ignore session write errors
       }
-
       setSuccess('Profile updated successfully.');
     } catch (err) {
+      setShowPreview(false);
       setError(err?.message || 'Failed to update profile.');
     } finally {
       setSaving(false);
     }
   };
+
+  const onSave = (e) => {
+    e.preventDefault();
+    setSuccess('');
+    const msg = validate();
+    setError(msg);
+    if (msg) return;
+    if (form.selected) setShowPreview(true);
+    else persist();
+  };
+
+  const previewRows = [
+    ['Technology', form.technology.join(', ')],
+    ['Experience', `${form.experience} years`],
+    ...SELECTION_FIELD_LABELS.map(([k, label]) => [label, k === 'package' ? `${form[k]} LPA` : form[k]]),
+  ];
 
   return (
     <form
@@ -149,11 +179,9 @@ export function CandidateProfileEditForm({ userName = '', onBack }) {
               <label className="text-xs sm:text-sm font-semibold text-slate-700"><i className="fa-solid fa-code mr-1.5 text-purple-500" aria-hidden="true" />
                 <span className="text-red-500">*</span> Technology
               </label>
-              <input
-                type="text"
-                value={form.technologyInput}
-                onChange={(e) => setForm((prev) => ({ ...prev, technologyInput: e.target.value }))}
-                className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              <TechMultiSelect
+                value={form.technology}
+                onChange={(technology) => setForm((prev) => ({ ...prev, technology }))}
               />
             </div>
             <div className="flex flex-col gap-1 md:col-span-1">
@@ -163,11 +191,18 @@ export function CandidateProfileEditForm({ userName = '', onBack }) {
               <input
                 type="text"
                 value={form.experience}
-                onChange={(e) => setForm((prev) => ({ ...prev, experience: e.target.value }))}
-                className="w-full rounded border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                onChange={(e) => setForm((prev) => ({ ...prev, experience: e.target.value.replace(/[^\d.]/g, '') }))}
+                placeholder="0–20 (e.g., 2 or 2.5)"
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
               />
             </div>
+            <SelectedToggle
+              checked={form.selected}
+              onChange={(selected) => setForm((prev) => ({ ...prev, selected }))}
+            />
           </div>
+
+          {form.selected && <SelectedFields form={form} setForm={setForm} hrs={hrs} />}
 
           <div className="mt-3 flex justify-end">
             <button
@@ -180,6 +215,80 @@ export function CandidateProfileEditForm({ userName = '', onBack }) {
             </button>
           </div>
         </>
+      )}
+
+      {showPreview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-3"
+          onClick={() => !saving && setShowPreview(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="selected-preview-title"
+            className="w-full max-w-md md:max-w-5xl rounded-xl bg-white shadow-lg px-4 py-3 md:px-6 md:py-4 max-h-[96dvh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 id="selected-preview-title" className="text-sm md:text-base font-semibold text-purple-600">
+                  <i className="fa-solid fa-circle-check mr-1.5" aria-hidden="true" />
+                  Confirm your details
+                </h3>
+                <p className="text-[11px] md:text-xs text-slate-600">Please check everything carefully before saving.</p>
+              </div>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setShowPreview(false)}
+                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200 disabled:opacity-60"
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+              </button>
+            </div>
+
+            <dl className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-px rounded-lg border border-slate-200 bg-slate-100 overflow-hidden">
+              {previewRows.map(([label, value]) => (
+                <div
+                  key={label}
+                  className={`flex flex-col-reverse bg-white px-3 py-1 md:py-1.5 min-w-0 ${
+                    label === 'Aadhar Card Address' ? 'col-span-2' : ''
+                  }`}
+                >
+                  <dt className="text-[10px] md:text-[11px] text-slate-500">{label}</dt>
+                  <dd className="text-xs md:text-sm font-semibold text-slate-800 break-words">{value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <p className="mt-2 rounded-md bg-red-50 px-3 py-1.5 text-[11px] md:text-sm font-semibold text-red-600">
+              <i className="fa-solid fa-triangle-exclamation mr-1.5" aria-hidden="true" />
+              After saving, your account will be deactivated and marked as Selected. You will be logged out and won&apos;t be able to log in again.
+            </p>
+
+            <div className="mt-3 flex justify-between gap-2">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setShowPreview(false)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-4 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                <i className="fa-solid fa-xmark" aria-hidden="true" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={persist}
+                className="inline-flex items-center gap-1.5 rounded-full bg-red-500 px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60"
+              >
+                <i className={`fa-solid ${saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'}`} aria-hidden="true" />
+                {saving ? 'Saving...' : 'Confirm & Save'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </form>
   );

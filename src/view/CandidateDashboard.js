@@ -1169,6 +1169,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
 
       {/* Metrics + search row */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {totalSlots > 0 && (
         <div className="flex flex-wrap items-center gap-6 text-xs sm:text-sm text-slate-700">
           {/* Total slots card */}
           <div className="flex flex-col items-center">
@@ -1190,7 +1191,8 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-end gap-3">
+        )}
+        <div className="flex items-center justify-end gap-3 sm:ml-auto">
           <div className="relative w-28 sm:w-36">
             <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <input
@@ -2230,6 +2232,12 @@ export default function CandidateDashboard() {
     });
   }, [hrList, candidateIds, userName, currentUser, hrOwnerIds, hrOwnerNames]);
 
+  const handleLogout = () => {
+    sessionStorage.removeItem('sb_user');
+    signOut(auth).catch(() => {});
+    navigate('/login', { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
@@ -2241,11 +2249,7 @@ export default function CandidateDashboard() {
         onDownloadForm={() =>
           downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')
         }
-        onLogout={() => {
-          sessionStorage.removeItem('sb_user');
-          signOut(auth).catch(() => {});
-          navigate('/login', { replace: true });
-        }}
+        onLogout={handleLogout}
       />
       <Navbar 
         onOpenAddHR={() => {
@@ -2287,7 +2291,9 @@ export default function CandidateDashboard() {
         ) : activeNav === 'profile' ? (
           <CandidateProfileEditForm
             userName={userName}
+            hrs={myHrList}
             onBack={() => setActiveNav('home')}
+            onLogout={handleLogout}
           />
         ) : activeNav === 'slots' ? (
           <MySlots

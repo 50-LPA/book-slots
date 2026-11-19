@@ -5,6 +5,7 @@ export default async (request, context) => {
   const html = (await res.text()).replace(/<!--\s*This site is hosted on Netlify[\s\S]*?-->/, '');
   const headers = new Headers(res.headers);
   headers.delete('content-length');
+  headers.delete('content-encoding');
   return new Response(html, { status: res.status, headers });
 };
 

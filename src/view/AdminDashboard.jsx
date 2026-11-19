@@ -59,6 +59,15 @@ import WeekCalendar from '../Components/WeekCalendar';
 import ConfirmDeleteModal from '../Components/ConfirmDeleteModal';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
 import { saveAs } from 'file-saver';
+import {
+  SelectedFields,
+  SelectedToggle,
+  TechMultiSelect,
+  selectionFormFromDoc,
+  selectionPayload,
+  validateSelection,
+  SelectedDetailsView,
+} from '../Components/CandidateSelectionFields';
 
 function escapeCsvCell(value) {
   const s = String(value ?? '');
@@ -79,24 +88,6 @@ function isValidCandidateMobile(mobile) {
 }
 
 
-
-function DateInputWithCalendarIcon({ value, onChange, className = '', inputRef = null }) {
-  const localRef = useRef(null);
-  const ref = inputRef || localRef;
-  const inputClass =
-    className ||
-    'w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200 cursor-pointer';
-
-  return (
-    <input
-      ref={ref}
-      type="date"
-      value={value}
-      onChange={onChange}
-      className={inputClass}
-    />
-  );
-}
 
 // Normalise legacy round labels to new naming
 function normaliseRoundLabelAdmin(raw) {
@@ -1463,30 +1454,23 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
   );
 }
 
-const EDIT_TECH_OPTIONS = [
-  'PHP',
-  '.Net',
-  'Python',
-  'Data Science',
-  'MERN Stack',
-  'MEAN Stack',
-  'Java',
-  'React Devloper',
-  'App Support',
-  'Busness Analyst',
-  'Manual Testing',
-  'Automation Testing',
-  'DevOps (AWS)',
-  'DevOps (Azure)',
-  'Data Analysts',
-  'AEM',
-  'Power BI',
-  'Security',
-  'Other',
-];
-
-function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
+function AdminEditCandidateForm({ candidate, hrs = [], onBack, onSubmit }) {
   const [error, setError] = useState('');
+  // HRs this candidate added (matched by addedById, else by addedBy name).
+  const candidateHrs = useMemo(() => {
+    const ids = new Set(
+      [candidate?.firestoreId, candidate?.id, candidate?.mobile]
+        .map((v) => String(v ?? '').trim())
+        .filter(Boolean),
+    );
+    const name = String(candidate?.name || '').trim().toLowerCase();
+    return hrs.filter(
+      (h) =>
+        h.name &&
+        (ids.has(String(h.addedById ?? '').trim()) ||
+          (name && String(h.addedBy || '').trim().toLowerCase() === name)),
+    );
+  }, [hrs, candidate]);
   const [form, setForm] = useState({
     name: candidate?.name || '',
     mobile: candidate?.mobile || '',
@@ -1496,34 +1480,9 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       ? candidate.technologies.map((t) => normaliseTechLabelAdmin(t))
       : [],
     referredBy: candidate?.referredBy || 'Viraj Kadam Sir',
-    selected: candidate?.selected ?? false,
-    selectedDate: candidate?.selectedDate || '',
-    joiningDate: candidate?.joiningDate || '',
-    selectedCompany: candidate?.selectedCompany || '',
-    package: candidate?.package || '',
-    hrName: candidate?.hrName || '',
-    hrMobile: candidate?.hrMobile || '',
-    hrEmail: candidate?.hrEmail || '',
-    hrLinkedin: candidate?.hrLinkedin || '',
-    candidateEmail: candidate?.candidateEmail || candidate?.email || '',
-    candidateMobile: candidate?.candidateMobile || candidate?.mobile || '',
-    motherName: candidate?.motherName || '',
-    motherMobile: candidate?.motherMobile || '',
-    fatherName: candidate?.fatherName || '',
-    fatherMobile: candidate?.fatherMobile || '',
-    brotherName: candidate?.brotherName || '',
-    brotherMobile: candidate?.brotherMobile || '',
-    sisterName: candidate?.sisterName || '',
-    sisterMobile: candidate?.sisterMobile || '',
-    aadhar: candidate?.aadhar || '',
-    pan: candidate?.pan || '',
-    permanentAddress: candidate?.permanentAddress || candidate?.permAddress || '',
-    temporaryAddress: candidate?.temporaryAddress || candidate?.tempAddress || '',
+    ...selectionFormFromDoc(candidate || {}),
   });
   const [showPassword, setShowPassword] = useState(true);
-  const [showTechDropdown, setShowTechDropdown] = useState(false);
-  const techDropdownRef = useRef(null);
-  const [techSearch, setTechSearch] = useState('');
 
   useEffect(() => {
     if (candidate) {
@@ -1536,29 +1495,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
           ? candidate.technologies.map((t) => normaliseTechLabelAdmin(t))
           : [],
         referredBy: candidate.referredBy || 'Viraj Kadam Sir',
-        selected: candidate.selected ?? false,
-        selectedDate: candidate.selectedDate || '',
-        joiningDate: candidate.joiningDate || '',
-        selectedCompany: candidate.selectedCompany || '',
-        package: candidate.package || '',
-        hrName: candidate.hrName || '',
-        hrMobile: candidate.hrMobile || '',
-        hrEmail: candidate.hrEmail || '',
-        hrLinkedin: candidate.hrLinkedin || '',
-        candidateEmail: candidate.candidateEmail || candidate.email || '',
-        candidateMobile: candidate.candidateMobile || candidate.mobile || '',
-        motherName: candidate.motherName || '',
-        motherMobile: candidate.motherMobile || '',
-        fatherName: candidate.fatherName || '',
-        fatherMobile: candidate.fatherMobile || '',
-        brotherName: candidate.brotherName || '',
-        brotherMobile: candidate.brotherMobile || '',
-        sisterName: candidate.sisterName || '',
-        sisterMobile: candidate.sisterMobile || '',
-        aadhar: candidate.aadhar || '',
-        pan: candidate.pan || '',
-        permanentAddress: candidate.permanentAddress || candidate.permAddress || '',
-        temporaryAddress: candidate.temporaryAddress || candidate.tempAddress || '',
+        ...selectionFormFromDoc(candidate || {}),
       });
     }
   }, [candidate]);
@@ -1567,19 +1504,6 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
     let value = e.target.value;
     if (field === 'mobile') {
       value = sanitizeCandidateMobileInput(value);
-    } else if (
-      field === 'candidateMobile' ||
-      field === 'hrMobile' ||
-      field === 'motherMobile' ||
-      field === 'fatherMobile' ||
-      field === 'brotherMobile' ||
-      field === 'sisterMobile'
-    ) {
-      value = value.replace(/\D/g, '').slice(0, 10);
-    } else if (field === 'aadhar') {
-      value = value.replace(/\D/g, '').slice(0, 12);
-    } else if (field === 'pan') {
-      value = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     } else if (field === 'password') {
       // Allow digits and symbols, max 6 characters (no letters)
       value = value.replace(/[a-zA-Z]/g, '').slice(0, 6);
@@ -1595,18 +1519,6 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       value = parts.join('.');
     }
     setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const toggleTechOption = (value) => {
-    setForm((prev) => {
-      const exists = prev.technology.includes(value);
-      return {
-        ...prev,
-        technology: exists
-          ? prev.technology.filter((v) => v !== value)
-          : [...prev.technology, value],
-      };
-    });
   };
 
   const handleSubmit = async (e) => {
@@ -1646,20 +1558,16 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
       return;
     }
 
-    // Basic validation for selected fields
     if (form.selected) {
-      if (!form.selectedDate || !form.joiningDate || !form.selectedCompany || !form.package) {
-        // Rely on parent to show a generic error if needed; keep UI unchanged.
-        // eslint-disable-next-line no-console
-        console.warn('Selected candidate requires date, company, package, and joining date.');
-        onSubmit(form);
+      const selectionError = validateSelection(form);
+      if (selectionError) {
+        setError(selectionError);
         return;
       }
     }
 
     try {
       const techString = form.technology.join(', ');
-      const selectedPackage = form.package || '';
 
       const candidateData = {
         name: form.name.trim(),
@@ -1675,33 +1583,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         lastActivatedAt:
           candidate?.lastActivatedAt ||
           ((candidate?.status === 'Active' || candidate?.isActive !== false) ? Date.now() : null),
-        isSelected: !!form.selected,
-        selected: !!form.selected,
-        selectedDate: form.selected ? form.selectedDate : '',
-        selectedCompany: form.selected ? form.selectedCompany : '',
-        selectedPackage: form.selected ? (selectedPackage || '') : '',
-        package: form.selected ? (selectedPackage || '') : '',
-        joiningDate: form.selected ? form.joiningDate : '',
-        hrName: form.selected ? (form.hrName || '').trim() : '',
-        hrMobile: form.selected ? (form.hrMobile || '').trim() : '',
-        hrEmail: form.selected ? (form.hrEmail || '').trim() : '',
-        hrLinkedin: form.selected ? (form.hrLinkedin || '').trim() : '',
-        candidateEmail: form.selected ? (form.candidateEmail || '').trim() : '',
-        candidateMobile: form.selected ? (form.candidateMobile || '').trim() : '',
-        motherName: form.selected ? (form.motherName || '').trim() : '',
-        motherMobile: form.selected ? (form.motherMobile || '').trim() : '',
-        fatherName: form.selected ? (form.fatherName || '').trim() : '',
-        fatherMobile: form.selected ? (form.fatherMobile || '').trim() : '',
-        brotherName: form.selected ? (form.brotherName || '').trim() : '',
-        brotherMobile: form.selected ? (form.brotherMobile || '').trim() : '',
-        sisterName: form.selected ? (form.sisterName || '').trim() : '',
-        sisterMobile: form.selected ? (form.sisterMobile || '').trim() : '',
-        aadhar: form.selected ? (form.aadhar || '').trim() : '',
-        pan: form.selected ? (form.pan || '').trim() : '',
-        permanentAddress: form.selected ? (form.permanentAddress || '').trim() : '',
-        permAddress: form.selected ? (form.permanentAddress || '').trim() : '',
-        temporaryAddress: form.selected ? (form.temporaryAddress || '').trim() : '',
-        tempAddress: form.selected ? (form.temporaryAddress || '').trim() : '',
+        ...selectionPayload(form),
       };
 
       if (candidate?.firestoreId) {
@@ -1733,40 +1615,6 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
     onSubmit(form);
   };
 
-  const techOptions = [...new Set([...form.technology, ...EDIT_TECH_OPTIONS])];
-
-  const filteredTechOptions = useMemo(() => {
-    const q = techSearch.trim().toLowerCase();
-    if (!q) return techOptions;
-    return techOptions.filter((t) => String(t).toLowerCase().includes(q));
-  }, [techOptions, techSearch]);
-
-  useEffect(() => {
-    if (!showTechDropdown) return;
-
-    const onMouseDown = (event) => {
-      if (techDropdownRef.current && !techDropdownRef.current.contains(event.target)) {
-        setShowTechDropdown(false);
-      }
-    };
-
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setShowTechDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onMouseDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [showTechDropdown]);
-
-  useEffect(() => {
-    if (!showTechDropdown) setTechSearch('');
-  }, [showTechDropdown]);
 
   return (
     <form
@@ -1863,91 +1711,7 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
           <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-code mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Technology
           </label>
-          <div ref={techDropdownRef} className="relative">
-            <div
-              className="w-full flex items-center justify-between rounded-md border border-slate-200 bg-white px-2 py-1 text-xs sm:text-sm text-slate-800 cursor-pointer focus-within:ring-2 focus-within:ring-purple-200"
-              onClick={() => {
-                setShowTechDropdown((v) => !v);
-                setTechSearch('');
-              }}
-            >
-              <div className="flex flex-wrap gap-1 flex-1 min-h-[30px] items-center">
-                {form.technology.length ? (
-                  form.technology.map((tech) => (
-                    <button
-                      key={tech}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleTechOption(tech);
-                      }}
-                      className="inline-flex items-center gap-1 rounded bg-slate-200 px-2 py-0.5 text-[11px] text-slate-800"
-                    >
-                      <span>{tech}</span>
-                      <span className="text-slate-500 text-[10px]">×</span>
-                    </button>
-                  ))
-                ) : (
-                  <span className="text-slate-400 text-xs sm:text-sm">
-                    Choose Technologies...
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 pl-2">
-                {form.technology.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setForm((prev) => ({ ...prev, technology: [] }));
-                    }}
-                    className="text-slate-500 text-sm font-semibold hover:text-slate-700 px-1"
-                    aria-label="Clear technologies"
-                  >
-                    ×
-                  </button>
-                )}
-                <i className="fa-solid fa-chevron-down text-slate-400 text-xs" aria-hidden="true" />
-              </div>
-            </div>
-            {showTechDropdown && (
-              <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto">
-                <div className="sticky top-0 z-10 bg-white border-b border-slate-100 p-2">
-                  <input
-                    type="text"
-                    value={techSearch}
-                    onChange={(e) => setTechSearch(e.target.value)}
-                    placeholder="Search technology..."
-                    autoFocus
-                    className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                  />
-                </div>
-                {filteredTechOptions.length ? (
-                  filteredTechOptions.map((opt) => {
-                    const selected = form.technology.includes(opt);
-                    return (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => toggleTechOption(opt)}
-                        className={`w-full text-left px-3 py-1.5 text-xs sm:text-sm border-b border-slate-100 last:border-b-0 ${
-                          selected
-                            ? 'bg-sky-100 text-slate-900'
-                            : 'bg-white text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        {opt}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="px-3 py-2 text-xs text-slate-500">
-                    No matching technologies
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <TechMultiSelect value={form.technology} onChange={(technology) => setForm((prev) => ({ ...prev, technology }))} />
         </div>
 
         {/* Referred By dropdown - always visible in main form */}
@@ -1984,357 +1748,14 @@ function AdminEditCandidateForm({ candidate, onBack, onSubmit }) {
         </div>
 
         {/* Selected toggle - always visible (placed last in second row) */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-circle-check mr-1.5 text-purple-500" aria-hidden="true" />
-            Selected
-          </label>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={form.selected}
-              onClick={() => setForm((prev) => ({ ...prev, selected: !prev.selected }))}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-purple-200 focus:ring-offset-2 ${
-                form.selected ? 'bg-purple-500' : 'bg-slate-200'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
-                  form.selected ? 'translate-x-5' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-            <span className="text-[11px] text-slate-600">
-              {form.selected ? 'Selected' : 'Not Selected'}
-            </span>
-          </div>
-        </div>
+        <SelectedToggle checked={form.selected} onChange={(selected) => setForm((prev) => ({ ...prev, selected }))} />
       </div>
 
       {/* Selected form: extra fields - only when Selected is ON */}
-      {form.selected && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start mt-4 pt-4 border-t border-slate-200">
-          {/* Selected Date */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-calendar-day mr-1.5 text-purple-500" aria-hidden="true" />
-              <span className="text-red-500">*</span> Selected Date
-            </label>
-            <div className="relative">
-              <DateInputWithCalendarIcon
-                value={form.selectedDate}
-                onChange={handleChange('selectedDate')}
-              />
-            </div>
-          </div>
+      {form.selected && <SelectedFields form={form} setForm={setForm} hrs={candidateHrs} />}
 
-          {/* Joining Date */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-calendar-check mr-1.5 text-purple-500" aria-hidden="true" />
-              <span className="text-red-500">*</span> Joining Date
-            </label>
-            <div className="relative">
-              <DateInputWithCalendarIcon
-                value={form.joiningDate}
-                onChange={handleChange('joiningDate')}
-              />
-            </div>
-          </div>
-
-          {/* Selected Company */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-building-circle-check mr-1.5 text-purple-500" aria-hidden="true" />
-              Selected Company
-            </label>
-            <input
-              type="text"
-              value={form.selectedCompany}
-              onChange={handleChange('selectedCompany')}
-              placeholder="Enter company name"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Package */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-indian-rupee-sign mr-1.5 text-purple-500" aria-hidden="true" />
-              <span className="text-red-500">*</span> Package
-            </label>
-            <input
-              type="text"
-              value={form.package}
-              onChange={handleChange('package')}
-              placeholder="Enter package amount"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* HR Name */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user-tie mr-1.5 text-purple-500" aria-hidden="true" />
-              HR Name
-            </label>
-            <input
-              type="text"
-              value={form.hrName}
-              onChange={handleChange('hrName')}
-              placeholder="Enter HR name"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* HR Mobile */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />
-              HR Mobile
-            </label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              value={form.hrMobile}
-              onChange={handleChange('hrMobile')}
-              placeholder="Enter HR mobile"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* HR Email */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-envelope mr-1.5 text-purple-500" aria-hidden="true" />
-              HR Email
-            </label>
-            <input
-              type="email"
-              value={form.hrEmail}
-              onChange={handleChange('hrEmail')}
-              placeholder="Enter HR email"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* HR LinkedIn Profile */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-link mr-1.5 text-purple-500" aria-hidden="true" />
-              HR Linkedin profile
-            </label>
-            <input
-              type="text"
-              value={form.hrLinkedin}
-              onChange={handleChange('hrLinkedin')}
-              placeholder="LinkedIn profile URL"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Candidate Email */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-envelope mr-1.5 text-purple-500" aria-hidden="true" />
-              Candidate email
-            </label>
-            <input
-              type="email"
-              value={form.candidateEmail}
-              onChange={handleChange('candidateEmail')}
-              placeholder="Enter candidate email"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Candidate Mobile */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />
-              Candidate mobile
-            </label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              value={form.candidateMobile}
-              onChange={handleChange('candidateMobile')}
-              placeholder="Enter candidate mobile"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Mother Name */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
-              Mother name
-            </label>
-            <input
-              type="text"
-              value={form.motherName}
-              onChange={handleChange('motherName')}
-              placeholder="Enter mother's name"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Mother Mobile No. */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-phone mr-1.5 text-purple-500" aria-hidden="true" />
-              Mother mobile No.
-            </label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              value={form.motherMobile}
-              onChange={handleChange('motherMobile')}
-              placeholder="Enter mother's mobile"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Father Name */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
-              Father Name
-            </label>
-            <input
-              type="text"
-              value={form.fatherName}
-              onChange={handleChange('fatherName')}
-              placeholder="Enter father's name"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Father Mobile No. */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-phone mr-1.5 text-purple-500" aria-hidden="true" />
-              Father mobile no.
-            </label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              value={form.fatherMobile}
-              onChange={handleChange('fatherMobile')}
-              placeholder="Enter father's mobile"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Brother Name */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
-              Brother Name
-            </label>
-            <input
-              type="text"
-              value={form.brotherName}
-              onChange={handleChange('brotherName')}
-              placeholder="Enter brother's name"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Brother Mobile No. */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-phone mr-1.5 text-purple-500" aria-hidden="true" />
-              Brother mobile no.
-            </label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              value={form.brotherMobile}
-              onChange={handleChange('brotherMobile')}
-              placeholder="Enter brother's mobile"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Sister Name */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
-              Sister Name
-            </label>
-            <input
-              type="text"
-              value={form.sisterName}
-              onChange={handleChange('sisterName')}
-              placeholder="Enter sister's name"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Sister Mobile No. */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-phone mr-1.5 text-purple-500" aria-hidden="true" />
-              Sister Mobile no.
-            </label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              value={form.sisterMobile}
-              onChange={handleChange('sisterMobile')}
-              placeholder="Enter sister's mobile"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Aadhar */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-id-card mr-1.5 text-purple-500" aria-hidden="true" />
-              Aadhar
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={12}
-              value={form.aadhar}
-              onChange={handleChange('aadhar')}
-              placeholder="12 digit Aadhar"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* PAN */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-id-card-clip mr-1.5 text-purple-500" aria-hidden="true" />
-              PAN
-            </label>
-            <input
-              type="text"
-              maxLength={10}
-              value={form.pan}
-              onChange={handleChange('pan')}
-              placeholder="10 character PAN"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 uppercase focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Perm address */}
-          <div className="flex flex-col gap-1 md:col-span-2">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-house mr-1.5 text-purple-500" aria-hidden="true" />
-              Perm address
-            </label>
-            <input
-              type="text"
-              value={form.permanentAddress}
-              onChange={handleChange('permanentAddress')}
-              placeholder="Enter permanent address"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-
-          {/* Temp address */}
-          <div className="flex flex-col gap-1 md:col-span-2">
-            <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-location-dot mr-1.5 text-purple-500" aria-hidden="true" />
-              Temp address
-            </label>
-            <input
-              type="text"
-              value={form.temporaryAddress}
-              onChange={handleChange('temporaryAddress')}
-              placeholder="Enter temporary address"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-            />
-          </div>
-        </div>
+      {error && (
+        <p className="mt-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
       <div className="mt-6 flex justify-end">
@@ -4189,10 +3610,6 @@ function AdminCandidateSlotsView({ data, onBack }) {
     const formatted = formatDateDDMMYYYY(raw);
     return formatted || String(raw);
   };
-  const selectedDate = formatCandidateDateDisplay(candidate?.selectedDate || '-');
-  const joiningDate = formatCandidateDateDisplay(candidate?.joiningDate || '-');
-  const selectedCompany = candidate?.selectedCompany || '-';
-  const selectedPackage = candidate?.package || '-';
 
 const normaliseRoundLabelAdmin = (raw) => {
   const r = String(raw || '').trim();
@@ -4432,191 +3849,7 @@ const normaliseRoundLabelAdmin = (raw) => {
 
       {/* Summary row 2: selected candidate details */}
       {isSelectedCandidate && (
-        <div className="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pb-4 border-b border-slate-200">
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {selectedDate}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Selected Date</span>
-            </div>
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {joiningDate}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Joining Date</span>
-            </div>
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {selectedCompany}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Selected Company</span>
-            </div>
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {selectedPackage} {selectedPackage !== '-' ? 'LPA' : ''}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Package</span>
-            </div>
-          </div>
-
-          {/* New details in grid of 4 with data above the label */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-            {/* HR Name */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.hrName || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">HR Name</span>
-            </div>
-
-            {/* HR Mobile */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.hrMobile || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">HR Mobile</span>
-            </div>
-
-            {/* HR Email */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full truncate" title={candidate?.hrEmail || ''}>
-                {candidate?.hrEmail || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">HR Email</span>
-            </div>
-
-            {/* HR Linkedin profile */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              {candidate?.hrLinkedin ? (
-                <a
-                  href={candidate.hrLinkedin.startsWith('http') ? candidate.hrLinkedin : `https://${candidate.hrLinkedin}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-semibold text-sky-600 hover:underline break-all w-full truncate"
-                  title={candidate.hrLinkedin}
-                >
-                  {candidate.hrLinkedin}
-                </a>
-              ) : (
-                <span className="text-sm font-semibold text-slate-800">-</span>
-              )}
-              <span className="text-[11px] text-slate-500 mt-1">HR Linkedin profile</span>
-            </div>
-
-            {/* Candidate Email */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full truncate" title={candidate?.candidateEmail || ''}>
-                {candidate?.candidateEmail || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Candidate email</span>
-            </div>
-
-            {/* Candidate Mobile */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.candidateMobile || candidate?.mobile || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Candidate mobile</span>
-            </div>
-
-            {/* Mother Name */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.motherName || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Mother name</span>
-            </div>
-
-            {/* Mother Mobile No. */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.motherMobile || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Mother mobile No.</span>
-            </div>
-
-            {/* Father Name */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.fatherName || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Father Name</span>
-            </div>
-
-            {/* Father Mobile No. */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.fatherMobile || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Father mobile no.</span>
-            </div>
-
-            {/* Brother Name */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.brotherName || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Brother Name</span>
-            </div>
-
-            {/* Brother Mobile No. */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.brotherMobile || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Brother mobile no.</span>
-            </div>
-
-            {/* Sister Name */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.sisterName || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Sister Name</span>
-            </div>
-
-            {/* Sister Mobile No. */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.sisterMobile || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Sister Mobile no.</span>
-            </div>
-
-            {/* Aadhar */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.aadhar || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Aadhar</span>
-            </div>
-
-            {/* PAN */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0">
-              <span className="text-sm font-semibold text-slate-800 uppercase break-words w-full">
-                {candidate?.pan || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">PAN</span>
-            </div>
-
-            {/* Perm address */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0 sm:col-span-2">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.permanentAddress || candidate?.permAddress || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Perm address</span>
-            </div>
-
-            {/* Temp address */}
-            <div className="flex flex-col items-center text-center p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm min-w-0 sm:col-span-2">
-              <span className="text-sm font-semibold text-slate-800 break-words w-full">
-                {candidate?.temporaryAddress || candidate?.tempAddress || '-'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">Temp address</span>
-            </div>
-          </div>
-        </div>
+        <SelectedDetailsView candidate={candidate} formatDate={formatCandidateDateDisplay} />
       )}
 
       {/* Top section: Newly created slots (from 6th slot onwards, newest first) */}
@@ -5735,6 +4968,8 @@ export default function AdminDashboard() {
             sisterMobile: d.sisterMobile || '',
             aadhar: d.aadhar || '',
             pan: d.pan || '',
+            familyMemberName: d.familyMemberName || '',
+            familyMemberMobile: d.familyMemberMobile || '',
             permanentAddress: d.permanentAddress || d.permAddress || '',
             temporaryAddress: d.temporaryAddress || d.tempAddress || '',
             permAddress: d.permanentAddress || d.permAddress || '',
@@ -6304,6 +5539,8 @@ export default function AdminDashboard() {
           sisterMobile: d.sisterMobile || candidate.sisterMobile || '',
           aadhar: d.aadhar || candidate.aadhar || '',
           pan: d.pan || candidate.pan || '',
+          familyMemberName: d.familyMemberName || candidate.familyMemberName || '',
+          familyMemberMobile: d.familyMemberMobile || candidate.familyMemberMobile || '',
           permanentAddress: d.permanentAddress || d.permAddress || candidate.permanentAddress || candidate.permAddress || '',
           temporaryAddress: d.temporaryAddress || d.tempAddress || candidate.temporaryAddress || candidate.tempAddress || '',
           permAddress: d.permanentAddress || d.permAddress || candidate.permanentAddress || candidate.permAddress || '',
@@ -6557,6 +5794,7 @@ export default function AdminDashboard() {
           ) : editingCandidate ? (
             <AdminEditCandidateForm
               candidate={editingCandidate}
+              hrs={hrs}
               onBack={() => setEditingCandidate(null)}
               onSubmit={(data) => {
                 setCandidates((prev) =>
@@ -6584,23 +5822,12 @@ export default function AdminDashboard() {
                             hrName: data.hrName,
                             hrMobile: data.hrMobile,
                             hrEmail: data.hrEmail,
-                            hrLinkedin: data.hrLinkedin,
-                            candidateEmail: data.candidateEmail,
-                            candidateMobile: data.candidateMobile,
-                            motherName: data.motherName,
-                            motherMobile: data.motherMobile,
-                            fatherName: data.fatherName,
-                            fatherMobile: data.fatherMobile,
-                            brotherName: data.brotherName,
-                            brotherMobile: data.brotherMobile,
-                            sisterName: data.sisterName,
-                            sisterMobile: data.sisterMobile,
                             aadhar: data.aadhar,
                             pan: data.pan,
+                            familyMemberName: data.familyMemberName,
+                            familyMemberMobile: data.familyMemberMobile,
                             permanentAddress: data.permanentAddress,
-                            temporaryAddress: data.temporaryAddress,
                             permAddress: data.permanentAddress,
-                            tempAddress: data.temporaryAddress,
                           }),
                         }
                       : c,
