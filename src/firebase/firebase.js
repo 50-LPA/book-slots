@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 
-import { initializeFirestore, memoryLocalCache, memoryLruGarbageCollector } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 
 import { initializeAuth, browserSessionPersistence } from 'firebase/auth';
 
@@ -24,10 +24,11 @@ if (missing.length) {
 
 const app = initializeApp(firebaseConfig);
 
-// LRU memory cache keeps docs + resume tokens after a listener detaches, so re-subscribing
-// (tab/page switches) only bills changed docs. Not IndexedDB: candidate PII stays off disk.
+// IndexedDB cache keeps docs + resume tokens across page reloads and tabs, so re-opening a
+// screen within ~30 min only bills changed docs instead of re-reading whole collections
+// (memory cache re-read everything on every refresh and blew the 50K/day Spark quota).
 export const db = initializeFirestore(app, {
-  localCache: memoryLocalCache({ garbageCollector: memoryLruGarbageCollector() }),
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
 
 // Per-tab session (matches the app's sessionStorage 'sb_user' model).

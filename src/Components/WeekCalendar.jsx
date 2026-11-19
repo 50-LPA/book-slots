@@ -41,9 +41,13 @@ function WeekCalendar({ candidateIds = [], onEventClick, settings: settingsProp 
   const dayCount = showSaturday ? 6 : 5;
 
   useEffect(() => {
-    const unsubscribe = subscribeToApprovedSlots((evts) => setEvents(evts));
+    const unsubscribe = subscribeToApprovedSlots(
+      weekStart,
+      getWeekEndExclusive(weekStart, dayCount),
+      (evts) => setEvents(evts),
+    );
     return () => unsubscribe();
-  }, []);
+  }, [weekStart, dayCount]);
 
   useEffect(() => {
     getLeaves().then((list) => setLeaveDates(list.map((l) => l.date).filter(Boolean)));

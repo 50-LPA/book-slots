@@ -349,11 +349,16 @@ function mapDocsToEvents(docs, cCache = globalCandidatesCache, hCache = globalHr
  * Emits immediately on first snapshot without waiting for candidates/hrs collections,
  * eliminating the 3-4s blocking delay. Enriches asynchronously if needed.
  */
-export function subscribeToApprovedSlots(callback) {
-  // Filter on the server: the public calendar only shows approved slots.
+const toYMD = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+export function subscribeToApprovedSlots(from, toExclusive, callback) {
+  // Only the visible week is read (date is a YYYY-MM-DD string). Single-field range = no composite
+  // index; non-approved docs in the week are dropped client-side by mapDocsToEvents.
   const slotsRef = query(
     collection(db, SLOTS_COLLECTION),
-    where('status', 'in', ['Approved', 'approved']),
+    where('date', '>=', toYMD(from)),
+    where('date', '<', toYMD(toExclusive)),
   );
   let isSubscribed = true;
 

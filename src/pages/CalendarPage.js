@@ -38,9 +38,13 @@ export default function CalendarPage() {
   const dayCount = showSaturday ? 6 : 5;
 
   useEffect(() => {
-    const unsubscribe = subscribeToApprovedSlots((approvedEvents) => setEvents(approvedEvents));
+    const unsubscribe = subscribeToApprovedSlots(
+      weekStart,
+      getWeekEndExclusive(weekStart, dayCount),
+      (approvedEvents) => setEvents(approvedEvents),
+    );
     return () => unsubscribe();
-  }, [calendarRefreshKey]);
+  }, [calendarRefreshKey, weekStart, dayCount]);
 
   useEffect(() => {
     getLeaves().then((list) => setLeaveDates(list.map((l) => l.date).filter(Boolean)));
