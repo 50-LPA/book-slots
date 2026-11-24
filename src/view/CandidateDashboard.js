@@ -27,7 +27,7 @@ import {
   getCollectionDocs,
 } from '../firebase/slotsService';
 import { clearSyncedCollections } from '../firebase/syncedCollection';
-import PageHeader, { PageTitle } from '../Components/PageHeader';
+import PageHeader, { Breadcrumbs, PageTitle } from '../Components/PageHeader';
 import { checkHrDuplicates } from '../firebase/hrService';
 import {
   getCandidateMatchKeys,
@@ -327,30 +327,8 @@ function FeedbackRequiredModal({
 
 const NAV_LABELS = { slots: 'Slots', hrs: 'HRs', profile: 'Profile', myprofile: 'My Resume' };
 // Same icons as the navigation and page titles.
-const CRUMB_ICONS = { Home: 'fa-house', Slots: 'fa-calendar-days', HRs: 'fa-user-tie', Profile: 'fa-id-card', 'My Resume': 'fa-file-lines', 'Book New Slot': 'fa-calendar-plus' };
+const CRUMB_ICONS = { Home: 'fa-house', Slots: 'fa-calendar-days', HRs: 'fa-user-tie', Profile: 'fa-id-card', 'My Resume': 'fa-file-lines', 'Add New Slot': 'fa-calendar-plus' };
 
-// Home › … › current page. items: [label, onClick?][]; the last item (no onClick) is the current page.
-function Breadcrumbs({ items }) {
-  return (
-    <nav aria-label="Breadcrumb" className="px-2 pt-2 sm:px-4 md:px-8 print:hidden">
-      <ol className="flex flex-wrap items-center gap-x-1 text-xs sm:text-sm text-slate-500">
-        {items.map(([label, onClick], i) => (
-          <li key={label} className="flex items-center gap-1">
-            {i > 0 && <i className="fa-solid fa-chevron-right text-[9px] text-slate-400" aria-hidden="true" />}
-            {CRUMB_ICONS[label] && <i className={`fa-solid ${CRUMB_ICONS[label]} text-[11px] ${onClick ? 'text-purple-600' : 'text-slate-700'}`} aria-hidden="true" />}
-            {onClick ? (
-              <button type="button" onClick={onClick} className="py-1 font-medium text-purple-600 hover:text-purple-800 hover:underline">
-                {label}
-              </button>
-            ) : (
-              <span aria-current="page" className="py-1 font-semibold text-slate-800">{label}</span>
-            )}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
 
 function Header({
   userName,
@@ -2149,11 +2127,11 @@ export default function CandidateDashboard() {
         items={[
           ['Home', activeNav === 'home' && !showBookSlot ? null : () => handleNavClick('home')],
           ...(showBookSlot
-            ? [...(bookFrom !== 'home' && NAV_LABELS[bookFrom] ? [[NAV_LABELS[bookFrom], () => { setShowBookSlot(false); setActiveNav(bookFrom); }]] : []), ['Book New Slot']]
+            ? [...(bookFrom !== 'home' && NAV_LABELS[bookFrom] ? [[NAV_LABELS[bookFrom], () => { setShowBookSlot(false); setActiveNav(bookFrom); }]] : []), ['Add New Slot']]
             : activeNav !== 'home' && NAV_LABELS[activeNav]
             ? [[NAV_LABELS[activeNav]]]
             : []),
-        ]}
+        ].map(([label, onClick]) => ({ label, onClick, icon: CRUMB_ICONS[label] }))}
       />
       {!showBookSlot && activeNav === 'home' && (
         <div className="px-2 sm:px-4 md:px-8 print:hidden">

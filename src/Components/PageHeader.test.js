@@ -1,27 +1,38 @@
+import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import PageHeader, { HomeCrumb } from './PageHeader';
+import PageHeader, { Breadcrumbs, SetTrail } from './PageHeader';
 
-test('admin pages: Home › parents › current page; parents are links', () => {
+// A dashboard in miniature: breadcrumbs above, outside the page card.
+function Shell({ home, children }) {
+  const [trail, setTrail] = useState(null);
+  return (
+    <SetTrail.Provider value={setTrail}>
+      <Breadcrumbs items={[home, ...(trail ?? [])]} />
+      <section data-testid="card">{children}</section>
+    </SetTrail.Provider>
+  );
+}
+
+test('page reports Home › parents › itself; the bar sits outside the card; parents are links', () => {
   const home = jest.fn();
   const parent = jest.fn();
   render(
-    <HomeCrumb.Provider value={{ label: 'Home', onClick: home }}>
+    <Shell home={{ label: 'Home', icon: 'fa-house', onClick: home }}>
       <PageHeader icon="fa-user-pen" title="Edit Parth" parents={[{ label: 'Candidates', onClick: parent }]} />
-    </HomeCrumb.Provider>,
+    </Shell>,
   );
   const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
   expect(nav).toHaveTextContent('HomeCandidatesEdit Parth');
+  expect(screen.getByTestId('card')).not.toContainElement(nav);
   fireEvent.click(screen.getByRole('button', { name: 'Candidates' }));
   fireEvent.click(screen.getByRole('button', { name: 'Home' }));
   expect(parent).toHaveBeenCalled();
   expect(home).toHaveBeenCalled();
-  expect(nav.querySelector('[aria-current="page"]')).toHaveTextContent('Edit Parth'); // eslint-disable-line testing-library/no-node-access
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Edit Parth');
 });
 
-test('candidate pages: title only, no breadcrumbs', () => {
-  render(<PageHeader icon="fa-calendar-days" title="My Slots" onBack={() => {}} backLabel="Back to home" />);
-  expect(screen.queryByRole('navigation')).toBeNull();
-  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('My Slots');
-  expect(screen.getByRole('button', { name: 'Back to home' })).toBeInTheDocument();
+test('home page: Home alone, as the current page', () => {
+  render(<Shell home={{ label: 'Home', icon: 'fa-house', onClick: jest.fn() }} />);
+  expect(screen.queryByRole('button', { name: 'Home' })).toBeNull();
+  expect(screen.getByText('Home')).toHaveAttribute('aria-current', 'page');
 });

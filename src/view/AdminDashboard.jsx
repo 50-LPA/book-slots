@@ -18,7 +18,7 @@ import {
 import { signOut } from 'firebase/auth';
 import { mayLeave, navigated } from '../profile/unsaved.js';
 import StatCounts from '../Components/StatCounts';
-import PageHeader, { HomeCrumb, PageTitle } from '../Components/PageHeader';
+import PageHeader, { Breadcrumbs, PageTitle, SetTrail } from '../Components/PageHeader';
 import { friendlyMessage } from '../utils/quota';
 import { db, auth, adminSetCandidateAuth, adminDeleteCandidateAuth, normalizeMobile } from '../firebase/firebase';
 import {
@@ -4805,7 +4805,8 @@ export default function AdminDashboard() {
     }
   };
   const [showAddForm, setShowAddForm] = useState(false);
-  // Breadcrumb root on every admin page: back to Home, closing any open sub-page.
+  // Breadcrumbs above every page card: Home (closes any open sub-page) › what the page's header reports.
+  const [trail, setTrail] = useState(null);
   const homeCrumb = {
     label: 'Home',
     icon: 'fa-house',
@@ -5644,8 +5645,10 @@ export default function AdminDashboard() {
         onChange={changeTab}
         pendingApprovals={pendingApprovals}
       />
-      <HomeCrumb.Provider value={homeCrumb}>
-      <main className="p-2 sm:p-4 md:p-8 print:p-0">
+      <SetTrail.Provider value={setTrail}>
+      <Breadcrumbs items={[homeCrumb, ...(trail ?? [])]} />
+      {/* Same gutter as the candidate dashboard: breadcrumbs sit just above the page card. */}
+      <main className="px-2 pb-2 pt-1 sm:px-4 sm:pb-4 sm:pt-2 md:px-8 md:pb-8 print:p-0">
         {pendingSlots.length > 0 && (
           <div className="print:hidden mb-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-3">
             {pendingSlots.map((slot) => {
@@ -6354,7 +6357,7 @@ export default function AdminDashboard() {
       />
 
       </main>
-      </HomeCrumb.Provider>
+      </SetTrail.Provider>
 
       {/* HR Success Toast Notification */}
       {showHrSuccessToast && (
