@@ -26,6 +26,7 @@ import {
   isSlotPast,
   getCollectionDocs,
 } from '../firebase/slotsService';
+import { clearSyncedCollections } from '../firebase/syncedCollection';
 import { checkHrDuplicates } from '../firebase/hrService';
 import {
   getCandidateMatchKeys,
@@ -1416,7 +1417,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                   try {
                     setSavingFeedback(true);
                     const ref = doc(db, 'events', feedbackSlot.id);
-                    await updateDoc(ref, { feedback: feedbackText.trim() });
+                    await updateDoc(ref, { feedback: feedbackText.trim(), updatedAt: serverTimestamp() });
                     setSlots((prev) =>
                       prev.map((s) =>
                         s.id === feedbackSlot.id ? { ...s, feedback: feedbackText.trim() } : s,
@@ -1762,11 +1763,10 @@ export default function CandidateDashboard() {
   const [hrsError, setHrsError] = useState(null);
   const [hrsRefreshKey, setHrsRefreshKey] = useState(0);
 
-  // Fetch HRs once per refresh (deferred when on calendar to prioritize slots)
+  // Fetch HRs once per refresh, only when a screen shows them (HR list, booking, My Slots' HR fallback).
   useEffect(() => {
     if (hrsLoadedKeyRef.current === hrsRefreshKey) return undefined;
-    const isHrNeededNow = activeNav === 'hrs' || showBookSlot;
-    let timerId = null;
+    if (!(activeNav === 'hrs' || activeNav === 'slots' || showBookSlot)) return undefined;
 
     const fetchHRs = async () => {
       hrsLoadedKeyRef.current = hrsRefreshKey;
@@ -1778,8 +1778,8 @@ export default function CandidateDashboard() {
           setHrsLoading(true);
         }
         setHrsError(null);
-        // Shared live listener: always current, so Reload costs no extra reads.
-        const hrDocs = await getCollectionDocs('hrs');
+        // Device copy: Reload reads only HRs changed since the last sync.
+        const hrDocs = await getCollectionDocs('hrs', { fresh: hrsRefreshKey > 0 });
         const hrsData = hrDocs.map((doc) => ({
           id: doc.id, // Store Firestore document ID
           name: doc.data().name || '',
@@ -1804,26 +1804,8 @@ export default function CandidateDashboard() {
       }
     };
 
-    if (isHrNeededNow) {
-      fetchHRs();
-    } else {
-      // Defer loading HRs until after Calendar and Slots have loaded and rendered
-      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-        timerId = window.requestIdleCallback(() => fetchHRs(), { timeout: 2500 });
-      } else {
-        timerId = setTimeout(() => fetchHRs(), 1500);
-      }
-    }
-
-    return () => {
-      if (timerId) {
-        if (typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
-          window.cancelIdleCallback(timerId);
-        } else {
-          clearTimeout(timerId);
-        }
-      }
-    };
+    fetchHRs();
+    return undefined;
   }, [activeNav, hrsRefreshKey, showBookSlot]);
 
   useEffect(() => {
@@ -2059,6 +2041,7 @@ export default function CandidateDashboard() {
         addedBy: addedByName,
         addedById: addedByIdForAdmin || null,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
       // Update local state with Firestore ID
@@ -2176,6 +2159,7 @@ export default function CandidateDashboard() {
 
   const handleLogout = () => {
     sessionStorage.removeItem('sb_user');
+    clearSyncedCollections(); // device copy of the HR list
     signOut(auth).catch(() => {});
     navigate('/login', { replace: true });
   };

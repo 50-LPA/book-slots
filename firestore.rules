@@ -28,7 +28,7 @@ service cloud.firestore {
       return keys.hasOnly(['experience', 'technologies', 'technology', 'isActive', 'status',
           'selected', 'isSelected', 'selectedDate', 'joiningDate', 'selectedCompany', 'package',
           'selectedPackage', 'hrName', 'hrMobile', 'hrEmail', 'aadhar', 'pan',
-          'familyMemberName', 'familyMemberMobile', 'permanentAddress', 'permAddress'])
+          'familyMemberName', 'familyMemberMobile', 'permanentAddress', 'permAddress', 'updatedAt'])
         && (!keys.hasAny(['isActive', 'status']) || request.resource.data.get('isActive', true) == false);
     }
     function ownsEvent(data) {

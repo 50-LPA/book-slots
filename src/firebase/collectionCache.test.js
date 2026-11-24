@@ -1,37 +1,58 @@
-import { onSnapshot } from 'firebase/firestore';
-import { getCollectionDocs } from './slotsService';
+import { Timestamp, getCountFromServer, getDocs } from 'firebase/firestore';
+import { getSyncedDocs, forgetSyncedDoc } from './syncedCollection';
 
 jest.mock('./firebase', () => ({ db: {}, auth: { currentUser: { uid: 'u1' } } }));
 jest.mock('firebase/firestore', () => ({
   ...jest.requireActual('firebase/firestore'),
-  collection: jest.fn(() => ({})),
-  onSnapshot: jest.fn(),
+  collection: jest.fn(() => ({ kind: 'all' })),
+  query: jest.fn(() => ({ kind: 'delta' })),
+  where: jest.fn(),
+  getDocs: jest.fn(),
+  getCountFromServer: jest.fn(),
 }));
 
-const snap = (docs, fromCache = false) => ({ docs, metadata: { fromCache } });
+const ts = (s) => new Timestamp(s, 0);
+const d = (id, updatedAt, extra = {}) => ({ id, data: () => ({ updatedAt, ...extra }) });
+const ids = (docs) => docs.map((x) => x.id).sort();
+const count = (n) => ({ data: () => ({ count: n }) });
 
-test('one shared listener; waits for server data; live updates; errors are not cached', async () => {
-  let emit;
-  let fail;
-  onSnapshot.mockImplementation((_q, _o, next, error) => {
-    emit = next;
-    fail = error;
-    return jest.fn();
-  });
+test('first load reads all; later syncs read only changes; deletes elsewhere force one full reload', async () => {
+  getDocs.mockResolvedValueOnce({ docs: [d('a', ts(10)), d('b', undefined)] }); // full
+  expect(ids(await getSyncedDocs('hrs'))).toEqual(['a', 'b']);
 
-  const first = getCollectionDocs('hrs');
-  emit(snap(['stale'], true)); // cache-only copy is ignored
-  emit(snap(['a']));
-  expect(await first).toEqual(['a']);
-  emit(snap(['a', 'b']));
-  expect(await getCollectionDocs('hrs')).toEqual(['a', 'b']);
-  expect(onSnapshot).toHaveBeenCalledTimes(1);
+  // Within 5 minutes: served from memory, no reads.
+  await getSyncedDocs('hrs');
+  expect(getDocs).toHaveBeenCalledTimes(1);
 
-  const failing = getCollectionDocs('candidates');
-  fail(new Error('offline'));
-  await expect(failing).rejects.toThrow('offline');
-  const retry = getCollectionDocs('candidates');
-  emit(snap(['c']));
-  expect(await retry).toEqual(['c']);
-  expect(onSnapshot).toHaveBeenCalledTimes(3);
+  // Reload: delta (one changed, one new) + count.
+  getDocs.mockResolvedValueOnce({ docs: [d('a', ts(20), { name: 'x' }), d('c', ts(21))] });
+  getCountFromServer.mockResolvedValueOnce(count(3));
+  const after = await getSyncedDocs('hrs', { fresh: true });
+  expect(ids(after)).toEqual(['a', 'b', 'c']);
+  expect(after.find((x) => x.id === 'a').data().name).toBe('x');
+  expect(getDocs).toHaveBeenCalledTimes(2);
+
+  // Deleted here: dropped locally, count still matches, no full reload.
+  forgetSyncedDoc('hrs', 'c');
+  getDocs.mockResolvedValueOnce({ docs: [] });
+  getCountFromServer.mockResolvedValueOnce(count(2));
+  expect(ids(await getSyncedDocs('hrs', { fresh: true }))).toEqual(['a', 'b']);
+  expect(getDocs).toHaveBeenCalledTimes(3);
+
+  // Deleted on another device: count mismatch → one full reload.
+  getDocs.mockResolvedValueOnce({ docs: [] }).mockResolvedValueOnce({ docs: [d('a', ts(20))] });
+  getCountFromServer.mockResolvedValueOnce(count(1));
+  expect(ids(await getSyncedDocs('hrs', { fresh: true }))).toEqual(['a']);
+  expect(getDocs).toHaveBeenCalledTimes(5);
+
+  // Server unreachable (quota, offline): the copy is still served.
+  getDocs.mockRejectedValueOnce(new Error('quota'));
+  getCountFromServer.mockResolvedValueOnce(count(1));
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  expect(ids(await getSyncedDocs('hrs', { fresh: true }))).toEqual(['a']);
+});
+
+test('no copy yet and the server fails: the error reaches the caller', async () => {
+  getDocs.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+  await expect(getSyncedDocs('candidates')).rejects.toThrow('denied');
 });

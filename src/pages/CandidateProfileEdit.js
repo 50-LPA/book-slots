@@ -1,6 +1,6 @@
 import { isQuotaError } from '../utils/quota';
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDocs, query, updateDoc, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import {
   SelectedFields,
@@ -108,6 +108,7 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
         ...selectionPayload(form),
         // Selected candidates are deactivated and can no longer log in.
         ...(form.selected && { isActive: false, status: 'Inactive' }),
+        updatedAt: serverTimestamp(),
       });
 
       if (form.selected) {

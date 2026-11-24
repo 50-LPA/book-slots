@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../firebase/firebase';
 import CandidateDashboard from '../view/CandidateDashboard';
@@ -77,7 +77,7 @@ export default function CandidateRouteGuard() {
             if (data.isActive === false || data.status === 'Inactive' || isMoreThanTwoWeeks) {
               if (data.isActive !== false && isMoreThanTwoWeeks && candidateRef) {
                 try {
-                  await updateDoc(candidateRef, { isActive: false, status: 'Inactive' });
+                  await updateDoc(candidateRef, { isActive: false, status: 'Inactive', updatedAt: serverTimestamp() });
                 } catch (err) {
                   // ignore
                 }

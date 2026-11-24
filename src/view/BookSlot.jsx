@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY } from '../firebase/slotsService';
 import { subscribeToSlotSettings, getStoredSlotSettings } from '../firebase/settingsService';
@@ -617,6 +617,7 @@ export default function BookSlot({
       status: 'Pending Approval',
       feedback: '',
       createdAt: new Date().toISOString(),
+      updatedAt: serverTimestamp(), // lets the admin's device copy pick it up (src/firebase/syncedCollection.js)
       candidateId,
       candidateMobile,
       isApproved: false,

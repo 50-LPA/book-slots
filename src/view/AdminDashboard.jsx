@@ -33,6 +33,7 @@ import {
   getCollectionDocs,
   getCandidatesById,
 } from '../firebase/slotsService';
+import { forgetSyncedDoc, clearSyncedCollections } from '../firebase/syncedCollection';
 import {
   subscribeToSlotSettings,
   saveSlotSettings,
@@ -183,6 +184,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
     sessionStorage.removeItem('sb_user');
     // Profile pages keep a local copy of candidate profiles and resume drafts (src/profile/data.js): don't leave it on the device.
     Object.keys(localStorage).filter((k) => k.startsWith('slot-profile:')).forEach((k) => localStorage.removeItem(k));
+    clearSyncedCollections(); // device copies of candidates / HRs / events
     signOut(auth).catch(() => {});
     setMenuOpen(false);
     navigate('/login', { replace: true });
@@ -1122,6 +1124,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
         selectedPackage: '',
         joiningDate: '',
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         regimeType: 'new-70',
       };
 
@@ -1561,6 +1564,7 @@ function AdminEditCandidateForm({ candidate, hrs = [], onBack, onSubmit }) {
         name: form.name.trim(),
         mobile: form.mobile.trim(),
         password: deleteField(), // purge any legacy plaintext password
+        updatedAt: serverTimestamp(),
         approvedByAdmin: true,
         technology: techString,
         refereedBy: form.referredBy,
@@ -1830,7 +1834,8 @@ function listenSlots(q, onSlots, onError) {
     unsubscribe();
   };
 }
-const fetchSlots = async (q) => enrichSlotNames(slotsSnapshotToUI(await getDocs(q)).sort(byNewest));
+// Every event from the device copy (first load reads all; later only changed docs).
+const fetchAllSlots = async (fresh) => enrichSlotNames(slotsSnapshotToUI({ docs: await getCollectionDocs('events', { fresh }) }).sort(byNewest));
 
 function AdminSlotsTable({
   slots,
@@ -5141,9 +5146,10 @@ export default function AdminDashboard() {
     }
   }, [activeTab]);
 
-  // Load HRs from Firestore on mount and listen for real-time updates
+  // HRs from the device copy (only changed docs are read); bumped after each HR write to pick it up.
+  const [hrsReloadKey, setHrsReloadKey] = useState(0);
+  const reloadHrs = () => setHrsReloadKey((k) => k + 1);
   useEffect(() => {
-    const q = query(collection(db, 'hrs'));
     let cancelled = false;
 
     const looksLikeIdOrMobile = (val) => {
@@ -5156,13 +5162,11 @@ export default function AdminDashboard() {
       return false;
     };
     
-    // Real-time listener for HRs collection
-    const unsubscribe = onSnapshot(
-      q,
-      async (querySnapshot) => {
+    getCollectionDocs('hrs', { fresh: hrsReloadKey > 0 }).then(
+      async (hrDocs) => {
         const firestoreHRs = [];
-        
-        querySnapshot.forEach((doc) => {
+
+        hrDocs.forEach((doc) => {
           const data = doc.data();
           firestoreHRs.push({
             id: doc.id, // stable key; numbering per snapshot made local handlers hit the wrong row
@@ -5228,15 +5232,14 @@ export default function AdminDashboard() {
         setHrs(enrichedFirestoreHRs);
       },
       (err) => {
-        console.error('Error listening to HRs collection:', err);
+        console.error('Error loading HRs:', err);
       }
     );
 
     return () => {
       cancelled = true;
-      unsubscribe();
     };
-  }, []);
+  }, [hrsReloadKey]);
 
   const [slotFilter, setSlotFilter] = useState('all');
   const [slotSearch, setSlotSearch] = useState('');
@@ -5278,7 +5281,7 @@ export default function AdminDashboard() {
   const historyRef = useRef(null);
   const loadHistory = (fresh = false) => {
     if (fresh || !historyRef.current) {
-      const run = fetchSlots(query(collection(db, 'events'), orderBy('createdAt', 'desc')));
+      const run = fetchAllSlots(fresh);
       historyRef.current = run;
       run.then(
         (list) => historyRef.current === run && setAllSlots(list),
@@ -5291,7 +5294,7 @@ export default function AdminDashboard() {
     }
     return historyRef.current.catch(() => allSlots ?? []);
   };
-  const needsHistory = activeTab === 'candidates' || activeTab === 'stats' || (activeTab === 'slots' && slotRange === 'all');
+  const needsHistory = activeTab === 'candidates' || activeTab === 'stats' || activeTab === 'slots';
   useEffect(() => {
     if (needsHistory) loadHistory();
   }, [needsHistory]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -5299,21 +5302,14 @@ export default function AdminDashboard() {
     if (slotRange === 'all') setSlotsLoading(!allSlots);
   }, [slotRange, allSlots]);
 
-  // Slots tab summary (this/last week, averages over 4 weeks / 30 days): slots from 30 days ago onwards, read once.
-  const [recentSlots, setRecentSlots] = useState([]);
-  const recentLoaded = useRef(false);
-  useEffect(() => {
-    if (activeTab !== 'slots' || recentLoaded.current) return;
-    recentLoaded.current = true;
+  // Slots tab summary (this/last week, averages over 4 weeks / 30 days): slots from 30 days ago onwards,
+  // taken from the history copy (no extra reads).
+  const recentSlots = useMemo(() => {
     const since = new Date();
     since.setDate(since.getDate() - 30);
-    getDocs(query(collection(db, 'events'), where('date', '>=', ymd(since))))
-      .then((snap) => setRecentSlots(slotsSnapshotToUI(snap)))
-      .catch((err) => {
-        recentLoaded.current = false;
-        console.error('Error loading recent slots:', err);
-      });
-  }, [activeTab]);
+    since.setHours(0, 0, 0, 0);
+    return slots.filter((s) => s.date instanceof Date && s.date >= since);
+  }, [slots]);
 
   // Automatically sync candidate account inactivity to Firestore if their last interview was > 2 weeks ago
   // Each doc is written once per session and mirrored into local state; previously every slots
@@ -5328,7 +5324,7 @@ export default function AdminDashboard() {
       if (!isCandidateInterviewOlderThanTwoWeeks(slots, c)) return;
       autoDeactivatedRef.current.add(docId);
       try {
-        await updateDoc(doc(db, c.sourceCollection || 'candidates', docId), { isActive: false, status: 'Inactive' });
+        await updateDoc(doc(db, c.sourceCollection || 'candidates', docId), { isActive: false, status: 'Inactive', updatedAt: serverTimestamp() });
         setCandidates((prev) =>
           prev.map((x) => ((x.firestoreId || x.id) === docId ? { ...x, isActive: false, status: 'Inactive' } : x)),
         );
@@ -5529,6 +5525,7 @@ export default function AdminDashboard() {
         isActive,
         status: newStatus,
         lastActivatedAt,
+        updatedAt: serverTimestamp(),
       };
       await updateDoc(doc(db, collectionName, docId), updatePayload);
     } catch (err) {
@@ -5564,6 +5561,7 @@ export default function AdminDashboard() {
       if (candidate.firestoreId) {
         await adminDeleteCandidateAuth({ uid: candidate.firestoreId });
         await deleteDoc(doc(db, collectionName, candidate.firestoreId));
+        forgetSyncedDoc(collectionName, candidate.firestoreId);
       } else if (candidate.mobile) {
         // Fallback: look up by mobile if we don't have firestoreId
         const q = query(
@@ -5574,9 +5572,9 @@ export default function AdminDashboard() {
         const batchDeletions = [];
         snap.forEach((docSnap) => {
           batchDeletions.push(
-            adminDeleteCandidateAuth({ uid: docSnap.id }).then(() =>
-              deleteDoc(doc(db, collectionName, docSnap.id)),
-            ),
+            adminDeleteCandidateAuth({ uid: docSnap.id })
+              .then(() => deleteDoc(doc(db, collectionName, docSnap.id)))
+              .then(() => forgetSyncedDoc(collectionName, docSnap.id)),
           );
         });
         await Promise.all(batchDeletions);
@@ -5740,9 +5738,9 @@ export default function AdminDashboard() {
       // If HR has a Firestore ID, delete from Firestore
       if (hrToDelete?.firestoreId) {
         await deleteDoc(doc(db, 'hrs', hrToDelete.firestoreId));
+        forgetSyncedDoc('hrs', hrToDelete.firestoreId);
       }
-      
-      // The hrs listener drops the row (instantly, via latency compensation).
+      reloadHrs();
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('Failed to delete HR:', err);
@@ -6077,9 +6075,9 @@ export default function AdminDashboard() {
                   addedBy: newHr.addedBy,
                   addedById: newHr.addedById,
                   createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
                 });
-                
-                // The hrs listener adds the row (instantly, via latency compensation).
+                reloadHrs();
                 
                 // Show success toast
                 setShowHrSuccessToast(true);
@@ -6131,8 +6129,10 @@ export default function AdminDashboard() {
                     company: data.company ?? current.company ?? '',
                     technology: data.technology ?? current.technology ?? '',
                     jobType: data.jobType ?? current.jobType ?? '',
+                    updatedAt: serverTimestamp(),
                   };
                   await updateDoc(doc(db, 'hrs', firestoreId), payload);
+                  reloadHrs();
                 }
               } catch (err) {
                 // eslint-disable-next-line no-console

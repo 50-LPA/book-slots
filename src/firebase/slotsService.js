@@ -11,6 +11,7 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { getSyncedDocs, forgetSyncedDoc } from './syncedCollection';
 import {
   getCandidateMatchKeys,
   normalizeCandidateMobile,
@@ -199,43 +200,21 @@ export function slotToCalendarEvent(slot) {
   };
 }
 
-// One shared live listener per collection (candidates, hrs), kept for the app's lifetime. The
-// first caller pays one full read; afterwards Firestore bills only changed docs, and every
-// caller gets current data without refetching the whole collection.
-const collectionCache = {}; // name -> { promise, docs }
-// Public visitors / candidates may not list candidates (firestore.rules). Remember a denial per
-// signed-in uid so we don't retry on every snapshot; names then come from the event docs.
+// Whole collections (candidates, hrs, events) come from the device copy in ./syncedCollection,
+// which re-reads only changed docs. Public visitors / candidates may not list candidates
+// (firestore.rules): remember a denial per signed-in uid so we don't retry; names then come from the event docs.
 const deniedFor = {};
 const currentUid = () => auth.currentUser?.uid ?? null;
 
-/** Resolves to the collection's current docs (QueryDocumentSnapshot[]). Rejects on error. */
-export function getCollectionDocs(name) {
-  const hit = collectionCache[name];
-  if (hit) return hit.docs ? Promise.resolve(hit.docs) : hit.promise;
+/** Resolves to the collection's docs ([{ id, data() }]). Rejects on error. */
+export function getCollectionDocs(name, options) {
   if (deniedFor[name] !== undefined && deniedFor[name] === currentUid()) {
     return Promise.reject(Object.assign(new Error('permission-denied'), { code: 'permission-denied' }));
   }
-  const entry = {};
-  entry.promise = new Promise((resolve, reject) => {
-    const unsub = onSnapshot(
-      collection(db, name),
-      { includeMetadataChanges: true },
-      (snap) => {
-        // Skip the stale IndexedDB copy until the server has confirmed it once.
-        if (snap.metadata.fromCache && !entry.docs) return;
-        entry.docs = snap.docs;
-        resolve(snap.docs);
-      },
-      (err) => {
-        if (err?.code === 'permission-denied') deniedFor[name] = currentUid();
-        if (collectionCache[name] === entry) delete collectionCache[name];
-        unsub?.();
-        reject(err);
-      },
-    );
+  return getSyncedDocs(name, options).catch((err) => {
+    if (err?.code === 'permission-denied') deniedFor[name] = currentUid();
+    throw err;
   });
-  collectionCache[name] = entry;
-  return entry.promise;
 }
 
 /** Map of candidate doc id AND mobile -> raw doc data. Empty on error. */
@@ -374,9 +353,14 @@ export function subscribeToApprovedSlots(from, toExclusive, callback) {
       const immediateEvents = mapDocsToEvents(snapshot.docs, globalCandidatesCache, globalHrCache);
       callback(immediateEvents);
 
-      // 2. BACKGROUND PATH: If cache was missing, load in background and re-emit enriched events
-      if (!globalCandidatesCache || !globalHrCache) {
-        Promise.all([fetchCandidatesCache(), fetchHrCache()]).then(([cCache, hCache]) => {
+      // 2. BACKGROUND PATH: only when some slot lacks a name, load the lists and re-emit enriched events
+      const needCandidate = !globalCandidatesCache && snapshot.docs.some((d) => !String(d.data().candidateName || d.data().name || '').trim());
+      const needHr = !globalHrCache && snapshot.docs.some((d) => String(d.data().hrId || '').trim() && !String(d.data().hrName || '').trim());
+      if (needCandidate || needHr) {
+        Promise.all([
+          needCandidate ? fetchCandidatesCache() : globalCandidatesCache,
+          needHr ? fetchHrCache() : globalHrCache,
+        ]).then(([cCache, hCache]) => {
           if (!isSubscribed) return;
           const enrichedEvents = mapDocsToEvents(snapshot.docs, cCache, hCache);
           callback(enrichedEvents);
@@ -790,6 +774,7 @@ export async function deleteSlot(slotId) {
   try {
     const slotRef = doc(db, SLOTS_COLLECTION, slotId);
     await deleteDoc(slotRef);
+    forgetSyncedDoc(SLOTS_COLLECTION, slotId);
     return true;
   } catch (error) {
     console.error('Error deleting slot:', error);
@@ -915,6 +900,7 @@ export async function syncCandidateDisplayNameOnEvents({
       updates.push(
         updateDoc(doc(db, SLOTS_COLLECTION, docSnap.id), {
           candidateName: trimmedName,
+          updatedAt: serverTimestamp(),
         }),
       );
     });

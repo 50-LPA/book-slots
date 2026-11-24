@@ -1,7 +1,7 @@
 import { isQuotaError, quotaMessage, reportQuota } from '../utils/quota';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { db, auth, mobileToAuthEmail, normalizeMobile, toAuthPassword } from '../firebase/firebase';
 import {
@@ -141,7 +141,7 @@ export default function Login() {
       if (candidateData.isActive === false || candidateData.status === 'Inactive' || isMoreThanTwoWeeks) {
         if (candidateData.isActive !== false && isMoreThanTwoWeeks) {
           try {
-            await updateDoc(doc(db, 'candidates', candidateDoc.id), { isActive: false, status: 'Inactive' });
+            await updateDoc(doc(db, 'candidates', candidateDoc.id), { isActive: false, status: 'Inactive', updatedAt: serverTimestamp() });
           } catch (updateErr) {
             console.error('Failed to auto-update candidate inactive status on login:', updateErr);
           }
