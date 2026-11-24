@@ -498,31 +498,6 @@ function AdminCandidatesTable({
   }, [candidates.length, selectionFilter, technologyFilter, referredByFilter, statusFilter, search]);
 
   // Row pieces shared by the desktop table and the phone cards.
-  const refIcon = (c) => {
-    const ref = (c.referredBy || '').toLowerCase();
-    let bg = 'bg-slate-100';
-    let text = 'text-slate-600';
-    if (ref.includes('anil')) {
-      bg = 'bg-blue-100';
-      text = 'text-blue-600';
-    } else if (ref.includes('viraj')) {
-      bg = 'bg-emerald-100';
-      text = 'text-emerald-600';
-    } else if (ref.includes('nilesh')) {
-      bg = 'bg-red-100';
-      text = 'text-red-600';
-    } else if (ref.includes('vishal')) {
-      bg = 'bg-orange-100';
-      text = 'text-orange-600';
-    }
-    return (
-      <span
-        className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${bg} ${text} text-[11px] flex-shrink-0`}
-      >
-        <i className="fa-solid fa-user text-xs" aria-hidden="true" />
-      </span>
-    );
-  };
   const lastInterview = (c) => {
     const last = getLastInterview(c);
     if (last) {
@@ -547,7 +522,7 @@ function AdminCandidatesTable({
   const docIcons = (c) => {
     if (!profiles) return null;
     const p = profileByMobile.get(normalizeMobile(c.mobile).slice(-10));
-    // Same round tinted chip as the referrer icon (refIcon); grey = not created yet.
+    // Round tinted chips; grey = not created yet.
     const icon = (fa, on, label, tone) => (
       <span role="img" aria-label={label} title={label}
         className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${on ? tone : 'bg-slate-100 text-slate-300'}`}>
@@ -740,7 +715,6 @@ function AdminCandidatesTable({
         {paginatedCandidates.map((c) => (
           <div key={c.firestoreId || c.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="flex items-start gap-2">
-              {refIcon(c)}
               <div className="min-w-0 flex-1">
                 <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-900">
                   <span className="truncate">{c.name}</span>
@@ -773,9 +747,6 @@ function AdminCandidatesTable({
         <table className="min-w-full border-collapse text-xs sm:text-sm border border-slate-200">
           <thead>
             <tr className="bg-slate-50 text-slate-600">
-              <th className="px-3 py-2 text-center font-semibold border-b border-r border-slate-200 w-10">
-                Sr.
-              </th>
               <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
                 Name
               </th>
@@ -803,14 +774,10 @@ function AdminCandidatesTable({
             </tr>
           </thead>
           <tbody>
-            {paginatedCandidates.map((c, idx) => (
+            {paginatedCandidates.map((c) => (
               <tr key={c.firestoreId || c.id} className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">
-                  {startIdx + idx + 1}
-                </td>
                 <td className="px-3 py-2 text-slate-800 border-r border-slate-200">
                   <div className="flex items-center gap-1.5">
-                    {refIcon(c)}
                     <span className="truncate">{c.name}</span>
                     {(c.selected || c.isSelected) && (
                       <span className="ml-1 text-xs font-bold text-blue-600 whitespace-nowrap">
