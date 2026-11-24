@@ -5692,7 +5692,8 @@ export default function AdminDashboard() {
         pendingApprovals={pendingApprovals}
       />
       <SetTrail.Provider value={setTrail}>
-      <Breadcrumbs items={[homeCrumb, ...(trail ?? [])]} />
+      {/* Home screen: no breadcrumb (it would only say "Home"); every other screen starts its trail at Home. */}
+      {!(activeTab === 'home' && !trail?.length) && <Breadcrumbs items={[homeCrumb, ...(trail ?? [])]} />}
       {/* Same gutter as the candidate dashboard: breadcrumbs sit just above the page card. */}
       <main className="px-2 pb-2 pt-1 sm:px-4 sm:pb-4 sm:pt-2 md:px-8 md:pb-8 print:p-0">
         {pendingSlots.length > 0 && (
