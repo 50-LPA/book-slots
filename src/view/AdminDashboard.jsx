@@ -547,13 +547,17 @@ function AdminCandidatesTable({
   const docIcons = (c) => {
     if (!profiles) return null;
     const p = profileByMobile.get(normalizeMobile(c.mobile).slice(-10));
-    const icon = (fa, on, label) => (
-      <i role="img" aria-label={label} title={label} className={`fa-solid ${fa} ${on ? '' : 'text-slate-300'}`} />
+    // Same round tinted chip as the referrer icon (refIcon); grey = not created yet.
+    const icon = (fa, on, label, tone) => (
+      <span role="img" aria-label={label} title={label}
+        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${on ? tone : 'bg-slate-100 text-slate-300'}`}>
+        <i className={`fa-solid ${fa}`} aria-hidden="true" />
+      </span>
     );
     return (
-      <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 pl-2 text-xs">
-        <span className={p ? 'text-indigo-600' : ''}>{icon('fa-file-signature', p, p ? 'Admission profile created' : 'No admission profile yet')}</span>
-        <span className={p?.hasResume ? 'text-emerald-600' : ''}>{icon('fa-file-lines', p?.hasResume, p?.hasResume ? 'Resume created' : 'No resume yet')}</span>
+      <span className="ml-auto inline-flex shrink-0 items-center gap-1 pl-2">
+        {icon('fa-file-signature', p, p ? 'Admission profile created' : 'No admission profile yet', 'bg-indigo-100 text-indigo-600')}
+        {icon('fa-file-lines', p?.hasResume, p?.hasResume ? 'Resume created' : 'No resume yet', 'bg-emerald-100 text-emerald-600')}
       </span>
     );
   };
