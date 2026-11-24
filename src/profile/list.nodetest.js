@@ -22,7 +22,7 @@ test('visit dates read as sortable numbers', () => {
 })
 
 test('filters: phase, gap', () => {
-  assert.equal(ids(filterRows(rows, f({}))), 'a') // default: Confirmed
+  assert.equal(ids(filterRows(rows, f({}))), 'abc') // default: All (lists only hold active candidates)
   assert.equal(ids(filterRows(rows, f({ phase: 'all' }))), 'abc')
   assert.equal(ids(filterRows(rows, f({ phase: 'inquiry' }))), 'bc')
   assert.equal(ids(filterRows(rows, f({ phase: 'confirmed' }))), 'a')

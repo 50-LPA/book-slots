@@ -48,7 +48,7 @@ describe('SlotCalendar random-time slot display', () => {
     expect(screen.queryByText('5:45 PM')).not.toBeInTheDocument();
   });
 
-  test('Public / other calendar view: displays only bold "Slot Booked" without time for 5:45 PM to 6:45 PM slot', () => {
+  test('Public / other calendar view: a booked slot shows its time on one line (5:45–6:45)', () => {
     const monday545PM = new Date(weekStart);
     monday545PM.setHours(17, 45, 0, 0);
 
@@ -74,14 +74,12 @@ describe('SlotCalendar random-time slot display', () => {
       />
     );
 
-    // "Slot Booked" must be visible and bold
-    const slotEl = screen.getByText('Slot Booked');
-    expect(slotEl).toBeInTheDocument();
-    expect(slotEl).toHaveClass('font-bold');
-
-    // Time must NOT be shown in the slot
-    expect(screen.queryByText('5:45 PM - 6:45 PM')).not.toBeInTheDocument();
-    expect(screen.queryByText('5:45 PM')).not.toBeInTheDocument();
+    // Compact from–to time, bold, one line, instead of "Slot Booked"
+    const slotEl = screen.getByText('5:45–6:45');
+    expect(slotEl).toHaveClass('font-bold', 'shrink-0');
+    expect(slotEl.parentElement).toHaveTextContent('Booked·5:45–6:45');
+    expect(slotEl.parentElement).toHaveClass('whitespace-nowrap');
+    expect(screen.queryByText('Slot Booked')).not.toBeInTheDocument();
   });
 
   test('Slot crossing boundary with 30 min duration (5:45 PM to 6:15 PM) displays only bold name without time', () => {

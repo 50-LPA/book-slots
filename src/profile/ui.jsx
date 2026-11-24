@@ -41,7 +41,7 @@ export function CircleButton({ icon, label, dim, ...rest }) {
   return (
     <button type="button" aria-label={label} title={label} {...rest}
       className="btn-circle">
-      <Icon d={icon} className={`h-3.5 w-3.5 ${dim ? 'opacity-40' : ''}`} />
+      <i className={`fa-solid ${icon} ${dim ? 'opacity-40' : ''}`} aria-hidden="true" />
     </button>
   )
 }
@@ -52,7 +52,7 @@ export function IconAction({ icon, label, tone, onClick }) {
   return (
     <button type="button" title={label} aria-label={label} onClick={onClick}
       className={`btn-action ${ACTION[tone]}`}>
-      <Icon d={icon} className="h-3.5 w-3.5" />
+      <i className={`fa-solid ${icon}`} aria-hidden="true" />
     </button>
   )
 }

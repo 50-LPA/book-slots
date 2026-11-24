@@ -6,8 +6,6 @@ function CalendarToolbar({
   onPrevWeek,
   onNextWeek,
   onToday,
-  todaysSlotsCount,
-  weeklySlotsCount,
   onOpenMobileCalendar,
   onReload,
 }) {
@@ -27,7 +25,7 @@ function CalendarToolbar({
           className="btn-circle"
         >
           <span className="sr-only">Next week</span>
-          <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
+          <i className="fa-solid fa-chevron-right text-sm" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -48,10 +46,10 @@ function CalendarToolbar({
           <button
             type="button"
             onClick={onReload}
-            className="inline-flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 pointer-events-auto"
+            className="btn-circle pointer-events-auto"
             aria-label="Reload calendar"
           >
-            <i className="fa-solid fa-rotate-right text-xs" aria-hidden="true" />
+            <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -67,10 +65,10 @@ function CalendarToolbar({
                   e.preventDefault();
                 }
           }
-          className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 flex-shrink-0"
+          className="btn-circle"
         >
           <span className="sr-only">Next week</span>
-          <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
+          <i className="fa-solid fa-chevron-right text-sm" aria-hidden="true" />
         </button>
         <span className="text-[10px] font-semibold text-slate-800 whitespace-nowrap">
           {rangeLabel}
@@ -86,30 +84,14 @@ function CalendarToolbar({
           <button
             type="button"
             onClick={onReload}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
+            className="btn-circle"
             aria-label="Reload calendar"
           >
-            <i className="fa-solid fa-rotate-right text-xs" aria-hidden="true" />
+            <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
           </button>
         )}
       </div>
 
-      {/* Right - Today & Weekly Slots summary */}
-      <div className="flex flex-row items-center justify-center sm:justify-end md:justify-center lg:justify-end gap-3 sm:gap-6 flex-shrink-0 pr-2 z-10 text-[10px] sm:text-xs md:text-sm text-slate-700 mt-2 sm:mt-0 text-center sm:text-left md:text-center lg:text-left order-1 sm:order-none">
-        <div className="flex flex-row items-baseline gap-1 whitespace-nowrap">
-          <span className="font-semibold text-slate-900">
-            {todaysSlotsCount}
-          </span>
-          <span className="leading-tight mt-[1px] sm:mt-0"><i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots Today</span>
-        </div>
-        <span className="hidden sm:inline-block h-3 w-px bg-slate-300" />
-        <div className="flex flex-row items-baseline gap-1 whitespace-nowrap">
-          <span className="font-semibold text-slate-900">
-            {weeklySlotsCount}
-          </span>
-          <span className="leading-tight mt-[1px] sm:mt-0"><i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots This Week</span>
-        </div>
-      </div>
     </div>
   );
 }

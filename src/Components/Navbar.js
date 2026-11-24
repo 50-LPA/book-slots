@@ -13,7 +13,8 @@ export default function Navbar({
   const navItems = [
     { id: 'home', label: 'Home', icon: 'fa-solid fa-house' },
     { id: 'slots', label: 'Slots', icon: 'fa-solid fa-calendar-days' },
-    { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-user-tie' },
+    { id: 'hrs', label: 'My HRs', icon: 'fa-solid fa-user-tie' },
+    { id: 'admission', label: 'Admission Profile', icon: 'fa-solid fa-file-signature' },
     { id: 'myprofile', label: 'My Resume', icon: 'fa-solid fa-file-lines' },
   ];
 
@@ -65,14 +66,14 @@ export default function Navbar({
             }`}
           >
             <i className="fa-solid fa-id-card w-4 h-4" aria-hidden="true" />
-            <span className="font-medium text-xs sm:text-sm">Profile</span>
+            <span className="font-medium text-xs sm:text-sm">My Profile</span>
           </button>
         )}
         {typeof onDownloadForm === 'function' && (
           <button
             type="button"
             onClick={onDownloadForm}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-xs sm:text-sm font-semibold"
+            className="sb-attention ml-auto inline-flex items-center gap-1.5 rounded-lg border-2 border-blue-500 bg-transparent px-3 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50 sm:text-sm"
           >
             <i className="fa-solid fa-file-arrow-down w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
             <span>Download Personal Detail Form 3.0</span>

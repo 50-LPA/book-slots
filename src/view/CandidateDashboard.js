@@ -44,6 +44,7 @@ import PaginationBar from '../Components/PaginationBar';
 
 // Candidate's own resume (editor + preview), from src/profile; loaded only when the tab opens.
 const MyResume = lazy(() => import('../profile/MyResume.jsx'));
+const MyAdmissionProfile = lazy(() => import('../profile/MyAdmissionProfile.jsx'));
 
 
 // Normalise legacy round labels for candidate views (calendar + lists)
@@ -325,9 +326,9 @@ function FeedbackRequiredModal({
   );
 }
 
-const NAV_LABELS = { slots: 'Slots', hrs: 'HRs', profile: 'Profile', myprofile: 'My Resume' };
+const NAV_LABELS = { slots: 'Slots', hrs: 'My HRs', profile: 'My Profile', admission: 'Admission Profile', myprofile: 'My Resume' };
 // Same icons as the navigation and page titles.
-const CRUMB_ICONS = { Home: 'fa-house', Slots: 'fa-calendar-days', HRs: 'fa-user-tie', Profile: 'fa-id-card', 'My Resume': 'fa-file-lines', 'Add New Slot': 'fa-calendar-plus' };
+const CRUMB_ICONS = { Home: 'fa-house', Slots: 'fa-calendar-days', 'My HRs': 'fa-user-tie', 'My Profile': 'fa-id-card', 'Admission Profile': 'fa-file-signature', 'My Resume': 'fa-file-lines', 'Add New Slot': 'fa-calendar-plus' };
 
 
 function Header({
@@ -338,15 +339,22 @@ function Header({
   onDownloadForm,
   onEditProfile,
   totalSlotsCount = 0,
+  totalHrsCount = 0,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // Header counts; a zero count is hidden.
+  const counts = [
+    [totalSlotsCount, 'Total Slots', 'fa-calendar-days', 'text-blue-600', 'text-blue-400'],
+    [totalHrsCount, 'My HRs', 'fa-user-tie', 'text-emerald-600', 'text-emerald-400'],
+  ].filter(([n]) => n > 0);
   const [navOpen, setNavOpen] = useState(false);
   const initials = useMemo(() => getInitials(userName), [userName]);
 
   const navItems = [
     { id: 'home', label: 'Home', icon: 'fa-solid fa-house' },
     { id: 'slots', label: 'Slots', icon: 'fa-solid fa-calendar-days' },
-    { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-user-tie' },
+    { id: 'hrs', label: 'My HRs', icon: 'fa-solid fa-user-tie' },
+    { id: 'admission', label: 'Admission Profile', icon: 'fa-solid fa-file-signature' },
     { id: 'myprofile', label: 'My Resume', icon: 'fa-solid fa-file-lines' },
   ];
 
@@ -376,17 +384,19 @@ function Header({
           </p>
         </div>
 
-        {/* Center Section: Total Slots Summary Card (visible on mobile and desktop) */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center justify-center pointer-events-none z-10">
-          <div className="flex flex-col items-center justify-center bg-white/95 border border-blue-200/90 rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-0.5 sm:py-1 shadow-sm min-w-[68px] sm:min-w-[90px]">
-            <span className="text-xs sm:text-base font-bold text-slate-800 leading-tight">
-              {totalSlotsCount}
-            </span>
-            <span className="text-[9px] sm:text-[11px] text-slate-500 font-medium whitespace-nowrap">
-              <i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots
-            </span>
+        {/* Center Section: summary cards (Total Slots, My HRs), visible on mobile and desktop */}
+        {counts.length > 0 && (
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-none z-10">
+            {counts.map(([n, label, icon, tone]) => (
+              <div key={label} className="flex flex-col items-center justify-center bg-white/95 border border-blue-200/90 rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-0.5 sm:py-1 shadow-sm min-w-[68px] sm:min-w-[90px]">
+                <span className="text-xs sm:text-base font-bold text-slate-800 leading-tight">{n}</span>
+                <span className="text-[9px] sm:text-[11px] text-slate-500 font-medium whitespace-nowrap">
+                  <i className={`fa-solid ${icon} mr-1 ${tone}`} aria-hidden="true" />{label}
+                </span>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
 
         {/* Right Section: user info */}
         <div className="relative flex items-center gap-1.5 sm:gap-3 md:gap-4 ml-auto max-w-[32%] sm:max-w-none">
@@ -440,7 +450,7 @@ function Header({
                   className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-2 inline-flex items-center justify-center gap-2"
                 >
                   <i className="fa-solid fa-id-card text-xs" aria-hidden="true" />
-                  Profile
+                  My Profile
                 </button>
                 <button
                   type="button"
@@ -480,15 +490,19 @@ function Header({
               </button>
             </div>
             <nav className="flex flex-col gap-1 px-2 py-3">
-              {/* Total Slots summary card in mobile drawer */}
-              <div className="mx-1 mb-2 p-2.5 rounded-lg bg-slate-800/80 border border-slate-700 flex flex-col items-center justify-center">
-                <span className="text-base font-bold text-blue-400 leading-tight">
-                  {totalSlotsCount}
-                </span>
-                <span className="text-[11px] text-slate-300 font-medium whitespace-nowrap">
-                  <i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots
-                </span>
-              </div>
+              {/* Summary cards in mobile drawer */}
+              {counts.length > 0 && (
+                <div className="mx-1 mb-2 flex gap-2">
+                  {counts.map(([n, label, icon, , darkTone]) => (
+                    <div key={label} className="flex-1 p-2.5 rounded-lg bg-slate-800/80 border border-slate-700 flex flex-col items-center justify-center">
+                      <span className={`text-base font-bold leading-tight ${darkTone}`}>{n}</span>
+                      <span className="text-[11px] text-slate-300 font-medium whitespace-nowrap">
+                        <i className={`fa-solid ${icon} mr-1`} aria-hidden="true" />{label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {navItems.map((item) => (
                 <button
                   key={item.id}
@@ -538,9 +552,9 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
   });
 
   return (
-    <div className="bg-white rounded-lg sm:rounded-2xl shadow-md overflow-hidden border border-slate-300">
+    <div className="overflow-hidden bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
       {/* Title + candidate actions (Download, Add HR, Book Slot) */}
-      <div className="border-b border-slate-200 p-3 sm:p-4 md:p-6">
+      <div className="border-b border-slate-200 pb-3 sm:pb-4">
         {/* Mobile: centered, stacked layout like admin */}
         <div className="flex flex-col items-center gap-2 mb-4 sm:hidden text-center">
           {/* Today's date */}
@@ -557,7 +571,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
               className="btn-circle"
               aria-label="Reload calendar"
             >
-              <i className="fa-solid fa-rotate-right text-xs" aria-hidden="true" />
+              <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
             </button>
           </div>
           {/* Actions stacked */}
@@ -644,7 +658,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
           </div>
         </div>
 
-        <div className="mt-0">
+        <div className="mt-4">
           <WeekCalendar
             key={calendarRefreshKey}
             candidateIds={candidateIds}
@@ -1700,10 +1714,10 @@ export default function CandidateDashboard() {
   const [hrsError, setHrsError] = useState(null);
   const [hrsRefreshKey, setHrsRefreshKey] = useState(0);
 
-  // Fetch HRs once per refresh, only when a screen shows them (HR list, booking, My Slots' HR fallback).
+  // Fetch HRs once per refresh, when the dashboard opens (the header shows the My HRs count).
+  // Device copy: ~2 reads per session plus any changed HRs.
   useEffect(() => {
     if (hrsLoadedKeyRef.current === hrsRefreshKey) return undefined;
-    if (!(activeNav === 'hrs' || activeNav === 'slots' || showBookSlot)) return undefined;
 
     const fetchHRs = async () => {
       hrsLoadedKeyRef.current = hrsRefreshKey;
@@ -2108,6 +2122,7 @@ export default function CandidateDashboard() {
         activeNav={activeNav}
         onChangeNav={handleNavClick}
         totalSlotsCount={candidateSlots.length}
+        totalHrsCount={myHrList.length}
         onEditProfile={() => handleNavClick('profile')}
         onDownloadForm={() =>
           downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')
@@ -2123,19 +2138,20 @@ export default function CandidateDashboard() {
         onNavChange={handleNavClick}
         activeNav={activeNav}
       />
-      <Breadcrumbs
+      {/* Home screen: no breadcrumb (it would only say "Home"); every other screen starts its trail at Home. */}
+      {(activeNav !== 'home' || showBookSlot) && <Breadcrumbs
         items={[
-          ['Home', activeNav === 'home' && !showBookSlot ? null : () => handleNavClick('home')],
+          ['Home', () => handleNavClick('home')],
           ...(showBookSlot
             ? [...(bookFrom !== 'home' && NAV_LABELS[bookFrom] ? [[NAV_LABELS[bookFrom], () => { setShowBookSlot(false); setActiveNav(bookFrom); }]] : []), ['Add New Slot']]
             : activeNav !== 'home' && NAV_LABELS[activeNav]
             ? [[NAV_LABELS[activeNav]]]
             : []),
         ].map(([label, onClick]) => ({ label, onClick, icon: CRUMB_ICONS[label] }))}
-      />
+      />}
       {!showBookSlot && activeNav === 'home' && (
-        <div className="px-2 sm:px-4 md:px-8 print:hidden">
-          <PlacedCandidatesMarquee className="mb-2 sm:mb-2 !mb-2" speedSeconds={20} />
+        <div className="px-2 pt-2 sm:px-4 md:px-8 print:hidden">
+          <PlacedCandidatesMarquee />
         </div>
       )}
       <main
@@ -2166,6 +2182,10 @@ export default function CandidateDashboard() {
             onBack={() => setActiveNav('home')}
             onLogout={handleLogout}
           />
+        ) : activeNav === 'admission' ? (
+          <Suspense fallback={<div className="p-6 text-center text-sm text-slate-500">Loading…</div>}>
+            <MyAdmissionProfile mobile={candidateUser?.mobile || candidateProfile?.mobile} onBack={() => handleNavClick('home')} />
+          </Suspense>
         ) : activeNav === 'myprofile' ? (
           <Suspense fallback={<div className="p-6 text-center text-sm text-slate-500">Loading…</div>}>
             <MyResume mobile={candidateUser?.mobile || candidateProfile?.mobile} candidate={candidateProfile} onBack={() => handleNavClick('home')} />

@@ -9,6 +9,10 @@ function hourLabel(hour24) {
 }
 
 
+// Compact clock time for one-line slot labels: 10:30, 2 (no AM/PM; the time column shows it).
+const shortTime = (d) => `${((d.getHours() + 11) % 12) + 1}${d.getMinutes() ? `:${String(d.getMinutes()).padStart(2, '0')}` : ''}`;
+const validDate = (d) => d instanceof Date && !Number.isNaN(d.getTime());
+
 function getBestHourForEvent(event, hoursList) {
   if (
     !(event.__startDate instanceof Date) ||
@@ -151,24 +155,41 @@ function SlotCalendar({
               {/* Top-left corner: empty so time column and day headers align */}
               <th
                 className="sticky left-0 z-10 border border-slate-300 bg-slate-50 align-middle"
-                style={{ height: 'var(--sb-slot-row-h)' }}
               />
               {days.map((day, dayIdx) => {
                 const isToday = dayIdx === todayIndex;
                 const isLeaveDay = leaveSet.has(dayToYYYYMMDD(day));
                 const dayHeader = formatDayHeader(day);
+                const count = eventsByDay[dayIdx]?.length || 0;
+                const countLabel = `${count} slot${count === 1 ? '' : 's'}`;
+                // Slot count pill, coloured like its header (leave red, today green); hidden when the day has none.
+                const pill = (size) => count > 0 && (
+                  <span
+                    title={countLabel}
+                    aria-label={countLabel}
+                    className={`inline-flex items-center gap-1 rounded-full border font-semibold tabular-nums ${size} ${
+                      isLeaveDay
+                        ? 'border-red-300 bg-white text-red-700'
+                        : isToday
+                        ? 'border-emerald-300 bg-white text-emerald-700'
+                        : 'border-slate-300 bg-white text-slate-600'
+                    }`}
+                  >
+                    <i className="fa-regular fa-calendar-check" aria-hidden="true" />
+                    {count}
+                  </span>
+                );
                 return (
                   <th
                     key={day.toISOString()}
                     data-today={isToday ? 'true' : undefined}
-                    className={`border px-1 py-1 sm:px-2 sm:py-2 text-center ${
+                    className={`border px-1 py-1.5 sm:px-2 sm:py-2.5 text-center ${
                       isLeaveDay
                         ? 'bg-red-100 text-red-800 border-red-300'
                         : isToday
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                         : 'bg-slate-50 text-slate-700 border-slate-300'
                     }`}
-                    style={{ height: 'var(--sb-slot-row-h)' }}
                   >
                     {/* Mobile: match home calendar day + date format (e.g. Mon 24 Feb) */}
                     <div className="sm:hidden flex items-center justify-center leading-tight">
@@ -180,14 +201,16 @@ function SlotCalendar({
                           year: 'numeric',
                         })}
                       </span>
+                      {count > 0 && <span className="ml-1">{pill('px-1.5 py-px text-[10px]')}</span>}
                     </div>
-                    {/* Desktop / tablet: two-line compact header to avoid overlap when zoomed */}
+                    {/* Desktop / tablet: weekday, then date with the slot count beside it */}
                     <div className="hidden sm:block leading-tight">
-                      <span className="block text-[14px] font-semibold uppercase tracking-[0.12em]">
+                      <span className="block text-[15px] font-bold uppercase tracking-[0.12em]">
                         {dayHeader.weekday}
                       </span>
-                      <span className="block text-[14px] break-words">
+                      <span className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[13px]">
                         {dayHeader.label.replace(`${dayHeader.weekday}, `, '')}
+                        {pill('px-2 py-0.5 text-[11.5px]')}
                       </span>
                     </div>
                   </th>
@@ -196,7 +219,6 @@ function SlotCalendar({
               {/* Top-right corner: empty for right-side time column */}
               <th
                 className="border border-slate-300 bg-slate-50 align-middle"
-                style={{ height: 'var(--sb-slot-row-h)' }}
               />
             </tr>
           </thead>
@@ -359,12 +381,28 @@ function SlotCalendar({
                           const { bestHour } = getBestHourForEvent(event, hours);
                           const isPrimary = hour === bestHour;
 
+                          // Someone else's booking: show its time (10:30–11) instead of "Slot Booked".
+                          const hasTimes = validDate(event.__startDate) && validDate(event.__endDate);
+                          const isBookedLabel = mainLabel === 'Slot Booked' && hasTimes;
+                          const label = isBookedLabel ? `${shortTime(event.__startDate)}–${shortTime(event.__endDate)}` : mainLabel;
+
                           let sliceContent = null;
                           if (isPrimary) {
                             sliceContent = (
-                              <div className="font-bold truncate text-[11px] sm:text-[13px] leading-tight">
-                                {mainLabel}
-                              </div>
+                              isBookedLabel ? (
+                                // One line: "Booked" + time. On a column too narrow for both, "Booked" gives way, never the time.
+                                <div className="flex min-w-0 items-baseline gap-1 whitespace-nowrap leading-tight text-[10px] sm:gap-1.5 sm:text-[13px]">
+                                  <span className="min-w-0 overflow-hidden font-semibold opacity-90">
+                                    <i className="fa-solid fa-check mr-1" aria-hidden="true" />Booked
+                                  </span>
+                                  <span className="shrink-0 opacity-70" aria-hidden="true">·</span>
+                                  <span className="shrink-0 font-bold tabular-nums tracking-tight sm:tracking-normal">{label}</span>
+                                </div>
+                              ) : (
+                                <div className="font-bold truncate whitespace-nowrap leading-tight text-[11px] sm:text-[13px]">
+                                  {label}
+                                </div>
+                              )
                             );
                           }
 

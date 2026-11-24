@@ -5,7 +5,6 @@ import {
   getWeekEndExclusive,
   formatWeekRangeLabel,
   parseISOToDate,
-  isSameDay,
 } from '../calendar';
 import CalendarToolbar from './CalendarToolbar';
 import SlotCalendar from './SlotCalendar';
@@ -66,23 +65,7 @@ function WeekCalendar({ candidateIds = [], onEventClick, settings: settingsProp 
     () => formatWeekRangeLabel(weekStart, weekEnd),
     [weekStart, weekEnd],
   );
-  const todaysSlotsCount = useMemo(
-    () =>
-      events.filter((event) => {
-        const eventDate = parseISOToDate(event.start);
-        return isSameDay(eventDate, today);
-      }).length,
-    [today, events],
-  );
 
-  const weeklySlotsCount = useMemo(
-    () =>
-      events.filter((event) => {
-        const eventDate = parseISOToDate(event.start);
-        return eventDate >= weekStart && eventDate < weekEndExclusive;
-      }).length,
-    [weekStart, weekEndExclusive, events],
-  );
 
   const weekEvents = useMemo(
     () =>
@@ -111,8 +94,6 @@ function WeekCalendar({ candidateIds = [], onEventClick, settings: settingsProp 
           rangeLabel={rangeLabel}
           onNextWeek={handleNextWeek}
           onToday={handleToday}
-          todaysSlotsCount={todaysSlotsCount}
-          weeklySlotsCount={weeklySlotsCount}
         />
       </div>
       <div className="mt-0 overflow-x-auto">

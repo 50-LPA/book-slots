@@ -11,7 +11,7 @@ import { Toaster } from './toast.jsx'
 import { isQuotaError } from '../utils/quota'
 const ResumeEditor = lazy(() => import('./ResumeEditor.jsx'))
 
-const DRAFT = 'slot-profile:my-resume-draft:'
+const DRAFT = 'admission-profile:my-resume-draft:'
 // Book-slots technology names → the resume's ("Java" → "JAVA", ".Net" → ".NET"); unknown ones are left out.
 const toTech = (list = []) => [...new Set(list.map((t) => TECH.find((x) => x.toLowerCase() === String(t).trim().toLowerCase())).filter(Boolean))]
 
@@ -24,7 +24,7 @@ export default function MyResume({ mobile, candidate, onBack }) {
   useEffect(() => {
     (async () => {
       // The query must filter on phone: firestore.rules let a candidate read only their own profile.
-      const snap = await withTimeout(getDocs(query(collection(db, 'profiles'), where('phone', '==', phone), limit(1))))
+      const snap = await withTimeout(getDocs(query(collection(db, 'admissionProfiles'), where('phone', '==', phone), limit(1))))
       const d = snap.docs[0]
       if (!d) return setData({ profile: null, resume: null })
       const r = d.data().hasResume ? await withTimeout(getDoc(doc(db, 'resumes', d.id))) : null
@@ -40,7 +40,7 @@ export default function MyResume({ mobile, candidate, onBack }) {
     let id = data.profile?.id
     if (!id) {
       const name = titleCase(resume.name || candidate?.name || 'Candidate')
-      id = (await withTimeout(addDoc(collection(db, 'profiles'), { name, phone, phase: 'inquiry', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }))).id
+      id = (await withTimeout(addDoc(collection(db, 'admissionProfiles'), { name, phone, phase: 'inquiry', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }))).id
       setData((v) => ({ ...v, profile: { id, name, phone, phase: 'inquiry' } }))
     }
     await saveResume(id, resume)

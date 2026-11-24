@@ -15,12 +15,12 @@ import { confirmAsk, toast } from './toast.jsx'
 import { mergeRows } from './list.js'
 import { titleCase } from './options.js'
 
-// Profile records (migrated from slot-profile); linked to book-slots candidates by `phone` == candidates.mobile.
-const candidates = collection(db, 'profiles')
+// Admission profile records (collection admissionProfiles); linked to book-slots candidates by `phone` == candidates.mobile.
+const candidates = collection(db, 'admissionProfiles')
 // One resume per candidate, same id. Kept out of the candidate record so list syncs never download resumes;
 // the candidate only carries `hasResume: true` (set on the first save) for the Resumes tab.
 const resumes = collection(db, 'resumes')
-const KEY = 'slot-profile:candidates'
+const KEY = 'admission-profile:candidates'
 const FULL_EVERY = 24 * 60 * 60 * 1000 // full reload at least this often (ms)
 
 // lastSync = newest updatedAt the server has sent us (server time, so device clocks don't matter).
@@ -55,7 +55,7 @@ export function clearCache() { // on logout: the copy holds candidate details, s
   } catch { /* nothing stored */ }
 }
 // Unsaved resume edits are kept on the device under this prefix + candidate id (see ResumeEditor).
-export const DRAFT = 'slot-profile:resume-draft:'
+export const DRAFT = 'admission-profile:resume-draft:'
 
 // Every record entering the app (server, local copy, single fetch) gets its name in title case, so every screen shows it so.
 // Lists and filters read visitDates/companies as arrays: minimal profiles (created by a candidate's first resume save) have neither.

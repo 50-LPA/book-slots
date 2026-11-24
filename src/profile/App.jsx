@@ -128,24 +128,26 @@ function ResumePage({ id }) {
 }
 
 // Candidate list and resume list share one copy of the records (useCandidates), so their rows always agree.
-function ListPages({ page }) {
+// activeMobiles: 10-digit mobiles of Active candidates (book-slots Candidates list); others can't log in, so they're hidden.
+function ListPages({ page, activeMobiles }) {
   const data = useCandidates()
-  return <Page>{page === 'resumes' ? <ResumeList {...data} /> : <CandidateList {...data} />}</Page>
+  const rows = activeMobiles && data.rows?.filter((r) => activeMobiles.has(String(r.phone || '').replace(/\D/g, '').slice(-10)))
+  return <Page>{page === 'resumes' ? <ResumeList {...data} rows={rows} /> : <CandidateList {...data} rows={rows} />}</Page>
 }
 
 // The Profiles / Resumes tabs of the admin dashboard (AdminDashboard picks the tab from the hash; its header,
 // navigation and logout are used here). Pages live in the URL hash, as listed at the top of this file.
-export default function ProfileApp() {
+export default function ProfileApp({ activeMobiles }) {
   const hash = useHash()
   useEffect(() => { synced(); loadForm() }, []) // sync once per session; warm the profile page
   const [, id, view] = hash.match(/^#\/c\/([^/]+)(\/view)?/) ?? []
   const [, resumeId] = hash.match(/^#\/r\/([^/?]+)/) ?? []
   const [, newPhone] = hash.match(/^#\/new\?phone=(\d{10})$/) ?? []
-  const [, mobile] = hash.match(/^#\/m\/(\d{10})/) ?? []
-  const page = mobile ? <ByMobile key={hash} mobile={mobile} />
+  const [, mobile, toResume] = hash.match(/^#\/m\/(\d{10})(\/resume)?/) ?? []
+  const page = mobile ? <ByMobile key={hash} mobile={mobile} resume={!!toResume} />
     : resumeId ? <ResumePage key={hash} id={resumeId} />
     : id || hash.startsWith('#/new') ? <CandidatePage key={hash} id={id} view={!!view} prefill={newPhone && { phone: newPhone }} />
-    : <ListPages page={hash.startsWith('#/resumes') ? 'resumes' : 'candidates'} />
+    : <ListPages activeMobiles={activeMobiles} page={hash.startsWith('#/resumes') ? 'resumes' : 'candidates'} />
   return (
     <div className="sp-root font-lato text-sm">
       <PageError key={hash}>{page}</PageError>
@@ -154,10 +156,12 @@ export default function ProfileApp() {
   )
 }
 
-// #/m/<mobile>: opens the profile saved with that mobile (link from the book-slots candidate list), or a new one.
-function ByMobile({ mobile }) {
+// #/m/<mobile>[/resume] (links from the book-slots candidate list): edits the profile saved with that mobile, or its
+// resume once admission is confirmed; no profile yet → a new one with that mobile.
+function ByMobile({ mobile, resume }) {
   useEffect(() => {
-    synced().then(() => findByPhone(mobile)).then((r) => window.location.replace(r ? `#/c/${r.id}/view` : `#/new?phone=${mobile}`))
-  }, [mobile])
+    synced().then(() => findByPhone(mobile)).then((r) => window.location.replace(
+      !r ? `#/new?phone=${mobile}` : resume && r.phase === 'confirmed' ? `#/r/${r.id}` : `#/c/${r.id}`))
+  }, [mobile, resume])
   return <Loading />
 }

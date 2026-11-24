@@ -76,7 +76,7 @@ export default function ResumeList({ rows: allRows, error, refreshing, refresh }
                     <td className={td}><div className="flex justify-center">{open(r)}</div></td>
                   </tr>
                 ))}
-                {shown.length === 0 && <tr><td colSpan={8} className={`${td} py-8 text-gray-500`}>{rows.length ? 'No candidate matches these filters.' : 'No confirmed candidates yet. Confirm a candidate\'s admission in the Profiles tab.'}</td></tr>}
+                {shown.length === 0 && <tr><td colSpan={8} className={`${td} py-8 text-gray-500`}>{rows.length ? 'No candidate matches these filters.' : 'No confirmed candidates yet. Confirm a candidate\'s admission in the Admission Profiles tab.'}</td></tr>}
               </tbody>
             </table>
           </div>

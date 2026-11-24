@@ -5,13 +5,14 @@ function LogoPlacedCard({ item, loadImages }) {
   const [logoFailed, setLogoFailed] = useState(false);
 
   return (
-    <div className="flex w-[220px] shrink-0 flex-col items-center rounded-md border border-slate-300 bg-white shadow-sm sm:w-[260px] overflow-hidden">
-      <div className="w-full">
-        {loadImages && !logoFailed ? (
+    <div className="flex w-[220px] shrink-0 flex-col overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm sm:w-[260px]">
+      {/* Same frame and inset for every logo, so wide and tall logos read the same size. */}
+      <div className="flex h-16 w-full items-center justify-center px-5 py-3 sm:h-20">
+        {loadImages && item.logoSrc && !logoFailed ? (
           <img
             src={item.logoSrc}
             alt={`${item.alt} logo`}
-            className="h-16 w-full object-contain bg-white sm:h-20 transition-opacity duration-300"
+            className="h-full w-full object-contain transition-opacity duration-300"
             loading="lazy"
             decoding="async"
             onError={() => {
@@ -20,12 +21,12 @@ function LogoPlacedCard({ item, loadImages }) {
             }}
           />
         ) : (
-          <div className="h-16 w-full sm:h-20 flex items-center justify-center bg-slate-100 px-2 text-center text-[10px] font-semibold text-slate-700">
+          <div className="flex h-full w-full items-center justify-center text-center text-base font-extrabold leading-tight tracking-tight text-slate-800 sm:text-lg">
             {item.alt}
           </div>
         )}
       </div>
-      <p className="mt-2 px-2 pb-2 text-center text-[11px] font-medium tracking-wide text-slate-800 sm:text-xs">
+      <p className="border-t border-slate-200 bg-slate-50 px-3 py-1.5 text-center text-[11px] font-medium tracking-wide text-slate-800 sm:text-xs">
         Placed {item.placed}
       </p>
     </div>
@@ -36,7 +37,8 @@ function LogoPlacedCard({ item, loadImages }) {
  * Marquee tab + scrolling row of partner logos with “placed N” under each (home calendar mockup).
  * Defers logo image downloading until after the calendar and slots are rendered.
  */
-export default function PlacedCandidatesMarquee({ className = '', speedSeconds = 15, delayLoad = true }) {
+// ~1.5 s per company keeps the same scroll pace however many companies are listed.
+export default function PlacedCandidatesMarquee({ className = '', speedSeconds = MARQUEE_ITEMS.length * 1.5, delayLoad = true }) {
   const [loadImages, setLoadImages] = useState(!delayLoad);
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function PlacedCandidatesMarquee({ className = '', speedSeconds =
 
   return (
     <section
-      className={`relative w-full mb-2 sm:mb-3 ${className}`.trim()}
+      className={`relative mb-2 w-full ${className}`.trim()}
       aria-label="Placement highlights"
     >
       <div className="sb-placed-marquee-fade relative w-full overflow-hidden py-0">

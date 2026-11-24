@@ -77,7 +77,7 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Candidate profiles + resumes (src/profile, migrated from slot-profile). Admin edits everything; a candidate reads
+    // Admission profiles + resumes (src/profile, migrated from slot-profile). Admin edits everything; a candidate reads
     // only the profile saved with their login mobile (query must filter on phone), and edits that profile's resume.
     function text(d, key, n) {
       return !(key in d) || (d[key] is string && d[key].size() <= n);
@@ -102,7 +102,7 @@ service cloud.firestore {
         && maxList(d, 'experience', 30) && maxList(d, 'projects', 30) && maxList(d, 'education', 20);
     }
 
-    match /profiles/{id} {
+    match /admissionProfiles/{id} {
       allow read: if isAdmin() || (signedIn() && resource.data.get('phone', '') == myMobile());
       allow delete: if isAdmin();
       // A candidate may create a minimal profile for their own mobile (first resume save) and stamp its resume status.
@@ -116,11 +116,11 @@ service cloud.firestore {
 
     match /resumes/{id} {
       allow read: if isAdmin()
-        || (signedIn() && get(/databases/$(database)/documents/profiles/$(id)).data.get('phone', '') == myMobile());
+        || (signedIn() && get(/databases/$(database)/documents/admissionProfiles/$(id)).data.get('phone', '') == myMobile());
       allow delete: if isAdmin();
       // Admin, or the candidate whose profile (same id) carries their login mobile.
       allow create, update: if validResume(request.resource.data) && (isAdmin()
-        || (signedIn() && get(/databases/$(database)/documents/profiles/$(id)).data.get('phone', '') == myMobile()));
+        || (signedIn() && get(/databases/$(database)/documents/admissionProfiles/$(id)).data.get('phone', '') == myMobile()));
     }
 
     // Leaves + slot settings: public calendar reads them.

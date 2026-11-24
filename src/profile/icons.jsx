@@ -26,7 +26,7 @@ export const ICONS = {
   xCircle: 'fa-circle-xmark',
   back: 'fa-arrow-left',
   document: 'fa-file-lines', // resume
-  profile: 'fa-id-card',
+  profile: 'fa-file-signature',
   mobile: 'fa-mobile-screen',
   refresh: 'fa-rotate-right',
   save: 'fa-floppy-disk',

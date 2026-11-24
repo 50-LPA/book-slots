@@ -1,6 +1,6 @@
 const logoBase = `${process.env.PUBLIC_URL || ''}/company-logos`;
 
-// Each id has a matching public/company-logos/<id>.png.
+// Each id has a matching public/company-logos/<id>.png, unless `logo: false`.
 const MARQUEE_COMPANIES = [
   { id: 'tcs', alt: 'TCS', placed: 18 },
   { id: 'infosys', alt: 'Infosys', placed: 14 },
@@ -23,5 +23,5 @@ const MARQUEE_COMPANIES = [
 
 export default MARQUEE_COMPANIES.map((company) => ({
   ...company,
-  logoSrc: `${logoBase}/${company.id}.png`,
+  logoSrc: company.logo === false ? null : `${logoBase}/${company.id}.png`, // logo: false = name badge, no image request
 }));

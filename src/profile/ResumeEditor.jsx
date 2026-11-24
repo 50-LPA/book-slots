@@ -131,8 +131,8 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
   const pull = async () => {
     const next = pullProfile(d, candidate)
     const changes = pullChanges(d, next)
-    if (!changes.length) return toast('The resume already matches the candidate profile.')
-    if (await confirmAsk({ title: 'Pull these from the profile?', message: changes.map((c) => '• ' + c).join('\n') + '\n\nEverything else stays as it is.', ok: 'Pull' })) setD(next)
+    if (!changes.length) return toast('The resume already matches the admission profile.')
+    if (await confirmAsk({ title: 'Pull these from the admission profile?', message: changes.map((c) => '• ' + c).join('\n') + '\n\nEverything else stays as it is.', ok: 'Pull' })) setD(next)
   }
   // The PDF file name comes from the page title.
   // Page breaks are measured on screen: a hidden preview (phones, Edit view) would print as one clipped page.
@@ -211,7 +211,7 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
           parents={[{ label: 'Resumes', href: '#/resumes' }]}
           actions={<>
             <span className="px-1 text-xs text-gray-500" title="Ctrl/Cmd + S saves">{dirty ? '● Unsaved changes' : '✓ Saved'}</span>
-            <Button variant="plain" icon={ICONS.refresh} onClick={pull}>Pull from profile</Button>
+            <Button variant="plain" icon={ICONS.refresh} onClick={pull}>Pull from admission profile</Button>
             <Button variant="dark" icon={ICONS.download} onClick={pdf} disabled={!ok} title={ok ? '' : `Add at least ${SUMMARY_MIN} summary points`}>Download PDF</Button>
             <Button icon={ICONS.save} onClick={save} disabled={saving || !dirty} title="Save (Ctrl/Cmd + S)">{saving ? 'Saving…' : 'Save'}</Button>
           </>}
@@ -243,7 +243,7 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
               </div>
               <p className="mt-2 text-[11px] text-gray-500">
                 Pick any; the technical skill groups, designation, summary and suggestions follow. Anything you edited by hand stays.
-                {!isProfileStack && <> <button type="button" onClick={() => setStack(profileStack)} className="font-bold text-brand-600 hover:underline">Use profile’s ({profileStack.join(', ') || 'none'})</button></>}
+                {!isProfileStack && <> <button type="button" onClick={() => setStack(profileStack)} className="font-bold text-brand-600 hover:underline">Use admission profile’s ({profileStack.join(', ') || 'none'})</button></>}
               </p>
             </div>
           </Section>

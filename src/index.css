@@ -112,3 +112,23 @@ input[type="date"]::-moz-clear {
 .btn-action-label { @apply inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-3 text-xs font-semibold text-white hover:brightness-95 disabled:opacity-50 sm:text-sm; }
 .btn-pill { @apply inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[11px] font-semibold text-white shadow hover:brightness-95 disabled:opacity-50 sm:px-4 sm:text-sm; }
 }
+
+/* Pulse on a hollow button's border + a nudge of its icon, to draw the eye (candidate "Download Personal Detail Form"). */
+@keyframes sb-attention {
+  0% { box-shadow: 0 0 0 0 rgb(59 130 246 / 0.7); border-color: rgb(29 78 216); }
+  60%, 100% { box-shadow: 0 0 0 9px rgb(59 130 246 / 0); border-color: rgb(59 130 246); }
+}
+@keyframes sb-attention-icon {
+  0%, 40%, 100% { transform: translateY(0); }
+  15% { transform: translateY(3px); }
+  28% { transform: translateY(-1px); }
+}
+.sb-attention {
+  animation: sb-attention 2s ease-out infinite;
+}
+.sb-attention > i {
+  animation: sb-attention-icon 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-attention, .sb-attention > i { animation: none; }
+}

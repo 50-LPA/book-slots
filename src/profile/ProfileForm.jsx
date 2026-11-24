@@ -245,7 +245,8 @@ function withExperience(form) {
 
 // `record` is a saved candidate (or undefined for a new one). `onSave(form)` resolves true when saved.
 // prefill: fields for a new record (e.g. phone from the book-slots candidate list); counts as unsaved.
-export default function ProfileForm({ record, prefill, readOnly, onEdit, onSave, onBack, onDelete, onResume }) {
+// mine: the candidate's own view (candidate dashboard): the A4 sheet only, read-only.
+export default function ProfileForm({ record, prefill, readOnly, mine, onEdit, onSave, onBack, onDelete, onResume }) {
   const [f, setF] = useState(() => withExperience({ ...newForm(), ...record, ...prefill }))
   const [saved, setSaved] = useState(() => (prefill ? withExperience({ ...newForm(), ...record }) : f))
   const [saving, setSaving] = useState(false)
@@ -282,12 +283,12 @@ export default function ProfileForm({ record, prefill, readOnly, onEdit, onSave,
     <Card>
       <CardHeader
         onBack={onBack}
-        backLabel="Back to all candidates"
+        backLabel={mine ? 'Back' : 'Back to all candidates'}
         icon={readOnly ? ICONS.profile : record ? ICONS.pencil : ICONS.plus}
-        title={readOnly ? 'View Candidate' : record ? 'Update Candidate' : 'New Candidate'}
-        parents={[{ label: 'Profiles', href: '#/candidates' }]}
+        title={mine ? 'My Admission Profile' : readOnly ? 'View Candidate' : record ? 'Update Candidate' : 'New Candidate'}
+        parents={mine ? undefined : [{ label: 'Admission Profiles', href: '#/candidates' }]}
         actions={<>
-          <Segmented label="Profile phase" options={PHASES} value={f.phase} onChange={set('phase')} disabled={readOnly}
+          <Segmented label="Admission profile phase" options={PHASES} value={f.phase} onChange={set('phase')} disabled={readOnly}
             border="border-gray-300" idle="text-gray-500 enabled:hover:bg-gray-50"
             activeClass={(v) => (v === 'confirmed' ? 'bg-emerald-500' : 'bg-gray-500') + ' text-white'} />
           <span className="px-1 text-xs text-gray-500">{readOnly ? 'View only' : dirty ? '● Unsaved changes' : record ? '✓ Saved' : ''}</span>
@@ -301,13 +302,15 @@ export default function ProfileForm({ record, prefill, readOnly, onEdit, onSave,
 
       {/* Inner card, split: A4 sheet left | career fields right (stacked on smaller screens). Only two cards in total. */}
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 xl:flex-row">
+      {!mine && <>
       <aside inert={readOnly} className="min-w-0 flex-1 border-b border-gray-200 p-4 xl:border-b-0">
         <div className="xl:sticky xl:top-4">
           <CareerFields passOut={f.passOut} companies={f.companies} onPassOut={set('passOut')} onCompanies={setCompanies} />
         </div>
       </aside>
       <div className="hidden w-px bg-gray-200 xl:block" />
-      <div className="overflow-x-auto xl:shrink-0">
+      </>}
+      <div className={`overflow-x-auto xl:shrink-0 ${mine ? 'mx-auto' : ''}`}>
       <form
         onKeyDown={nextOnEnter}
         onSubmit={(e) => e.preventDefault()}

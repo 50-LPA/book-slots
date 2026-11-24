@@ -30,7 +30,7 @@ const EXP = { all: [0, Infinity], '0-2': [0, 2], '2-5': [2, 5], '5+': [5, Infini
 export const GAP_OPTIONS = [['none', 'No gap'], ['any', 'Any gap'], ['6', 'Gap > 6 mo'], ['12', 'Gap > 1 yr']]
 
 // Every list filter, with its "show all" value. Kept in the URL (#/candidates?phase=confirmed) so Back keeps them.
-export const DEFAULT_FILTERS = { q: '', paid: 'all', tech: '', exp: 'all', ref: '', phase: 'confirmed', gap: '', sort: 'updated', dir: 'desc', page: '1', size: '25' }
+export const DEFAULT_FILTERS = { q: '', paid: 'all', tech: '', exp: 'all', ref: '', phase: 'all', gap: '', sort: 'updated', dir: 'desc', page: '1', size: '25' }
 
 export function filterRows(rows, f) {
   const q = f.q.trim().toLowerCase()

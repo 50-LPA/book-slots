@@ -29,10 +29,10 @@ export function Breadcrumbs({ items }) {
           const cls = 'py-1 font-medium text-purple-600 hover:text-purple-800 hover:underline';
           return (
             <li key={`${i}-${c.label}`} className="flex items-center gap-1">
-              {i > 0 && <i className="fa-solid fa-chevron-right text-[9px] text-slate-400" aria-hidden="true" />}
-              {c.icon && <i className={`fa-solid ${c.icon} text-[11px] ${link ? 'text-purple-600' : 'text-slate-700'}`} aria-hidden="true" />}
+              {i > 0 && <i className="fa-solid fa-chevron-right translate-y-px text-[9px] leading-none text-slate-300" aria-hidden="true" />}
+              {c.icon && <i className={`fa-solid ${c.icon} text-[11px] leading-none ${link ? 'text-purple-600' : 'text-slate-400'}`} aria-hidden="true" />}
               {!link ? (
-                <span aria-current={last ? 'page' : undefined} className="py-1 font-semibold text-slate-800">{c.label}</span>
+                <span aria-current={last ? 'page' : undefined} className="py-1 font-medium text-slate-400">{c.label}</span>
               ) : c.href ? (
                 <a href={c.href} className={cls}>{c.label}</a>
               ) : (

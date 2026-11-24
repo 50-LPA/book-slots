@@ -61,6 +61,7 @@ import { parseISOToDate } from '../calendar';
 import WeekCalendar from '../Components/WeekCalendar';
 import ConfirmDeleteModal from '../Components/ConfirmDeleteModal';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
+import { synced as syncProfiles, useCandidates as useProfiles } from '../profile/data.js';
 import { saveAs } from 'file-saver';
 import {
   SelectedFields,
@@ -183,7 +184,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
   const handleLogout = () => {
     sessionStorage.removeItem('sb_user');
     // Profile pages keep a local copy of candidate profiles and resume drafts (src/profile/data.js): don't leave it on the device.
-    Object.keys(localStorage).filter((k) => k.startsWith('slot-profile:')).forEach((k) => localStorage.removeItem(k));
+    Object.keys(localStorage).filter((k) => k.startsWith('admission-profile:') || k.startsWith('slot-profile:')).forEach((k) => localStorage.removeItem(k));
     clearSyncedCollections(); // device copies of candidates / HRs / events
     signOut(auth).catch(() => {});
     setMenuOpen(false);
@@ -197,7 +198,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
     { id: 'leaves', label: 'Admin Leaves', icon: 'fa-solid fa-umbrella-beach' },
     { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-user-tie' },
     { id: 'stats', label: 'Statistics', icon: 'fa-solid fa-chart-column' },
-    { id: 'profiles', label: 'Profiles', icon: 'fa-solid fa-id-card' },
+    { id: 'profiles', label: 'Admission Profiles', icon: 'fa-solid fa-file-signature' },
     { id: 'resumes', label: 'Resumes', icon: 'fa-solid fa-file-lines' },
   ];
 
@@ -340,7 +341,7 @@ function AdminTopNav({ activeTab, onChange, pendingApprovals = 0 }) {
     'inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all';
 
   return (
-    <div className="hidden md:flex bg-white px-3 sm:px-6 py-2 items-center gap-2 shadow-sm border-b border-purple-100 print:hidden">
+    <div className="hidden md:flex bg-white px-4 py-2 items-center gap-2 shadow-sm border-b border-purple-100 print:hidden">
       {/* Home - active */}
       <button
         onClick={() => onChange('home')}
@@ -420,7 +421,7 @@ function AdminTopNav({ activeTab, onChange, pendingApprovals = 0 }) {
       </button>
 
       {/* Profiles & resumes (src/profile) */}
-      {[['profiles', 'Profiles', 'fa-id-card'], ['resumes', 'Resumes', 'fa-file-lines']].map(([id, label, icon]) => (
+      {[['profiles', 'Admission Profiles', 'fa-file-signature'], ['resumes', 'Resumes', 'fa-file-lines']].map(([id, label, icon]) => (
         <button
           key={id}
           onClick={() => onChange(id)}
@@ -536,6 +537,26 @@ function AdminCandidatesTable({
     }
     return '-';
   };
+  // Profile / resume created? Coloured = yes, grey = not yet. From the profiles' device copy (synced by updatedAt).
+  const { rows: profiles } = useProfiles();
+  useEffect(() => { syncProfiles(); }, []);
+  const profileByMobile = useMemo(
+    () => new Map((profiles ?? []).map((r) => [String(r.phone || '').replace(/\D/g, '').slice(-10), r])),
+    [profiles],
+  );
+  const docIcons = (c) => {
+    if (!profiles) return null;
+    const p = profileByMobile.get(normalizeMobile(c.mobile).slice(-10));
+    const icon = (fa, on, label) => (
+      <i role="img" aria-label={label} title={label} className={`fa-solid ${fa} ${on ? '' : 'text-slate-300'}`} />
+    );
+    return (
+      <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 pl-2 text-xs">
+        <span className={p ? 'text-indigo-600' : ''}>{icon('fa-file-signature', p, p ? 'Admission profile created' : 'No admission profile yet')}</span>
+        <span className={p?.hasResume ? 'text-emerald-600' : ''}>{icon('fa-file-lines', p?.hasResume, p?.hasResume ? 'Resume created' : 'No resume yet')}</span>
+      </span>
+    );
+  };
   const statusOf = (c) => (c.selected || c.isSelected)
     ? (c.status ? c.status : (c.isActive !== false ? 'Active' : 'Inactive'))
     : getCandidateAccountStatus(c, slots);
@@ -565,14 +586,24 @@ function AdminCandidatesTable({
       >
         <i className="fa-solid fa-eye" aria-hidden="true" />
       </button>
-      {/^\d{10}$/.test(normalizeMobile(c.mobile).slice(-10)) && (
+      {statusOf(c) === 'Active' && /^\d{10}$/.test(normalizeMobile(c.mobile).slice(-10)) && (
         <a
           href={`#/m/${normalizeMobile(c.mobile).slice(-10)}`}
-          title="Profile & resume"
-          aria-label="Profile & resume"
-          className="btn-action bg-purple-500"
+          title="Admission Profile"
+          aria-label="Admission Profile"
+          className="btn-action bg-indigo-500"
         >
-          <i className="fa-solid fa-id-card" aria-hidden="true" />
+          <i className="fa-solid fa-file-signature" aria-hidden="true" />
+        </a>
+      )}
+      {statusOf(c) === 'Active' && /^\d{10}$/.test(normalizeMobile(c.mobile).slice(-10)) && (
+        <a
+          href={`#/m/${normalizeMobile(c.mobile).slice(-10)}/resume`}
+          title="Resume"
+          aria-label="Resume"
+          className="btn-action bg-emerald-500"
+        >
+          <i className="fa-solid fa-file-lines" aria-hidden="true" />
         </a>
       )}
       <button
@@ -707,9 +738,10 @@ function AdminCandidatesTable({
             <div className="flex items-start gap-2">
               {refIcon(c)}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-900">
-                  {c.name}
-                  {(c.selected || c.isSelected) && <span className="ml-1 text-xs font-bold text-blue-600">- Selected</span>}
+                <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-900">
+                  <span className="truncate">{c.name}</span>
+                  {(c.selected || c.isSelected) && <span className="shrink-0 text-xs font-bold text-blue-600">- Selected</span>}
+                  {docIcons(c)}
                 </p>
                 {c.mobile && <a href={`tel:${c.mobile}`} className="inline-flex items-center gap-1 py-1 text-xs text-purple-600"><i className="fa-solid fa-mobile-screen" aria-hidden="true" />{c.mobile}</a>}
               </div>
@@ -781,6 +813,7 @@ function AdminCandidatesTable({
                         - Selected
                       </span>
                     )}
+                    {docIcons(c)}
                   </div>
                 </td>
                 <td className="px-3 py-2 text-slate-700 text-center border-r border-slate-200">
@@ -4825,6 +4858,7 @@ export default function AdminDashboard() {
   const [candidateStatusFilter, setCandidateStatusFilter] = useState('active'); // 'all' | 'active' | 'inactive'
   const [candidateSearch, setCandidateSearch] = useState('');
   const [candidates, setCandidates] = useState([]);
+  const [candidatesLoaded, setCandidatesLoaded] = useState(false);
   const [showHrSuccessToast, setShowHrSuccessToast] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [calendarSelectedEvent, setCalendarSelectedEvent] = useState(null);
@@ -5021,6 +5055,8 @@ export default function AdminDashboard() {
         // eslint-disable-next-line no-console
         console.error('Error loading candidates from Firestore:', err);
         setCandidates([]);
+      } finally {
+        setCandidatesLoaded(true);
       }
     };
 
@@ -5184,7 +5220,7 @@ export default function AdminDashboard() {
     }
     return historyRef.current.catch(() => allSlots ?? []);
   };
-  const needsHistory = activeTab === 'candidates' || activeTab === 'stats' || activeTab === 'slots';
+  const needsHistory = ['candidates', 'stats', 'slots', 'profiles', 'resumes'].includes(activeTab); // profiles/resumes: active status
   useEffect(() => {
     if (needsHistory) loadHistory();
   }, [needsHistory]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -5200,6 +5236,16 @@ export default function AdminDashboard() {
     since.setHours(0, 0, 0, 0);
     return slots.filter((s) => s.date instanceof Date && s.date >= since);
   }, [slots]);
+
+  // Profiles / Resumes list only Active candidates (same status as the Candidates list), matched by mobile.
+  // null until candidates and slot history are in, so the lists never flash inactive candidates.
+  const activeMobiles = useMemo(() => {
+    if (!candidatesLoaded || (!allSlots && !slotsError)) return null;
+    const active = candidates.filter((c) => ((c.selected || c.isSelected)
+      ? (c.status ? c.status : (c.isActive !== false ? 'Active' : 'Inactive'))
+      : getCandidateAccountStatus(c, slots)) === 'Active');
+    return new Set(active.map((c) => normalizeMobile(c.mobile).slice(-10)).filter((m) => m.length === 10));
+  }, [candidatesLoaded, candidates, allSlots, slotsError, slots]);
 
   // Automatically sync candidate account inactivity to Firestore if their last interview was > 2 weeks ago
   // Each doc is written once per session and mirrored into local state; previously every slots
@@ -6039,7 +6085,7 @@ export default function AdminDashboard() {
           )
         ) : activeTab === 'profiles' || activeTab === 'resumes' ? (
           <Suspense fallback={<div className="p-6 text-center text-sm text-slate-500">Loading…</div>}>
-            <ProfileApp />
+            <ProfileApp activeMobiles={activeMobiles} />
           </Suspense>
         ) : activeTab === 'stats' ? (
           <AdminStatisticsChart
@@ -6062,7 +6108,7 @@ export default function AdminDashboard() {
           />
         ) : (
           <>
-            <div className="min-h-[70vh] overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm border border-slate-300 px-4 py-6">
+            <div className="min-h-[70vh] overflow-hidden bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
               {/* Admin calendar header */}
               <div className="border-b border-slate-200 pb-3 sm:pb-4">
                 {/* Mobile: match screenshot layout (all centered, stacked) */}
@@ -6084,7 +6130,7 @@ export default function AdminDashboard() {
                       className="btn-circle"
                       aria-label="Reload calendar"
                     >
-                      <i className="fa-solid fa-rotate-right text-xs" aria-hidden="true" />
+                      <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
                     </button>
                   </div>
                   {/* Download button full-width-ish */}

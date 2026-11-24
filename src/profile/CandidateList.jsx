@@ -109,12 +109,15 @@ export default function CandidateList({ rows, error, refreshing, refresh }) {
       <CardHeader
         onBack={() => window.history.back()}
         icon={ICONS.profile}
-        title="Profiles"
+        title="Admission Profiles"
         extra={<CircleButton icon={ICONS.refresh} label="Refresh list" onClick={refresh} disabled={refreshing} dim={refreshing} />}
         actions={
-          <Button icon={ICONS.plus} onClick={() => go('#/new')}>
+          <button type="button" onClick={() => go('#/new')} className="btn-pill bg-emerald-500" aria-label="Add Candidate">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+              <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+            </span>
             <span className="hidden sm:inline">Add Candidate</span>
-          </Button>
+          </button>
         }
       />
 

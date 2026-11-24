@@ -23,7 +23,6 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
     }
   }, []);
   const mobile = String(session?.mobile || '').trim();
-  const displayName = userName || session?.name || 'Candidate';
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -159,8 +158,8 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
       className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6"
     >
       <PageHeader
-        icon="fa-user-pen"
-        title={`Edit ${displayName}`}
+        icon="fa-id-card"
+        title="My Profile"
         onBack={typeof onBack === 'function' ? onBack : undefined}
         backLabel="Back to dashboard"
       />
@@ -206,10 +205,10 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
             <button
               type="submit"
               disabled={saving || loading}
-              className="inline-flex items-center gap-1.5 rounded-full bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
-              {saving ? 'Updating...' : 'Update Candidate'}
+              <i className="fa-regular fa-circle-check text-base" aria-hidden="true" />
+              {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
         </>
