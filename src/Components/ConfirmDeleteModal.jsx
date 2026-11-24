@@ -42,7 +42,7 @@ export default function ConfirmDeleteModal({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+            className="btn-circle"
             aria-label="Close"
           >
             <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />

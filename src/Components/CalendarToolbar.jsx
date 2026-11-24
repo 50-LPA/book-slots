@@ -24,7 +24,7 @@ function CalendarToolbar({
                   e.preventDefault();
                 }
           }
-          className="inline-flex h-7 md:h-8 w-7 md:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 flex-shrink-0"
+          className="btn-circle"
         >
           <span className="sr-only">Next week</span>
           <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
@@ -100,14 +100,14 @@ function CalendarToolbar({
           <span className="font-semibold text-slate-900">
             {todaysSlotsCount}
           </span>
-          <span className="leading-tight mt-[1px] sm:mt-0">Total Slots Today</span>
+          <span className="leading-tight mt-[1px] sm:mt-0"><i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots Today</span>
         </div>
         <span className="hidden sm:inline-block h-3 w-px bg-slate-300" />
         <div className="flex flex-row items-baseline gap-1 whitespace-nowrap">
           <span className="font-semibold text-slate-900">
             {weeklySlotsCount}
           </span>
-          <span className="leading-tight mt-[1px] sm:mt-0">Total Slots This Week</span>
+          <span className="leading-tight mt-[1px] sm:mt-0"><i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots This Week</span>
         </div>
       </div>
     </div>

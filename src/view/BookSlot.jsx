@@ -724,7 +724,7 @@ export default function BookSlot({
             <button
               type="button"
               onClick={handleClose}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+              className="btn-circle"
             >
               <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
             </button>
@@ -781,7 +781,7 @@ export default function BookSlot({
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer bg-transparent border-0"
                       aria-label="Open calendar"
                     >
-                      <i className="fa-solid fa-calendar text-sm" aria-hidden="true" />
+                      <i className="fa-solid fa-calendar-day text-sm" aria-hidden="true" />
                     </button>
                   </div>
                   {showCalendar && (
@@ -1034,13 +1034,13 @@ export default function BookSlot({
                             ) : (
                               <li className="px-3 py-2 text-sm text-gray-600">
                                 No HR found.
-                                <button type="button" onMouseDown={(ev) => { ev.preventDefault(); setShowHrDropdown(false); onOpenAddHR(); }} className="ml-2 text-purple-600 underline"><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />Add New HR</button>
+                                <button type="button" onMouseDown={(ev) => { ev.preventDefault(); setShowHrDropdown(false); onOpenAddHR(); }} className="ml-2 text-purple-600 underline"><i className="fa-solid fa-plus mr-1.5" aria-hidden="true" />Add New HR</button>
                               </li>
                             )}
                           </ul>
                         )}
                       </div>
-                      <button type="button" onClick={onOpenAddHR} className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0"><i className="fa-regular fa-square-plus w-3 h-3" aria-hidden="true" /><span>Create HR</span></button>
+                      <button type="button" onClick={onOpenAddHR} className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0"><i className="fa-solid fa-plus w-3 h-3" aria-hidden="true" /><span>Create HR</span></button>
                     </div>
                     {errors.hr && <p className="text-xs text-red-500 mt-1">{errors.hr}</p>}
                     <div className="mt-1">
@@ -1116,7 +1116,7 @@ export default function BookSlot({
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer bg-transparent border-0"
                       aria-label="Open calendar"
                     >
-                      <i className="fa-solid fa-calendar text-sm" aria-hidden="true" />
+                      <i className="fa-solid fa-calendar-day text-sm" aria-hidden="true" />
                     </button>
                   </div>
                   {/* Mobile: tap-to-open with icon */}
@@ -1146,7 +1146,7 @@ export default function BookSlot({
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer bg-transparent border-0"
                       aria-label="Open calendar"
                     >
-                      <i className="fa-solid fa-calendar text-sm" aria-hidden="true" />
+                      <i className="fa-solid fa-calendar-day text-sm" aria-hidden="true" />
                     </button>
                   </div>
                   {/* Small calendar popover - positioned below input */}
@@ -1460,7 +1460,7 @@ export default function BookSlot({
                                 onOpenAddHR();
                               }}
                               className="ml-2 text-purple-600 underline"
-                            ><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />
+                            ><i className="fa-solid fa-plus mr-1.5" aria-hidden="true" />
                               Add New HR
                             </button>
                           </li>
@@ -1469,7 +1469,7 @@ export default function BookSlot({
                       )}
                     </div>
                     <button type="button" onClick={onOpenAddHR} className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0">
-                      <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+                      <i className="fa-solid fa-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
                       <span>Create HR</span>
                     </button>
                   </div>
@@ -1719,7 +1719,7 @@ export default function BookSlot({
                                 onOpenAddHR();
                               }}
                               className="ml-2 text-purple-600 underline"
-                            ><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />
+                            ><i className="fa-solid fa-plus mr-1.5" aria-hidden="true" />
                               Add New HR
                             </button>
                           </li>
@@ -1732,7 +1732,7 @@ export default function BookSlot({
                     onClick={onOpenAddHR}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-purple-100 text-purple-700 text-sm h-9 flex-shrink-0"
                   >
-                    <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+                    <i className="fa-solid fa-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
                     <span>Create HR</span>
                   </button>
                 </div>

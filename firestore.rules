@@ -37,6 +37,12 @@ service cloud.firestore {
           || data.get('candidateId', '') == myMobile();
     }
 
+    // Readable candidate passwords, written only by netlify/functions/admin-auth.mjs.
+    match /candidateSecrets/{uid} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /admin/{uid} {
       allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
       allow write: if false; // manage admins in the Firebase Console
@@ -69,6 +75,52 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isAdmin() || isCandidate();
       allow update, delete: if isAdmin();
+    }
+
+    // Candidate profiles + resumes (src/profile, migrated from slot-profile). Admin edits everything; a candidate reads
+    // only the profile saved with their login mobile (query must filter on phone), and edits that profile's resume.
+    function text(d, key, n) {
+      return !(key in d) || (d[key] is string && d[key].size() <= n);
+    }
+    function maxList(d, key, n) {
+      return !(key in d) || (d[key] is list && d[key].size() <= n);
+    }
+    function validProfile(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 200
+        && text(d, 'phone', 10) && text(d, 'parentsNo', 10) && text(d, 'spouseNo', 10)
+        && text(d, 'reference', 200)
+        && maxList(d, 'visitDates', 50) && text(d, 'signDate', 20)
+        && text(d, 'passOut', 7)
+        && (!('phase' in d) || d.phase in ['inquiry', 'confirmed'])
+        && maxList(d, 'tech', 20) && maxList(d, 'companies', 50)
+        && (!('hasResume' in d) || d.hasResume is bool) && (!('resumeAt' in d) || d.resumeAt is timestamp)
+        && text(d, 'signature', 400000); // drawn signature (PNG data URL), kept small by the app
+    }
+    function validResume(d) {
+      return d.keys().size() <= 40 && text(d, 'name', 200) && text(d, 'phone', 20) && text(d, 'email', 200)
+        && maxList(d, 'summary', 30) && maxList(d, 'achievements', 30) && maxList(d, 'skills', 60)
+        && maxList(d, 'experience', 30) && maxList(d, 'projects', 30) && maxList(d, 'education', 20);
+    }
+
+    match /profiles/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.get('phone', '') == myMobile());
+      allow delete: if isAdmin();
+      // A candidate may create a minimal profile for their own mobile (first resume save) and stamp its resume status.
+      allow create: if validProfile(request.resource.data) && (isAdmin()
+        || (signedIn() && request.resource.data.get('phone', '') == myMobile()
+            && request.resource.data.keys().hasOnly(['name', 'phone', 'phase', 'createdAt', 'updatedAt'])));
+      allow update: if validProfile(request.resource.data) && (isAdmin()
+        || (signedIn() && resource.data.get('phone', '') == myMobile()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasResume', 'resumeAt', 'updatedAt'])));
+    }
+
+    match /resumes/{id} {
+      allow read: if isAdmin()
+        || (signedIn() && get(/databases/$(database)/documents/profiles/$(id)).data.get('phone', '') == myMobile());
+      allow delete: if isAdmin();
+      // Admin, or the candidate whose profile (same id) carries their login mobile.
+      allow create, update: if validResume(request.resource.data) && (isAdmin()
+        || (signedIn() && get(/databases/$(database)/documents/profiles/$(id)).data.get('phone', '') == myMobile()));
     }
 
     // Leaves + slot settings: public calendar reads them.

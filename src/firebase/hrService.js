@@ -40,8 +40,8 @@ export async function checkHrDuplicates({
     return { errors, existingHrForEmail, existingHrForMobile };
   }
 
-  // Fresh read (duplicates must be exact); it also refreshes the shared hrs cache.
-  const docs = await getCollectionDocs('hrs', { fresh: true });
+  // Shared live listener, so this is current without re-reading the collection.
+  const docs = await getCollectionDocs('hrs');
   const excludeId = String(excludeFirestoreId || '').trim();
 
   for (const docSnap of docs) {

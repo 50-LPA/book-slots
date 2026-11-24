@@ -12,8 +12,9 @@ export default function Navbar({
 
   const navItems = [
     { id: 'home', label: 'Home', icon: 'fa-solid fa-house' },
-    { id: 'slots', label: 'Slots', icon: 'fa-solid fa-calendar' },
-    { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-users' },
+    { id: 'slots', label: 'Slots', icon: 'fa-solid fa-calendar-days' },
+    { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-user-tie' },
+    { id: 'myprofile', label: 'My Resume', icon: 'fa-solid fa-file-lines' },
   ];
 
   // Sync internal state with prop
@@ -33,7 +34,7 @@ export default function Navbar({
   return (
     <>
       {/* Desktop Navigation */}
-      <div className="hidden md:flex bg-white px-3 sm:px-6 py-2 items-center gap-2 shadow-sm border-b border-purple-100">
+      <div className="hidden md:flex bg-white px-3 sm:px-6 py-2 items-center gap-2 shadow-sm border-b border-purple-100 print:hidden">
         {navItems.map((item) => (
             <button
               key={item.id}
@@ -63,7 +64,7 @@ export default function Navbar({
                 : 'text-gray-600 hover:text-gray-800 hover:bg-purple-50'
             }`}
           >
-            <i className="fa-solid fa-user w-4 h-4" aria-hidden="true" />
+            <i className="fa-solid fa-id-card w-4 h-4" aria-hidden="true" />
             <span className="font-medium text-xs sm:text-sm">Profile</span>
           </button>
         )}
@@ -73,7 +74,7 @@ export default function Navbar({
             onClick={onDownloadForm}
             className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-xs sm:text-sm font-semibold"
           >
-            <i className="fa-solid fa-cloud-arrow-down w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+            <i className="fa-solid fa-file-arrow-down w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
             <span>Download Personal Detail Form 3.0</span>
           </button>
         )}

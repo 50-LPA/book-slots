@@ -1,3 +1,4 @@
+import { isQuotaError, quotaMessage, reportQuota } from '../utils/quota';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -95,20 +96,6 @@ export default function Login() {
       const adminDoc = await getDoc(doc(db, 'admin', uid));
       if (adminDoc.exists()) {
         const adminData = adminDoc.data();
-        const adminSession = {
-          id: adminDoc.id,
-          name: adminData.name || 'Admin',
-          role: 'admin',
-          phone: adminData.phone,
-          loginTime: Date.now(),
-          isAdmin: true,
-        };
-
-        // Preserve original app’s admin session keys for compatibility
-        localStorage.setItem('user', JSON.stringify(adminSession));
-        localStorage.setItem('adminToken', Date.now().toString());
-        localStorage.setItem('adminAuth', 'true');
-
         // Use sessionStorage so pasting URL in another tab/browser opens login page
         sessionStorage.setItem(
           'sb_user',
@@ -169,12 +156,6 @@ export default function Login() {
         role: 'candidate',
       };
 
-      // Original app’s candidate session keys
-      localStorage.setItem('candidates', JSON.stringify(candidateSession));
-      localStorage.setItem('name', candidateSession.name);
-      localStorage.setItem('email', candidateSession.email);
-      localStorage.setItem('uid', candidateSession.id);
-
       // Also set sb_user for this app’s guards and dashboards
       sessionStorage.setItem(
         'sb_user',
@@ -195,7 +176,7 @@ export default function Login() {
     } catch (err) {
       console.error(err);
       await signOut(auth).catch(() => {});
-      setLocalError('Failed to login. Please try again.');
+      setLocalError(isQuotaError(reportQuota(err)) ? quotaMessage() : 'Failed to login. Please try again.');
     } finally {
       setLoading(false);
     }

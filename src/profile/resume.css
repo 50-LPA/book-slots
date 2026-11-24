@@ -1,0 +1,88 @@
+/* Resume A4 pages (ported from resume-builder). Everything is scoped to .rb-pages / .rb-page so the app's styles are untouched. */
+.rb-pages { transform-origin: top left; width: 210mm; }
+.rb-page { --accent: #0369a1; --tint: color-mix(in srgb, var(--accent) 8%, #fff); --line: color-mix(in srgb, var(--accent) 24%, #fff);
+  width: 210mm; height: 297mm; overflow: hidden; background: #fff; color: #2b3340; box-shadow: 0 4px 24px rgba(0,0,0,.15);
+  margin-bottom: 24px; padding: 12mm 13mm; font-size: 9.5pt; line-height: 1.45;
+  display: flex; flex-direction: column; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rb-page * { font-family: inherit; }
+.rb-page aside:empty { display: none; }
+/* Tailwind's reset removes heading weight and list bullets; put them back inside the page. */
+.rb-page h1, .rb-page h2 { font-weight: 700; }
+.rb-page ul { list-style: disc; }
+.rb-page h1 { margin: 0; font-size: 2.1em; line-height: 1.15; letter-spacing: .01em; color: #111827; }
+.rb-page .hd { display: flex; justify-content: space-between; align-items: flex-end; gap: 1em; }
+.rb-page .desig { font-size: 1.1em; margin-top: .2em; color: var(--accent); font-weight: 500; }
+.rb-page .contact { text-align: right; font-size: .95em; line-height: 1.6; color: #4b5563; }
+.rb-page section { margin-top: 1.5em; }
+.rb-page h2 { font-size: .95em; text-transform: uppercase; letter-spacing: .09em; margin: 0 0 .65em; color: var(--accent); }
+.rb-page ul { margin: .35em 0 0; padding-left: 1.1em; }
+.rb-page li { margin: .25em 0; padding-left: .15em; }
+.rb-page li::marker { color: var(--accent); }
+.rb-page .item, .rb-page .iend { margin-bottom: 1em; }
+.rb-page ul + ul, .rb-page div > ul:first-child { margin-top: 0; }
+.rb-page .row { display: flex; justify-content: space-between; align-items: baseline; gap: 1em; }
+.rb-page .row strong, .rb-page .kv b { color: #111827; font-weight: 600; }
+.rb-page .meta { white-space: nowrap; color: #6b7280; font-size: .95em; }
+.rb-page .sub { color: #4b5563; }
+.rb-page .stack { font-size: .9em; margin-top: .35em; line-height: 1.55; color: #4b5563; background: var(--tint); padding: .35em .65em; border-radius: 4px; }
+.rb-page .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: .5em 1.5em; padding-bottom: .5em; }
+.rb-page .cols2 .item { margin-bottom: .2em; }
+.rb-page section.contd { margin-top: 0; }
+.rb-page h2:empty { display: none; }
+.rb-page .s-about .kv + .kv { margin-top: .5em; }
+
+/* Classic: clean single column, accent rules */
+.tpl-classic { font-family: Lato, Calibri, 'Segoe UI', Arial, sans-serif; }
+.tpl-classic header { border-bottom: 2px solid var(--accent); padding-bottom: .8em; }
+.tpl-classic h2 { border-bottom: 1px solid var(--line); padding-bottom: .3em; }
+
+/* Minimal: label column, hairline separators */
+.tpl-minimal { font-family: 'Helvetica Neue', Arial, sans-serif; }
+.tpl-minimal h1 { font-weight: 300; letter-spacing: .05em; text-transform: uppercase; }
+.tpl-minimal section { display: grid; grid-template-columns: 16% 1fr; gap: 1.2em; margin-top: 1.1em; padding-top: 1.1em; border-top: 1px solid #eceff3; }
+.tpl-minimal section.contd { border-top: 0; padding-top: 0; }
+.tpl-minimal h2 { font-size: .82em; padding-top: .15em; margin: 0; }
+.tpl-minimal h2:empty { display: block; }
+.tpl-minimal .s-summary { display: block; border-top: 0; }
+.tpl-minimal .s-summary h2 { display: none; }
+
+/* Modern: soft tinted sidebar + accent edge, repeated on every page */
+.tpl-modern { padding: 0; display: grid; grid-template-columns: 31% 1fr; grid-template-rows: auto 1fr; grid-template-areas: "aside header" "aside main";
+  font-family: system-ui, 'Segoe UI', sans-serif; border-left: 1.6mm solid var(--accent); background: linear-gradient(to right, var(--tint) 31%, #fff 31%); }
+.tpl-modern aside:empty { display: block; }
+.tpl-modern header { grid-area: header; padding: 12mm 12mm 0 8mm; }
+.tpl-modern main { grid-area: main; padding: 0 12mm 10mm 8mm; }
+.tpl-modern aside { grid-area: aside; padding: 12mm 6mm 10mm 7mm; }
+.tpl-modern.cont main, .tpl-modern.cont aside { padding-top: 12mm; }
+.tpl-modern aside section:first-child { margin-top: 0; }
+.tpl-modern .hd { display: block; } .tpl-modern .contact { text-align: left; margin-top: .4em; }
+.tpl-modern h1 { color: var(--accent); }
+.tpl-modern h2 { border-bottom: 1px solid var(--line); padding-bottom: .25em; }
+
+/* Executive: tinted header, accent top edge, right column with divider on every page */
+.tpl-executive { padding: 0; display: grid; grid-template-columns: 1fr 30%; grid-template-rows: auto 1fr; grid-template-areas: "header header" "main aside";
+  font-family: Cambria, Georgia, serif; border-top: 2mm solid var(--accent); }
+.tpl-executive aside:empty { display: block; }
+.tpl-executive header { grid-area: header; background: var(--tint); padding: 9mm 13mm 7mm; margin-bottom: .5em; }
+.tpl-executive h1 { color: var(--accent); }
+.tpl-executive .desig { color: #374151; }
+.tpl-executive main { grid-area: main; padding: 0 6mm 10mm 13mm; }
+.tpl-executive aside { grid-area: aside; padding: 0 13mm 10mm 6mm; border-left: 1px solid var(--line); }
+.tpl-executive.cont main, .tpl-executive.cont aside { padding-top: 11mm; }
+.tpl-executive h2 { border-left: 3px solid var(--accent); padding-left: .5em; }
+
+/* sidebar templates: single column inside the aside */
+.tpl-modern aside .row, .tpl-executive aside .row { display: block; }
+.tpl-modern aside .cols2, .tpl-executive aside .cols2 { grid-template-columns: 1fr; }
+.tpl-modern aside .meta, .tpl-executive aside .meta { display: block; }
+
+/* Print = the resume pages only (the app header, editor and toolbar carry print:hidden). */
+@media print {
+  @page { size: A4; margin: 0; }
+  html, body { background: #fff !important; }
+  .rb-stage { width: auto !important; height: auto !important; }
+  .rb-pages { transform: none !important; }
+  .rb-page { box-shadow: none; margin: 0; break-after: page; display: flex !important; } /* the preview shows one page; print all */
+  .tpl-modern, .tpl-executive { display: grid !important; }
+  .rb-page:last-child { break-after: auto; }
+}

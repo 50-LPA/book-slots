@@ -1,30 +1,37 @@
-import { getDocs } from 'firebase/firestore';
-import { getCollectionDocs, invalidateCollection } from './slotsService';
+import { onSnapshot } from 'firebase/firestore';
+import { getCollectionDocs } from './slotsService';
 
 jest.mock('./firebase', () => ({ db: {}, auth: { currentUser: { uid: 'u1' } } }));
 jest.mock('firebase/firestore', () => ({
   ...jest.requireActual('firebase/firestore'),
   collection: jest.fn(() => ({})),
-  getDocs: jest.fn(),
+  onSnapshot: jest.fn(),
 }));
 
-beforeEach(() => {
-  getDocs.mockReset();
-  invalidateCollection('hrs');
-});
+const snap = (docs, fromCache = false) => ({ docs, metadata: { fromCache } });
 
-test('reuses one read until fresh/invalidate; failed reads are not cached', async () => {
-  getDocs.mockResolvedValue({ docs: ['a'] });
-  expect(await getCollectionDocs('hrs')).toEqual(['a']);
-  await getCollectionDocs('hrs');
-  expect(getDocs).toHaveBeenCalledTimes(1);
+test('one shared listener; waits for server data; live updates; errors are not cached', async () => {
+  let emit;
+  let fail;
+  onSnapshot.mockImplementation((_q, _o, next, error) => {
+    emit = next;
+    fail = error;
+    return jest.fn();
+  });
 
-  await getCollectionDocs('hrs', { fresh: true });
-  expect(getDocs).toHaveBeenCalledTimes(2);
+  const first = getCollectionDocs('hrs');
+  emit(snap(['stale'], true)); // cache-only copy is ignored
+  emit(snap(['a']));
+  expect(await first).toEqual(['a']);
+  emit(snap(['a', 'b']));
+  expect(await getCollectionDocs('hrs')).toEqual(['a', 'b']);
+  expect(onSnapshot).toHaveBeenCalledTimes(1);
 
-  invalidateCollection('hrs');
-  getDocs.mockRejectedValueOnce(new Error('offline'));
-  await expect(getCollectionDocs('hrs')).rejects.toThrow('offline');
-  expect(await getCollectionDocs('hrs')).toEqual(['a']);
-  expect(getDocs).toHaveBeenCalledTimes(4);
+  const failing = getCollectionDocs('candidates');
+  fail(new Error('offline'));
+  await expect(failing).rejects.toThrow('offline');
+  const retry = getCollectionDocs('candidates');
+  emit(snap(['c']));
+  expect(await retry).toEqual(['c']);
+  expect(onSnapshot).toHaveBeenCalledTimes(3);
 });

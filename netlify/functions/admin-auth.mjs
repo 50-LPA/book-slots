@@ -26,6 +26,9 @@ class HttpError extends Error {
 // Must match mobileToAuthEmail() in src/firebase/firebase.js.
 const emailFor = (mobile) => `${mobile}@${projectId}.firebaseapp.com`;
 const isAdmin = async (uid) => (await getFirestore().doc(`admin/${uid}`).get()).exists;
+// Readable copy so admins can look up a candidate's password (Auth only keeps a hash). Admin-read-only in firestore.rules.
+const secretRef = (uid) => getFirestore().doc(`candidateSecrets/${uid}`);
+const savePassword = (uid, password) => password && secretRef(uid).set({ password, updatedAt: Date.now() });
 
 function cleanMobile(raw) {
   const mobile = String(raw ?? '').replace(/\D/g, '');
@@ -50,7 +53,9 @@ async function setCandidateAuth(data) {
   try {
     if (!uid) {
       if (!password) throw new HttpError(400, 'Password is required.');
-      return { uid: (await auth.createUser({ email, password })).uid };
+      const created = await auth.createUser({ email, password });
+      await savePassword(created.uid, password);
+      return { uid: created.uid };
     }
     try {
       await auth.updateUser(uid, { email, ...(password && { password }) });
@@ -60,6 +65,7 @@ async function setCandidateAuth(data) {
       if (!password) throw new HttpError(400, 'This candidate has no login yet. Set a password.');
       await auth.createUser({ uid, email, password });
     }
+    await savePassword(uid, password);
     return { uid };
   } catch (e) {
     if (e.code === 'auth/email-already-exists') throw new HttpError(409, 'This mobile number is already registered.');
@@ -74,6 +80,7 @@ async function deleteCandidateAuth(data) {
   await getAuth().deleteUser(uid).catch((e) => {
     if (e.code !== 'auth/user-not-found') throw e;
   });
+  await secretRef(uid).delete();
   return { ok: true };
 }
 

@@ -22,7 +22,7 @@ if (missing.length) {
   throw new Error(`[firebase] Missing env config: ${missing.join(', ')}. Add the REACT_APP_FIREBASE_* keys to .env.`);
 }
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 
 // IndexedDB cache keeps docs + resume tokens across page reloads and tabs, so re-opening a
 // screen within ~30 min only bills changed docs instead of re-reading whole collections

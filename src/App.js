@@ -2,6 +2,7 @@ import React, { Suspense, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import './index.css';
 import { AuthProvider } from './context/AuthContext';
+import { QuotaBanner } from './utils/quota';
 
 const Login = React.lazy(() => import('./pages/Login'));
 const AdminRouteGuard = React.lazy(() => import('./Components/AdminRouteGuard'));
@@ -43,14 +44,18 @@ function NoDashboardViaBackForward({ children }) {
     return () => window.removeEventListener('popstate', onPopstate);
   }, []);
 
+  const lastPath = useRef(location.pathname);
   useEffect(() => {
     const isDashboard =
       location.pathname === '/admin-dashboard' || location.pathname === '/candidate-dashboard';
-    if (isDashboard && arrivedViaPopstate.current) {
-      arrivedViaPopstate.current = false;
+    const viaBackForward = arrivedViaPopstate.current;
+    arrivedViaPopstate.current = false; // per navigation: hash changes (profile pages) fire popstate too
+    const pathChanged = lastPath.current !== location.pathname; // hash-only moves stay on the dashboard
+    lastPath.current = location.pathname;
+    if (isDashboard && viaBackForward && pathChanged) {
       navigate('/login', { replace: true });
     }
-  }, [location.pathname, navigate]);
+  }, [location, navigate]);
 
   return children;
 }
@@ -59,6 +64,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
+        <QuotaBanner />
         <NoDashboardViaBackForward>
           <Suspense fallback={<div className="min-h-screen bg-slate-100 flex items-center justify-center"><span className="text-purple-600 font-medium">Loading…</span></div>}>
           <Routes>
@@ -69,7 +75,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </Suspense>
-          <span className="fixed bottom-1 right-2 text-[10px] text-slate-400 pointer-events-none select-none">v1</span>
+          <span className="fixed bottom-1 right-2 text-[10px] text-slate-400 pointer-events-none select-none print:hidden">v1</span>
         </NoDashboardViaBackForward>
       </AuthProvider>
     </Router>

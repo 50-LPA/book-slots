@@ -224,7 +224,7 @@ export function SelectedFields({ form, setForm, hrs = [] }) {
 
       {/* Joining Date */}
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-calendar-check mr-1.5 text-purple-500" aria-hidden="true" />
+        <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-calendar-day mr-1.5 text-purple-500" aria-hidden="true" />
           <span className="text-red-500">*</span> Joining Date
         </label>
         <div className="relative">
@@ -424,7 +424,7 @@ export function SelectedFields({ form, setForm, hrs = [] }) {
 
       {/* Family Member Mobile */}
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-phone mr-1.5 text-purple-500" aria-hidden="true" />
+        <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />
           <span className="text-red-500">*</span> Family member contact number
         </label>
         <input

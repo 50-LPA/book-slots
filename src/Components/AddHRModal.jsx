@@ -224,7 +224,7 @@ export default function AddHRModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+            className="btn-circle"
             aria-label="Close"
           >
             <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
@@ -370,7 +370,7 @@ export default function AddHRModal({
               disabled={submitting}
               className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap inline-flex items-center gap-2 h-9 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <i className="fa-regular fa-square-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+              <i className="fa-solid fa-plus w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
               <span>Create HR</span>
             </button>
           </div>

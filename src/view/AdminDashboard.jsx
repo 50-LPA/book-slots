@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { Suspense, lazy, useMemo, useState, useRef, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   collection,
   addDoc,
@@ -17,7 +17,10 @@ import {
   deleteField,
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
-import { db, auth, adminSetCandidateAuth, adminDeleteCandidateAuth } from '../firebase/firebase';
+import { mayLeave, navigated } from '../profile/unsaved.js';
+import StatCounts from '../Components/StatCounts';
+import { friendlyMessage } from '../utils/quota';
+import { db, auth, adminSetCandidateAuth, adminDeleteCandidateAuth, normalizeMobile } from '../firebase/firebase';
 import {
   updateSlotStatus,
   deleteSlot,
@@ -29,7 +32,6 @@ import {
   syncCandidateDisplayNameOnEvents,
   getCollectionDocs,
   getCandidatesById,
-  invalidateCollection,
 } from '../firebase/slotsService';
 import {
   subscribeToSlotSettings,
@@ -68,6 +70,7 @@ import {
   validateSelection,
   SelectedDetailsView,
 } from '../Components/CandidateSelectionFields';
+import PaginationBar from '../Components/PaginationBar';
 
 function escapeCsvCell(value) {
   const s = String(value ?? '');
@@ -159,102 +162,6 @@ function getRelativeSlotDayLabel(slotDateValue) {
   return '';
 }
 
-// Reusable pagination bar: left = count label, right = « < pages > » + per-page selector
-function PaginationBar({
-  totalItems,
-  currentPage,
-  itemsPerPage,
-  onPageChange,
-  onItemsPerPageChange,
-  label = 'Items',
-  optionsPerPage = [10, 20, 25, 50],
-}) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-
-  const pageNumbers = [];
-  const maxVisible = 5;
-  let first = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-  let last = Math.min(totalPages, first + maxVisible - 1);
-  if (last - first + 1 < maxVisible) {
-    first = Math.max(1, last - maxVisible + 1);
-  }
-  for (let i = first; i <= last; i++) {
-    pageNumbers.push(i);
-  }
-
-  return (
-    <div className="mt-3 flex items-center justify-between gap-3 flex-wrap px-3 py-2">
-      {/* Left: count */}
-      <div className="text-xs sm:text-sm text-slate-600">
-        {totalItems} {label}
-      </div>
-      {/* Right: « < 1 2 3 ... > » + per page */}
-      <div className="flex items-center gap-1 sm:gap-2">
-        <button
-          type="button"
-          onClick={() => onPageChange(1)}
-          disabled={currentPage <= 1}
-          className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          aria-label="First page"
-        >
-          &laquo;
-        </button>
-        <button
-          type="button"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          aria-label="Previous page"
-        >
-          &lsaquo;
-        </button>
-        {pageNumbers.map((num) => (
-          <button
-            key={num}
-            type="button"
-            onClick={() => onPageChange(num)}
-            className={`min-w-[28px] px-2 py-1 rounded text-sm font-medium ${
-              num === currentPage
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            {num}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          aria-label="Next page"
-        >
-          &rsaquo;
-        </button>
-        <button
-          type="button"
-          onClick={() => onPageChange(totalPages)}
-          disabled={currentPage >= totalPages}
-          className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          aria-label="Last page"
-        >
-          &raquo;
-        </button>
-        <select
-          value={itemsPerPage}
-          onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-          className="ml-2 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs sm:text-sm text-slate-600"
-        >
-          {optionsPerPage.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-}
 
 // Header copied from CandidateDashboard, adjusted for Admin, with mobile sidebar nav
 function AdminHeader({ activeTab, onChangeTab }) {
@@ -274,6 +181,8 @@ function AdminHeader({ activeTab, onChangeTab }) {
 
   const handleLogout = () => {
     sessionStorage.removeItem('sb_user');
+    // Profile pages keep a local copy of candidate profiles and resume drafts (src/profile/data.js): don't leave it on the device.
+    Object.keys(localStorage).filter((k) => k.startsWith('slot-profile:')).forEach((k) => localStorage.removeItem(k));
     signOut(auth).catch(() => {});
     setMenuOpen(false);
     navigate('/login', { replace: true });
@@ -283,10 +192,11 @@ function AdminHeader({ activeTab, onChangeTab }) {
     { id: 'home', label: 'Home', icon: 'fa-solid fa-house' },
     { id: 'candidates', label: 'Candidates', icon: 'fa-solid fa-users' },
     { id: 'slots', label: 'Slots', icon: 'fa-solid fa-calendar-days' },
-    { id: 'leaves', label: 'Admin Leaves', icon: 'fa-solid fa-calendar-check' },
-    { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-user-group' },
-    { id: 'stats', label: 'Statistics', icon: 'fa-solid fa-chart-line' },
-    { id: 'settings', label: 'Settings', icon: 'fa-solid fa-gear' },
+    { id: 'leaves', label: 'Admin Leaves', icon: 'fa-solid fa-umbrella-beach' },
+    { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-user-tie' },
+    { id: 'stats', label: 'Statistics', icon: 'fa-solid fa-chart-column' },
+    { id: 'profiles', label: 'Profiles', icon: 'fa-solid fa-id-card' },
+    { id: 'resumes', label: 'Resumes', icon: 'fa-solid fa-file-lines' },
   ];
 
   const handleNavClick = (id) => {
@@ -298,7 +208,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
 
   return (
     <>
-      <div className="bg-pink-100 px-2 sm:px-4 md:px-8 py-2 sm:py-3 md:py-4 flex items-center justify-between gap-2 sm:gap-3 relative">
+      <div className="bg-pink-100 px-2 sm:px-4 md:px-8 py-2 sm:py-3 md:py-4 flex items-center justify-between gap-2 sm:gap-3 relative print:hidden">
         {/* Left Section: mobile menu + title */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
@@ -310,7 +220,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
             <i className="fa-solid fa-bars w-4 h-4" aria-hidden="true" />
           </button>
         <h1 className="text-sm sm:text-base md:text-xl font-bold text-gray-900 truncate">
-          <i className="fa-solid fa-user-shield mr-2 text-purple-600" aria-hidden="true" />
+          <i className="fa-solid fa-calendar-check mr-2 text-purple-600" aria-hidden="true" />
           Book Slots
         </h1>
       </div>
@@ -357,6 +267,13 @@ function AdminHeader({ activeTab, onChangeTab }) {
                 <p className="text-sm font-semibold text-slate-900">{adminName}</p>
                 <p className="text-[11px] text-slate-500">Admin</p>
               </div>
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); handleNavClick('settings'); }}
+                className={`w-full flex items-center gap-2 px-4 py-2 text-sm font-medium border-t border-slate-100 ${activeTab === 'settings' ? 'bg-purple-100 text-purple-600' : 'text-slate-700 hover:bg-purple-50'}`}
+              ><i className="fa-solid fa-gear" aria-hidden="true" />
+                Settings
+              </button>
               <button
                 type="button"
                 onClick={handleLogout}
@@ -421,7 +338,7 @@ function AdminTopNav({ activeTab, onChange, pendingApprovals = 0 }) {
     'inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all';
 
   return (
-    <div className="hidden md:flex bg-white px-3 sm:px-6 py-2 items-center gap-2 shadow-sm border-b border-purple-100">
+    <div className="hidden md:flex bg-white px-3 sm:px-6 py-2 items-center gap-2 shadow-sm border-b border-purple-100 print:hidden">
       {/* Home - active */}
       <button
         onClick={() => onChange('home')}
@@ -457,7 +374,7 @@ function AdminTopNav({ activeTab, onChange, pendingApprovals = 0 }) {
             : 'text-gray-700 hover:text-gray-900'
         }`}
       >
-        <i className="fa-solid fa-calendar w-4 h-4" aria-hidden="true" />
+        <i className="fa-solid fa-calendar-days w-4 h-4" aria-hidden="true" />
         <span>Slots</span>
       </button>
 
@@ -470,7 +387,7 @@ function AdminTopNav({ activeTab, onChange, pendingApprovals = 0 }) {
             : 'text-gray-700 hover:text-gray-900'
         }`}
       >
-        <i className="fa-solid fa-calendar w-4 h-4" aria-hidden="true" />
+        <i className="fa-solid fa-umbrella-beach w-4 h-4" aria-hidden="true" />
         <span>Admin Leaves</span>
       </button>
 
@@ -483,7 +400,7 @@ function AdminTopNav({ activeTab, onChange, pendingApprovals = 0 }) {
             : 'text-gray-700 hover:text-gray-900'
         }`}
       >
-        <i className="fa-solid fa-users w-4 h-4" aria-hidden="true" />
+        <i className="fa-solid fa-user-tie w-4 h-4" aria-hidden="true" />
         <span>HRs</span>
       </button>
 
@@ -496,22 +413,25 @@ function AdminTopNav({ activeTab, onChange, pendingApprovals = 0 }) {
             : 'text-gray-700 hover:text-gray-900'
         }`}
       >
-        <i className="fa-solid fa-chart-bar w-4 h-4" aria-hidden="true" />
+        <i className="fa-solid fa-chart-column w-4 h-4" aria-hidden="true" />
         <span>Statistics</span>
       </button>
 
-      {/* Settings */}
-      <button
-        onClick={() => onChange('settings')}
-        className={`${baseBtn} ${
-          activeTab === 'settings'
-            ? 'bg-purple-100 text-purple-600 shadow-sm'
-            : 'text-gray-700 hover:text-gray-900'
-        }`}
-      >
-        <i className="fa-solid fa-gear w-4 h-4" aria-hidden="true" />
-        <span>Settings</span>
-      </button>
+      {/* Profiles & resumes (src/profile) */}
+      {[['profiles', 'Profiles', 'fa-id-card'], ['resumes', 'Resumes', 'fa-file-lines']].map(([id, label, icon]) => (
+        <button
+          key={id}
+          onClick={() => onChange(id)}
+          className={`${baseBtn} ${
+            activeTab === id
+              ? 'bg-purple-100 text-purple-600 shadow-sm'
+              : 'text-gray-700 hover:text-gray-900'
+          }`}
+        >
+          <i className={`fa-solid ${icon} w-4 h-4`} aria-hidden="true" />
+          <span>{label}</span>
+        </button>
+      ))}
 
       <div className="ml-auto hidden sm:flex items-center text-[11px] font-semibold text-slate-600">
         Pending Approvals:&nbsp;
@@ -574,6 +494,104 @@ function AdminCandidatesTable({
     setCurrentPage(1);
   }, [candidates.length, selectionFilter, technologyFilter, referredByFilter, statusFilter, search]);
 
+  // Row pieces shared by the desktop table and the phone cards.
+  const refIcon = (c) => {
+    const ref = (c.referredBy || '').toLowerCase();
+    let bg = 'bg-slate-100';
+    let text = 'text-slate-600';
+    if (ref.includes('anil')) {
+      bg = 'bg-blue-100';
+      text = 'text-blue-600';
+    } else if (ref.includes('viraj')) {
+      bg = 'bg-emerald-100';
+      text = 'text-emerald-600';
+    } else if (ref.includes('nilesh')) {
+      bg = 'bg-red-100';
+      text = 'text-red-600';
+    } else if (ref.includes('vishal')) {
+      bg = 'bg-orange-100';
+      text = 'text-orange-600';
+    }
+    return (
+      <span
+        className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${bg} ${text} text-[11px] flex-shrink-0`}
+      >
+        <i className="fa-solid fa-user text-xs" aria-hidden="true" />
+      </span>
+    );
+  };
+  const lastInterview = (c) => {
+    const last = getLastInterview(c);
+    if (last) {
+      return (
+        <div className="flex flex-col">
+          <span>{last.date}</span>
+          {last.time && (
+            <span className="text-[11px] text-slate-500">{last.time}</span>
+          )}
+        </div>
+      );
+    }
+    return '-';
+  };
+  const statusOf = (c) => (c.selected || c.isSelected)
+    ? (c.status ? c.status : (c.isActive !== false ? 'Active' : 'Inactive'))
+    : getCandidateAccountStatus(c, slots);
+  const activeCount = candidates.filter((c) => statusOf(c) === 'Active').length;
+  const statusPill = (c) => {
+    const effectiveStatus = statusOf(c);
+    return (
+      <button
+        type="button"
+        onClick={() => onToggleStatus(c.id)}
+        title={`Click to set as ${effectiveStatus === 'Active' ? 'Inactive' : 'Active'}`}
+        className={`inline-flex rounded-full px-3 py-0.5 text-[11px] font-semibold cursor-pointer transition-colors ${
+          effectiveStatus === 'Active'
+            ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+            : 'bg-red-500 text-white hover:bg-red-600'
+        }`}
+      >
+        {effectiveStatus}
+      </button>
+    );
+  };
+  const rowActions = (c) => (
+    <div className="inline-flex gap-2">
+      <button
+        onClick={() => onViewCandidate(c.id)}
+        className="btn-action bg-sky-500"
+      >
+        <i className="fa-solid fa-eye" aria-hidden="true" />
+      </button>
+      {/^\d{10}$/.test(normalizeMobile(c.mobile).slice(-10)) && (
+        <a
+          href={`#/m/${normalizeMobile(c.mobile).slice(-10)}`}
+          title="Profile & resume"
+          aria-label="Profile & resume"
+          className="btn-action bg-purple-500"
+        >
+          <i className="fa-solid fa-id-card" aria-hidden="true" />
+        </a>
+      )}
+      <button
+        onClick={() => onEditCandidate(c.id)}
+        className="btn-action bg-amber-400"
+      >
+        <i className="fa-solid fa-pen" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setConfirmDeleteCandidateId(c.id);
+          setConfirmDeleteCandidateName(c.name || '');
+        }}
+        className="btn-action bg-red-500"
+      >
+        <i className="fa-solid fa-trash" aria-hidden="true" />
+      </button>
+    </div>
+  );
+
   return (
     <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
       {/* Header row - back + title + top-right buttons */}
@@ -582,7 +600,7 @@ function AdminCandidatesTable({
         <div className="flex items-start">
           <button
             onClick={onBackToHome}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+            className="btn-circle"
           >
             <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
           </button>
@@ -590,7 +608,8 @@ function AdminCandidatesTable({
 
         {/* Center: title + refresh (refresh on right side of text) */}
         <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="text-xs sm:text-sm font-semibold text-purple-600">
+          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
+            <i className="fa-solid fa-users mr-1.5" aria-hidden="true" />
             Candidate List
           </span>
           <button
@@ -602,7 +621,7 @@ function AdminCandidatesTable({
               onChangeStatusFilter('active');
               onChangeSearch('');
             }}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
+            className="btn-circle"
             aria-label="Refresh"
           >
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
@@ -614,7 +633,7 @@ function AdminCandidatesTable({
           {/* Add Candidate */}
           <button
             onClick={onOpenAddForm}
-            className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow hover:bg-emerald-600 whitespace-nowrap"
+            className="btn-pill bg-emerald-500"
           >
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
               <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
@@ -627,14 +646,7 @@ function AdminCandidatesTable({
       {/* Filters row under Add Candidate */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         {/* Left: total candidates (stacked like screenshot) */}
-        <div className="flex flex-col items-center leading-snug">
-          <span className="text-base font-semibold text-slate-800">
-            {candidates.length}
-          </span>
-          <span className="text-[11px] text-slate-500">
-            Total Candidates
-          </span>
-        </div>
+        <StatCounts items={[['Total', candidates.length], ['Active', activeCount, 'green'], ['Inactive', candidates.length - activeCount, 'red']]} />
 
         {/* Right: filters grouped and right-aligned */}
         <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
@@ -642,7 +654,7 @@ function AdminCandidatesTable({
           <select
             value={selectionFilter}
             onChange={(e) => onChangeSelectionFilter(e.target.value)}
-            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
+            className="filter-select w-auto"
           >
             <option value="unselected">Unselected</option>
             <option value="selected">Selected</option>
@@ -652,7 +664,7 @@ function AdminCandidatesTable({
           <select
             value={technologyFilter}
             onChange={(e) => onChangeTechnologyFilter && onChangeTechnologyFilter(e.target.value)}
-            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
+            className="filter-select w-auto"
           >
             <option value="all">All Technologies</option>
             {techOptions.map((opt) => (
@@ -666,7 +678,7 @@ function AdminCandidatesTable({
           <select
             value={referredByFilter}
             onChange={(e) => onChangeReferredByFilter(e.target.value)}
-            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
+            className="filter-select w-auto"
           >
             <option value="all">All</option>
             <option value="anil_sir">Anil sir</option>
@@ -679,7 +691,7 @@ function AdminCandidatesTable({
           <select
             value={statusFilter}
             onChange={(e) => onChangeStatusFilter(e.target.value)}
-            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
+            className="filter-select w-auto"
           >
             <option value="all">All</option>
             <option value="active">Active</option>
@@ -688,20 +700,55 @@ function AdminCandidatesTable({
 
           {/* Search */}
           <div className="relative w-32 sm:w-40">
-            <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400" aria-hidden="true" />
             <input
               type="text"
               placeholder="Search candidates..."
               value={search}
               onChange={(e) => onChangeSearch(e.target.value)}
-              className="w-full rounded-full border border-slate-200 bg-white pl-7 pr-3 py-1.5 text-[11px] sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="filter-search"
             />
           </div>
         </div>
       </div>
 
+      {/* Phones: one card per candidate (same data and actions as the table) */}
+      <div className="md:hidden space-y-3">
+        {paginatedCandidates.length === 0 && (
+          <p className="rounded-lg border border-slate-200 px-4 py-6 text-center text-xs text-slate-500">No candidates found.</p>
+        )}
+        {paginatedCandidates.map((c) => (
+          <div key={c.firestoreId || c.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="flex items-start gap-2">
+              {refIcon(c)}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {c.name}
+                  {(c.selected || c.isSelected) && <span className="ml-1 text-xs font-bold text-blue-600">- Selected</span>}
+                </p>
+                {c.mobile && <a href={`tel:${c.mobile}`} className="inline-flex items-center gap-1 py-1 text-xs text-purple-600"><i className="fa-solid fa-mobile-screen" aria-hidden="true" />{c.mobile}</a>}
+              </div>
+              {statusPill(c)}
+            </div>
+            {Array.isArray(c.technologies) && c.technologies.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {c.technologies.map((t) => (
+                  <span key={t} className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700">{t}</span>
+                ))}
+              </div>
+            )}
+            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+              <div><p className="text-slate-400">Experience</p><p className="text-slate-700">{(c.experience && String(c.experience).trim()) || '0'} yrs</p></div>
+              <div><p className="text-slate-400"><i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots</p><p className="text-slate-700">{getScheduledCount(c)}</p></div>
+              <div><p className="text-slate-400">Last Interview</p><div className="text-slate-700">{lastInterview(c)}</div></div>
+            </div>
+            <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">{rowActions(c)}</div>
+          </div>
+        ))}
+      </div>
+
       {/* Table with grid (column borders) */}
-      <div className="overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full border-collapse text-xs sm:text-sm border border-slate-200">
           <thead>
             <tr className="bg-slate-50 text-slate-600">
@@ -721,7 +768,7 @@ function AdminCandidatesTable({
                 Technologies
               </th>
               <th className="px-3 py-2 text-center font-semibold border-b border-r border-slate-200">
-                Total Slots
+                <i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots
               </th>
               <th className="px-3 py-2 text-center font-semibold border-b border-r border-slate-200">
                 Last Interview
@@ -742,31 +789,7 @@ function AdminCandidatesTable({
                 </td>
                 <td className="px-3 py-2 text-slate-800 border-r border-slate-200">
                   <div className="flex items-center gap-1.5">
-                    {(() => {
-                      const ref = (c.referredBy || '').toLowerCase();
-                      let bg = 'bg-slate-100';
-                      let text = 'text-slate-600';
-                      if (ref.includes('anil')) {
-                        bg = 'bg-blue-100';
-                        text = 'text-blue-600';
-                      } else if (ref.includes('viraj')) {
-                        bg = 'bg-emerald-100';
-                        text = 'text-emerald-600';
-                      } else if (ref.includes('nilesh')) {
-                        bg = 'bg-red-100';
-                        text = 'text-red-600';
-                      } else if (ref.includes('vishal')) {
-                        bg = 'bg-orange-100';
-                        text = 'text-orange-600';
-                      }
-                      return (
-                        <span
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${bg} ${text} text-[11px] flex-shrink-0`}
-                        >
-                          <i className="fa-solid fa-user text-xs" aria-hidden="true" />
-                        </span>
-                      );
-                    })()}
+                    {refIcon(c)}
                     <span className="truncate">{c.name}</span>
                     {(c.selected || c.isSelected) && (
                       <span className="ml-1 text-xs font-bold text-blue-600 whitespace-nowrap">
@@ -797,68 +820,13 @@ function AdminCandidatesTable({
                   {getScheduledCount(c)}
                 </td>
                 <td className="px-3 py-2 text-slate-700 text-center text-xs border-r border-slate-200">
-                  {(() => {
-                    const last = getLastInterview(c);
-                    if (last) {
-                      return (
-                        <div className="flex flex-col">
-                          <span>{last.date}</span>
-                          {last.time && (
-                            <span className="text-[11px] text-slate-500">{last.time}</span>
-                          )}
-                        </div>
-                      );
-                    }
-                    return '-';
-                  })()}
+                  {lastInterview(c)}
                 </td>
                 <td className="px-3 py-2 text-center border-r border-slate-200">
-                  {(() => {
-                    const isSelected = !!(c.selected || c.isSelected);
-                    const effectiveStatus = isSelected
-                      ? (c.status ? c.status : (c.isActive !== false ? 'Active' : 'Inactive'))
-                      : getCandidateAccountStatus(c, slots);
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => onToggleStatus(c.id)}
-                        title={`Click to set as ${effectiveStatus === 'Active' ? 'Inactive' : 'Active'}`}
-                        className={`inline-flex rounded-full px-3 py-0.5 text-[11px] font-semibold cursor-pointer transition-colors ${
-                          effectiveStatus === 'Active'
-                            ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-                            : 'bg-slate-300 text-slate-800 hover:bg-slate-400'
-                        }`}
-                      >
-                        {effectiveStatus}
-                      </button>
-                    );
-                  })()}
+                  {statusPill(c)}
                 </td>
                 <td className="px-3 py-2 text-center">
-                  <div className="inline-flex gap-2">
-                    <button
-                      onClick={() => onViewCandidate(c.id)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded bg-sky-500 text-white hover:bg-sky-600"
-                    >
-                      <i className="fa-solid fa-eye" aria-hidden="true" />
-                    </button>
-                    <button
-                      onClick={() => onEditCandidate(c.id)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded bg-amber-400 text-white hover:bg-amber-500"
-                    >
-                      <i className="fa-solid fa-pen" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setConfirmDeleteCandidateId(c.id);
-                        setConfirmDeleteCandidateName(c.name || '');
-                      }}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
-                    >
-                      <i className="fa-solid fa-trash" aria-hidden="true" />
-                    </button>
-                  </div>
+                  {rowActions(c)}
                 </td>
               </tr>
             ))}
@@ -901,7 +869,7 @@ function AdminCandidatesTable({
                   setConfirmDeleteCandidateId(null);
                   setConfirmDeleteCandidateName('');
                 }}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                className="btn-circle"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
@@ -934,7 +902,7 @@ function AdminCandidatesTable({
                   setConfirmDeleteCandidateName('');
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
-              ><i className="fa-solid fa-trash-can mr-1.5" aria-hidden="true" />
+              ><i className="fa-solid fa-trash mr-1.5" aria-hidden="true" />
                 Delete
               </button>
             </div>
@@ -1195,7 +1163,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       setTechSearch('');
     } catch (err) {
       console.error(err);
-      setError(err?.message || 'Failed to add candidate.');
+      setError(friendlyMessage(err, 'Failed to add candidate.'));
     } finally {
       setLoading(false);
     }
@@ -1213,7 +1181,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50"
+            className="btn-circle"
           >
             <i className="fa-solid fa-arrow-left w-4 h-4 text-slate-600" aria-hidden="true" />
           </button>
@@ -1221,7 +1189,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
 
         {/* Center: title */}
         <div className="flex-1 text-center">
-          <h2 className="text-sm sm:text-base font-semibold text-purple-600"><i className="fa-solid fa-user-plus mr-1.5" aria-hidden="true" />
+          <h2 className="text-sm sm:text-base font-semibold text-purple-600"><i className="fa-solid fa-plus mr-1.5" aria-hidden="true" />
             Add New Candidate
           </h2>
         </div>
@@ -1482,21 +1450,40 @@ function AdminEditCandidateForm({ candidate, hrs = [], onBack, onSubmit }) {
     referredBy: candidate?.referredBy || 'Viraj Kadam Sir',
     ...selectionFormFromDoc(candidate || {}),
   });
-  const [showPassword, setShowPassword] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [savedPassword, setSavedPassword] = useState('');
+
+  // Current password from the admin-only copy (none for candidates whose password predates it).
+  const candidateUid = candidate?.firestoreId;
+  useEffect(() => {
+    setSavedPassword('');
+    setForm((prev) => ({ ...prev, password: '' }));
+    if (!candidateUid) return undefined;
+    let live = true;
+    getDoc(doc(db, 'candidateSecrets', candidateUid))
+      .then((snap) => {
+        const pw = live && snap.exists() ? String(snap.data().password || '') : '';
+        if (!pw) return;
+        setSavedPassword(pw);
+        setForm((prev) => ({ ...prev, password: pw }));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [candidateUid]);
 
   useEffect(() => {
     if (candidate) {
-      setForm({
+      setForm((prev) => ({
         name: candidate.name || '',
         mobile: candidate.mobile || '',
         experience: candidate.experience || '',
-        password: '',
+        password: prev.password,
         technology: Array.isArray(candidate.technologies)
           ? candidate.technologies.map((t) => normaliseTechLabelAdmin(t))
           : [],
         referredBy: candidate.referredBy || 'Viraj Kadam Sir',
         ...selectionFormFromDoc(candidate || {}),
-      });
+      }));
     }
   }, [candidate]);
 
@@ -1535,8 +1522,9 @@ function AdminEditCandidateForm({ candidate, hrs = [], onBack, onSubmit }) {
       return;
     }
 
-    // Blank = keep current password.
-    const trimmedPassword = form.password?.trim();
+    // Blank or unchanged = keep current password.
+    const typedPassword = form.password?.trim();
+    const trimmedPassword = typedPassword !== savedPassword ? typedPassword : '';
     if (trimmedPassword && !/^[^a-zA-Z\s]{6}$/.test(trimmedPassword)) {
       setError('Password must be exactly 6 characters (numbers and symbols only).');
       return;
@@ -1627,14 +1615,14 @@ function AdminEditCandidateForm({ candidate, hrs = [], onBack, onSubmit }) {
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+            className="btn-circle"
           >
             <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
           </button>
         </div>
 
         <div className="flex-1 text-center">
-          <h2 className="text-sm sm:text-base font-semibold text-purple-600"><i className="fa-solid fa-pen-to-square mr-1.5" aria-hidden="true" />
+          <h2 className="text-sm sm:text-base font-semibold text-purple-600"><i className="fa-solid fa-pen mr-1.5" aria-hidden="true" />
             Edit {form.name ? form.name : 'Name of Candidate'}
           </h2>
         </div>
@@ -1682,14 +1670,15 @@ function AdminEditCandidateForm({ candidate, hrs = [], onBack, onSubmit }) {
         {/* Password with show/hide toggle - 6 digits only (mandatory) */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-key mr-1.5 text-purple-500" aria-hidden="true" />
-            New password
+            Password
           </label>
           <div className="flex items-stretch">
             <input
               type={showPassword ? 'text' : 'password'}
               value={form.password}
               onChange={handleChange('password')}
-              placeholder="Leave blank to keep current"
+              maxLength={6}
+              placeholder={savedPassword ? '' : 'Not on record - type to set'}
               className="flex-1 rounded-l-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200 rounded-r-none"
             />
             <button
@@ -1764,7 +1753,7 @@ function AdminEditCandidateForm({ candidate, hrs = [], onBack, onSubmit }) {
           className="inline-flex items-center gap-2 justify-center rounded-full bg-sky-500 px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow hover:bg-sky-600"
         >
           <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 border border-white/40">
-            <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
+            <i className="fa-solid fa-floppy-disk text-[10px]" aria-hidden="true" />
           </span>
           <span>Update Candidate</span>
         </button>
@@ -1772,6 +1761,76 @@ function AdminEditCandidateForm({ candidate, hrs = [], onBack, onSubmit }) {
     </form>
   );
 }
+
+// Slot reads are bounded: the Slots list loads only the week on screen, pending requests load on their own, and the full
+// history is read once, only for the screens that need it (Candidates, Statistics, "All", a candidate's slots).
+const NO_SLOTS = [];
+const PENDING_STATUSES = ['pending', 'Pending', 'Pending Approval'];
+const createdMs = (v) => v?.toMillis?.() ?? (v ? new Date(v).getTime() || 0 : 0);
+const byNewest = (a, b) => createdMs(b.createdAt) - createdMs(a.createdAt);
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// [Monday, next Monday) as YYYY-MM-DD; offset -1 = last week.
+function weekBounds(offset = 0) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + offset * 7);
+  const end = new Date(d);
+  end.setDate(end.getDate() + 7);
+  return [ymd(d), ymd(end)];
+}
+
+// Older events may carry only ids: fill candidate/HR names from one shared cached read of candidates/hrs.
+async function enrichSlotNames(uiSlots) {
+  const needCandidate = uiSlots.some((s) => !String(s.candidateName || s.name || '').trim() && String(s.candidateId || '').trim());
+  const needHr = uiSlots.some((s) => !String(s.hrName || '').trim() && String(s.hrId || '').trim());
+  if (!needCandidate && !needHr) return uiSlots;
+  const [candidatesById, hrDocs] = await Promise.all([
+    getCandidatesById(),
+    needHr ? getCollectionDocs('hrs').catch(() => []) : [],
+  ]);
+  const hrById = new Map(hrDocs.map((d) => [d.id, d.data()]));
+  return uiSlots.map((s) => {
+    const candidateId = String(s.candidateId || '').trim();
+    const candidateMobile = normalizeCandidateMobile(s.candidateMobile || s.mobile || candidateId);
+    const hrId = String(s.hrId || '').trim();
+    let candidateDoc = null;
+    for (const key of [candidateMobile, candidateId].filter(Boolean)) {
+      candidateDoc = candidatesById.get(key);
+      if (candidateDoc) break;
+    }
+    const hrDoc = hrId ? hrById.get(hrId) : null;
+    const candidateName = String(candidateDoc?.name || '').trim() || String(s.candidateName || s.name || '').trim();
+    const hrName = String(s.hrName || '').trim() || String(hrDoc?.name || '').trim();
+    const hrEmail = String(s.hrEmail || '').trim() || String(hrDoc?.email || '').trim();
+    const hrMobile = String(s.hrMobile || '').trim() || String(hrDoc?.mobile || '').trim();
+    return {
+      ...s,
+      candidateName: candidateName || s.candidateName || '',
+      hrName: hrName || s.hrName || '',
+      hrEmail: hrEmail || s.hrEmail || '',
+      hrMobile: hrMobile || s.hrMobile || '',
+    };
+  });
+}
+
+// Live slots for one query, newest first, names filled in. Returns the unsubscribe function.
+function listenSlots(q, onSlots, onError) {
+  let live = true;
+  const unsubscribe = onSnapshot(
+    q,
+    (snapshot) => {
+      const uiSlots = slotsSnapshotToUI(snapshot).sort(byNewest);
+      onSlots(uiSlots);
+      enrichSlotNames(uiSlots).then((e) => live && e !== uiSlots && onSlots(e)).catch(() => {});
+    },
+    onError,
+  );
+  return () => {
+    live = false;
+    unsubscribe();
+  };
+}
+const fetchSlots = async (q) => enrichSlotNames(slotsSnapshotToUI(await getDocs(q)).sort(byNewest));
 
 function AdminSlotsTable({
   slots,
@@ -1789,9 +1848,9 @@ function AdminSlotsTable({
   loading = false,
   error = null,
   stats = null,
+  timeRange = 'thisWeek', // owned by the dashboard: it decides which week is read from Firestore
+  onChangeTimeRange,
 }) {
-  // Default to this week (dropdown default), matching your request
-  const [timeRange, setTimeRange] = useState('thisWeek');
   const [companyFilter, setCompanyFilter] = useState('');
   const [hrFilter, setHrFilter] = useState('');
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
@@ -1922,6 +1981,184 @@ function AdminSlotsTable({
     setCurrentPage(1);
   }, [dropdownFilteredSlots.length]);
 
+  // Per-slot pieces shared by the desktop table and the phone cards.
+  const slotInfo = (slot) => {
+    const status = String(slot.status || '').trim();
+    const isPending =
+      status === 'Pending' ||
+      status === 'pending' ||
+      status === 'Pending Approval';
+    const isApproved = slot.status === 'Approved';
+    const isRejected = slot.status === 'Rejected';
+
+    const statusIconClass = isApproved
+      ? 'fa-solid fa-circle-check text-emerald-500'
+      : isRejected
+      ? 'fa-solid fa-circle-xmark text-red-500'
+      : 'fa-solid fa-clock text-amber-500';
+
+    const statusTextClass = isApproved
+      ? 'text-emerald-600'
+      : isRejected
+      ? 'text-red-600'
+      : 'text-slate-800';
+    
+    const statusLabel = isApproved
+      ? 'Approved by Admin'
+      : isRejected
+      ? 'Rejected by Admin'
+      : 'Pending (Admin)';
+
+    const relativeDayLabel = getRelativeSlotDayLabel(slot.date);
+
+    const createdExactRaw = String(slot.createdAtExactLabel || '');
+    const createdParts = createdExactRaw.split(',');
+    const createdDatePart =
+      (createdParts[0] && createdParts[0].trim()) || slot.createdAtLabel || '-';
+    const createdTimePart =
+      createdParts.length > 1 && createdParts[1] && createdParts[1].trim()
+        ? createdParts[1].trim()
+        : '';
+
+    const approvedExactRaw = String(slot.updatedAtExactLabel || '');
+    const approvedParts = approvedExactRaw.split(',');
+    const approvedDatePart =
+      (approvedParts[0] && approvedParts[0].trim()) || slot.updatedAtLabel || '';
+    const approvedTimePart =
+      approvedParts.length > 1 && approvedParts[1] && approvedParts[1].trim()
+        ? approvedParts[1].trim()
+        : '';
+
+    const slotId = slot.firestoreId || slot.id;
+    return { isPending, isApproved, statusIconClass, statusTextClass, statusLabel, relativeDayLabel, createdDatePart, createdTimePart, approvedDatePart, approvedTimePart, slotId };
+  };
+  const hrBlock = (slot) => {
+    const fallbackHrName = (slot.hrName || '').trim();
+    const fromList =
+      hrs.find(
+        (h) =>
+          (h.name || '').trim().toLowerCase() ===
+          fallbackHrName.toLowerCase(),
+      ) || null;
+
+    const hrName = fallbackHrName || (fromList?.name || '').trim();
+    const hrMobile =
+      (slot.hrMobile || '').trim() || (fromList?.mobile || '').trim();
+    const hrEmail =
+      (slot.hrEmail || '').trim() || (fromList?.email || '').trim();
+
+    if (!hrName && !hrMobile && !hrEmail) {
+      return <span className="text-slate-400">-</span>;
+    }
+
+    const hrLinkClass =
+      'text-purple-600 font-semibold hover:text-purple-800 hover:underline focus:outline-none focus:underline cursor-pointer';
+
+    const renderValue = (value, onClick) => {
+      if (!value) return null;
+      if (!onOpenHRView || value === '-') {
+        return <span>{value}</span>;
+      }
+      return (
+        <button
+          type="button"
+          onClick={onClick}
+          className={hrLinkClass}
+        >
+          {value}
+        </button>
+      );
+    };
+
+    return (
+      <div className="flex flex-col gap-1">
+        {hrName && (
+          <div className="flex items-center gap-1.5">
+            <i
+              className="fa-solid fa-user-tie text-slate-500 w-3.5"
+              aria-hidden="true"
+            />
+            {renderValue(hrName, () => onOpenHRView(hrName))}
+          </div>
+        )}
+        {hrMobile && (
+          <div className="flex items-center gap-1.5">
+            <i
+              className="fa-solid fa-mobile-screen text-slate-500 w-3.5"
+              aria-hidden="true"
+            />
+            {renderValue(hrMobile, () => onOpenHRView(hrMobile))}
+          </div>
+        )}
+        {hrEmail && (
+          <div className="flex items-center gap-1.5">
+            <i
+              className="fa-solid fa-envelope text-slate-500 w-3.5"
+              aria-hidden="true"
+            />
+            {hrEmail === '-' || !onOpenHRView ? (
+              <span title={hrEmail}>{hrEmail}</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onOpenHRView(hrEmail)}
+                className={hrLinkClass}
+                title={hrEmail}
+              >
+                {hrEmail}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+  const slotActions = (slot, slotId, isPending) => (
+    isPending ? (
+      <div className="flex gap-2">
+        <button
+          onClick={() => onApproveSlot(slotId)}
+          className="btn-action-label bg-emerald-500"
+        >
+          <i className="fa-solid fa-check" aria-hidden="true" />
+          Approve
+        </button>
+        <button
+          onClick={() => onRejectSlot(slotId)}
+          className="btn-action-label bg-red-500"
+        >
+          <i className="fa-solid fa-xmark" aria-hidden="true" />
+          Reject
+        </button>
+        <button
+          type="button"
+          className="btn-action bg-red-500"
+          onClick={() => {
+            setConfirmDeleteSlotId(slotId);
+            setConfirmDeleteSlotName(slot.candidateName || slot.company || '');
+          }}
+          aria-label="Delete"
+        >
+          <i className="fa-solid fa-trash" aria-hidden="true" />
+        </button>
+      </div>
+    ) : (
+      <div className="flex justify-center">
+        <button
+          type="button"
+          className="btn-action bg-red-500"
+          onClick={() => {
+            setConfirmDeleteSlotId(slotId);
+            setConfirmDeleteSlotName(slot.candidateName || slot.company || '');
+          }}
+          aria-label="Delete"
+        >
+          <i className="fa-solid fa-trash" aria-hidden="true" />
+        </button>
+      </div>
+    )
+  );
+
   return (
     <div className="bg-white rounded-lg sm:rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
       {/* Header row with back + title */}
@@ -1931,7 +2168,7 @@ function AdminSlotsTable({
           <button
             type="button"
             onClick={onBackToHome}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+            className="btn-circle"
           >
             <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
           </button>
@@ -1939,7 +2176,8 @@ function AdminSlotsTable({
 
         {/* Center: title + refresh (refresh on right side of text) */}
         <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="text-xs sm:text-sm font-semibold text-purple-600">
+          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
+            <i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
             Slots List
           </span>
           <button
@@ -1947,13 +2185,13 @@ function AdminSlotsTable({
             onClick={() => {
               onChangeFilter('all');
               onChangeSearch('');
-              setTimeRange('thisWeek');
+              onChangeTimeRange('thisWeek');
               setCompanyFilter('');
               setHrFilter('');
               setCompanySearch('');
               setHrSearch('');
             }}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
+            className="btn-circle"
             aria-label="Refresh"
           >
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
@@ -1979,7 +2217,7 @@ function AdminSlotsTable({
             <span className="text-sm sm:text-base font-semibold text-slate-800">
               {approvedFilteredSlots.length}
             </span>
-            <span className="text-[11px] text-slate-500">Total Slots</span>
+            <span className="text-[11px] text-slate-500"><i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots</span>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-sm sm:text-base font-semibold text-slate-800">
@@ -2011,8 +2249,8 @@ function AdminSlotsTable({
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 ml-auto" ref={filtersRef}>
           <select
             value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
-            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
+            onChange={(e) => onChangeTimeRange(e.target.value)}
+            className="filter-select w-auto"
             aria-label="Filter by time range"
           >
             <option value="thisWeek">This Week</option>
@@ -2165,7 +2403,7 @@ function AdminSlotsTable({
           <select
             value={filter}
             onChange={(e) => onChangeFilter(e.target.value)}
-            className="h-8 w-auto rounded-full border border-slate-200 bg-white pl-3 pr-2 text-[11px] sm:text-xs text-slate-700"
+            className="filter-select w-auto"
           >
             <option value="all">All</option>
             <option value="pending">Pending</option>
@@ -2174,13 +2412,13 @@ function AdminSlotsTable({
           </select>
 
           <div className="relative w-28 sm:w-36">
-            <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400" aria-hidden="true" />
             <input
               type="text"
               placeholder="Search slot"
               value={search}
               onChange={(e) => onChangeSearch(e.target.value)}
-              className="w-full rounded-full border border-slate-200 bg-white pl-7 pr-3 py-1.5 text-[11px] sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="filter-search"
             />
           </div>
         </div>
@@ -2199,7 +2437,45 @@ function AdminSlotsTable({
           <p className="text-sm text-gray-500">No slots found</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+        {/* Phones: one card per slot (same data and actions as the table) */}
+        <div className="md:hidden space-y-3">
+          {paginatedSlots.map((slot) => {
+            const { isPending, isApproved, statusIconClass, statusTextClass, statusLabel, relativeDayLabel, approvedDatePart, approvedTimePart, slotId } = slotInfo(slot);
+            const who = slot.candidateName || slot.name;
+            return (
+              <div key={slotId} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    {who ? (
+                      <button type="button" onClick={() => onOpenCandidateSlots && onOpenCandidateSlots(who.trim())}
+                        className="text-left text-sm font-semibold text-purple-600 hover:underline">{who}</button>
+                    ) : <span className="text-sm text-slate-400">-</span>}
+                    <p className="text-xs text-slate-600">
+                      {[slot.company || slot.companyName, slot.technology, normaliseRoundLabelAdmin(slot.round)].filter(Boolean).join(' · ') || '-'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    <i className={statusIconClass} aria-hidden="true" />
+                    <span className={`text-[11px] font-semibold ${statusTextClass}`}>{statusLabel}</span>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-slate-700">
+                  <i className="fa-solid fa-calendar-day mr-1.5 text-slate-400" aria-hidden="true" />
+                  {slot.dateExactLabel || slot.dateLabel || '-'}
+                  {relativeDayLabel && <span className="ml-1 font-semibold text-emerald-600">({relativeDayLabel})</span>}
+                  {slot.timeLabel && <span className="text-slate-500"> · {slot.timeLabel}</span>}
+                </p>
+                {isApproved && (approvedDatePart || approvedTimePart) && (
+                  <p className="text-[11px] text-slate-500">Approved {approvedDatePart}{approvedTimePart && `, ${approvedTimePart}`}</p>
+                )}
+                <div className="mt-2 text-xs text-slate-700">{hrBlock(slot)}</div>
+                <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">{slotActions(slot, slotId, isPending)}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border-collapse text-xs sm:text-sm border border-slate-200">
             <thead>
               <tr className="bg-slate-50 text-slate-600">
@@ -2225,7 +2501,7 @@ function AdminSlotsTable({
                   Created At
                 </th>
                 <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
-                  Slot Date Time
+                  <i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Slot Date Time
                 </th>
                 <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
                   Status
@@ -2237,53 +2513,7 @@ function AdminSlotsTable({
             </thead>
             <tbody>
               {paginatedSlots.map((slot, index) => {
-                const status = String(slot.status || '').trim();
-                const isPending =
-                  status === 'Pending' ||
-                  status === 'pending' ||
-                  status === 'Pending Approval';
-                const isApproved = slot.status === 'Approved';
-                const isRejected = slot.status === 'Rejected';
-
-                const statusIconClass = isApproved
-                  ? 'fa-solid fa-circle-check text-emerald-500'
-                  : isRejected
-                  ? 'fa-solid fa-circle-xmark text-red-500'
-                  : 'fa-solid fa-clock text-amber-500';
-
-                const statusTextClass = isApproved
-                  ? 'text-emerald-600'
-                  : isRejected
-                  ? 'text-red-600'
-                  : 'text-slate-800';
-                
-                const statusLabel = isApproved
-                  ? 'Approved by Admin'
-                  : isRejected
-                  ? 'Rejected by Admin'
-                  : 'Pending (Admin)';
-
-                const relativeDayLabel = getRelativeSlotDayLabel(slot.date);
-
-                const createdExactRaw = String(slot.createdAtExactLabel || '');
-                const createdParts = createdExactRaw.split(',');
-                const createdDatePart =
-                  (createdParts[0] && createdParts[0].trim()) || slot.createdAtLabel || '-';
-                const createdTimePart =
-                  createdParts.length > 1 && createdParts[1] && createdParts[1].trim()
-                    ? createdParts[1].trim()
-                    : '';
-
-                const approvedExactRaw = String(slot.updatedAtExactLabel || '');
-                const approvedParts = approvedExactRaw.split(',');
-                const approvedDatePart =
-                  (approvedParts[0] && approvedParts[0].trim()) || slot.updatedAtLabel || '';
-                const approvedTimePart =
-                  approvedParts.length > 1 && approvedParts[1] && approvedParts[1].trim()
-                    ? approvedParts[1].trim()
-                    : '';
-
-                const slotId = slot.firestoreId || slot.id;
+                const { isPending, isApproved, statusIconClass, statusTextClass, statusLabel, relativeDayLabel, createdDatePart, createdTimePart, approvedDatePart, approvedTimePart, slotId } = slotInfo(slot);
                 return (
                   <tr
                     key={slotId}
@@ -2316,87 +2546,7 @@ function AdminSlotsTable({
                       {slot.technology || '-'}
                     </td>
                     <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                      {(() => {
-                        const fallbackHrName = (slot.hrName || '').trim();
-                        const fromList =
-                          hrs.find(
-                            (h) =>
-                              (h.name || '').trim().toLowerCase() ===
-                              fallbackHrName.toLowerCase(),
-                          ) || null;
-
-                        const hrName = fallbackHrName || (fromList?.name || '').trim();
-                        const hrMobile =
-                          (slot.hrMobile || '').trim() || (fromList?.mobile || '').trim();
-                        const hrEmail =
-                          (slot.hrEmail || '').trim() || (fromList?.email || '').trim();
-
-                        if (!hrName && !hrMobile && !hrEmail) {
-                          return <span className="text-slate-400">-</span>;
-                        }
-
-                        const hrLinkClass =
-                          'text-purple-600 font-semibold hover:text-purple-800 hover:underline focus:outline-none focus:underline cursor-pointer';
-
-                        const renderValue = (value, onClick) => {
-                          if (!value) return null;
-                          if (!onOpenHRView || value === '-') {
-                            return <span>{value}</span>;
-                          }
-                          return (
-                            <button
-                              type="button"
-                              onClick={onClick}
-                              className={hrLinkClass}
-                            >
-                              {value}
-                            </button>
-                          );
-                        };
-
-                        return (
-                          <div className="flex flex-col gap-1">
-                            {hrName && (
-                              <div className="flex items-center gap-1.5">
-                                <i
-                                  className="fa-solid fa-user-tie text-slate-500 w-3.5"
-                                  aria-hidden="true"
-                                />
-                                {renderValue(hrName, () => onOpenHRView(hrName))}
-                              </div>
-                            )}
-                            {hrMobile && (
-                              <div className="flex items-center gap-1.5">
-                                <i
-                                  className="fa-solid fa-phone text-slate-500 w-3.5"
-                                  aria-hidden="true"
-                                />
-                                {renderValue(hrMobile, () => onOpenHRView(hrMobile))}
-                              </div>
-                            )}
-                            {hrEmail && (
-                              <div className="flex items-center gap-1.5">
-                                <i
-                                  className="fa-solid fa-envelope text-slate-500 w-3.5"
-                                  aria-hidden="true"
-                                />
-                                {hrEmail === '-' || !onOpenHRView ? (
-                                  <span title={hrEmail}>{hrEmail}</span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => onOpenHRView(hrEmail)}
-                                    className={hrLinkClass}
-                                    title={hrEmail}
-                                  >
-                                    {hrEmail}
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
+                      {hrBlock(slot)}
                     </td>
                     <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
                       {normaliseRoundLabelAdmin(slot.round) || '-'}
@@ -2443,49 +2593,7 @@ function AdminSlotsTable({
                       </div>
                     </td>
                     <td className="px-3 py-2 text-center">
-                      {isPending ? (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => onApproveSlot(slotId)}
-                            className="inline-flex items-center gap-2 rounded bg-emerald-500 px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-emerald-600"
-                          >
-                            <i className="fa-solid fa-check" aria-hidden="true" />
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => onRejectSlot(slotId)}
-                            className="inline-flex items-center gap-2 rounded bg-red-500 px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-red-600"
-                          >
-                            <i className="fa-solid fa-xmark" aria-hidden="true" />
-                            Reject
-                          </button>
-                          <button
-                            type="button"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
-                            onClick={() => {
-                              setConfirmDeleteSlotId(slotId);
-                              setConfirmDeleteSlotName(slot.candidateName || slot.company || '');
-                            }}
-                            aria-label="Delete"
-                          >
-                            <i className="fa-solid fa-trash" aria-hidden="true" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-center">
-                          <button
-                            type="button"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
-                            onClick={() => {
-                              setConfirmDeleteSlotId(slotId);
-                              setConfirmDeleteSlotName(slot.candidateName || slot.company || '');
-                            }}
-                            aria-label="Delete"
-                          >
-                            <i className="fa-solid fa-trash" aria-hidden="true" />
-                          </button>
-                        </div>
-                      )}
+                      {slotActions(slot, slotId, isPending)}
                     </td>
                   </tr>
                 );
@@ -2493,6 +2601,7 @@ function AdminSlotsTable({
             </tbody>
           </table>
         </div>
+        </>
       )}
       {!loading && dropdownFilteredSlots.length > 0 && totalItems > itemsPerPage && (
         <PaginationBar
@@ -2530,7 +2639,7 @@ function AdminSlotsTable({
                   setConfirmDeleteSlotId(null);
                   setConfirmDeleteSlotName('');
                 }}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                className="btn-circle"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
@@ -2563,7 +2672,7 @@ function AdminSlotsTable({
                   setConfirmDeleteSlotName('');
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
-              ><i className="fa-solid fa-trash-can mr-1.5" aria-hidden="true" />
+              ><i className="fa-solid fa-trash mr-1.5" aria-hidden="true" />
                 Delete
               </button>
             </div>
@@ -2819,6 +2928,82 @@ function AdminHRsTable({
     }
   };
 
+  // Row pieces shared by the desktop table and the phone cards.
+  const addedBy = (hr) => {
+    const addedByRaw = String(hr.addedBy || '').trim();
+    if (!addedByRaw) return '–';
+
+    // Hide internal ids/uids/mobiles in "Added By" column
+    const looksLikeIdOrMobile = (val) => {
+      const s = String(val || '').trim();
+      if (!s) return false;
+      if (/^\d{8,}$/.test(s)) return true; // mobile-like
+      if (/^[A-Za-z0-9_-]{15,}$/.test(s) && !/\s/.test(s)) return true; // uid/firestore-like
+      return false;
+    };
+    if (looksLikeIdOrMobile(addedByRaw)) return '–';
+
+    const isAdminAdded = addedByRaw.toLowerCase() === 'admin';
+    const hasCandidate =
+      !isAdminAdded &&
+      Array.isArray(candidateNames) &&
+      candidateNames.includes(addedByRaw.toLowerCase());
+
+    if (isAdminAdded) {
+      return addedByRaw;
+    }
+
+    // If it's a known candidate, allow opening candidate view.
+    if (hasCandidate && onOpenCandidateView) {
+      return (
+        <button
+          type="button"
+          onClick={() => onOpenCandidateView(addedByRaw)}
+          className="text-purple-600 font-semibold hover:text-purple-800 hover:underline focus:outline-none focus:underline"
+        >
+          {addedByRaw}
+        </button>
+      );
+    }
+
+    return addedByRaw;
+  };
+  const hrActions = (hr) => (
+    <div className="flex gap-2">
+      <button
+        type="button"
+        onClick={() => {
+          setModalMode('edit');
+          setEditingId(hr.id);
+          setForm({
+            name: hr.name || '',
+            email: hr.email || '',
+            mobile: hr.mobile || '',
+            company: hr.company || '',
+            technology: hr.technology || '',
+            jobType: hr.jobType || '',
+          });
+          setShowAddModal(true);
+        }}
+        className="btn-action bg-amber-400"
+        aria-label="Edit HR"
+      >
+        <i className="fa-solid fa-pen" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="btn-action bg-red-500"
+        onClick={() => {
+          setConfirmDeleteId(hr.id);
+          setConfirmDeleteName(hr.name || '');
+        }}
+        aria-label="Delete HR"
+      >
+        <i className="fa-solid fa-trash" aria-hidden="true" />
+      </button>
+    </div>
+  );
+
   return (
     <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
       {/* Header row - back + title + top-right buttons */}
@@ -2827,7 +3012,7 @@ function AdminHRsTable({
         <div className="flex items-start">
           <button
             onClick={onBackToHome}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+            className="btn-circle"
           >
             <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
           </button>
@@ -2835,12 +3020,13 @@ function AdminHRsTable({
 
         {/* Center: title + refresh (refresh on right side of text) */}
         <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="text-xs sm:text-sm font-semibold text-purple-600">
+          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
+            <i className="fa-solid fa-user-tie mr-1.5" aria-hidden="true" />
             Hrs List
           </span>
           <button
             type="button"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
+            className="btn-circle"
             aria-label="Refresh"
           >
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
@@ -2864,7 +3050,7 @@ function AdminHRsTable({
               });
               setShowAddModal(true);
             }}
-            className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow hover:bg-emerald-600 whitespace-nowrap"
+            className="btn-pill bg-emerald-500"
           >
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
               <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
@@ -2877,12 +3063,7 @@ function AdminHRsTable({
       {/* Filters + total count row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         {/* Left: total HRs */}
-        <div className="flex flex-col items-center leading-snug">
-          <span className="text-base font-semibold text-slate-800">
-            {filteredRows.length}
-          </span>
-          <span className="text-[11px] text-slate-500">Total HRs</span>
-        </div>
+        <StatCounts items={[['Total', filteredRows.length]]} gap="gap-2 sm:gap-3" />
 
         {/* Right: filters row */}
         <div
@@ -3187,13 +3368,13 @@ function AdminHRsTable({
 
           {/* Search box */}
           <div className="relative w-28 sm:w-36">
-            <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400" aria-hidden="true" />
             <input
               type="text"
               placeholder="Search HRs"
               value={search}
               onChange={(e) => onChangeSearch(e.target.value)}
-              className="w-full rounded-full border border-slate-200 bg-white pl-7 pr-3 py-1.5 text-[11px] sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="filter-search"
             />
           </div>
 
@@ -3202,14 +3383,42 @@ function AdminHRsTable({
             onClick={handleDownloadCsv}
             className="inline-flex items-center gap-2 h-8 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-[11px] sm:text-xs font-semibold text-emerald-700 hover:bg-emerald-100 whitespace-nowrap"
           >
-            <i className="fa-solid fa-file-csv text-emerald-600" aria-hidden="true" />
+            <i className="fa-solid fa-file-arrow-down text-emerald-600" aria-hidden="true" />
             Download CSV
           </button>
         </div>
       </div>
 
+      {/* Phones: one card per HR (same data and actions as the table) */}
+      <div className="md:hidden space-y-3">
+        {paginatedRows.length === 0 && (
+          <p className="rounded-lg border border-slate-200 px-4 py-6 text-center text-xs text-slate-500">No HRs found.</p>
+        )}
+        {paginatedRows.map((hr) => (
+          <div key={hr.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900">
+                  <i className="fa-solid fa-user-tie mr-1.5 text-purple-500" aria-hidden="true" />
+                  {toTitleCase(hr.name || '')}
+                </p>
+                <p className="text-xs text-slate-600">
+                  {[toTitleCase(hr.company || ''), toTitleCase(hr.technology || ''), toTitleCase(hr.jobType || '')].filter(Boolean).join(' · ') || '-'}
+                </p>
+              </div>
+              {hrActions(hr)}
+            </div>
+            <div className="mt-2 space-y-1 text-xs text-slate-700">
+              {hr.mobile && <a href={`tel:${hr.mobile}`} className="flex items-center gap-1.5 py-1.5"><i className="fa-solid fa-mobile-screen w-3.5 text-slate-400" aria-hidden="true" />{hr.mobile}</a>}
+              {hr.email && <a href={`mailto:${hr.email}`} className="flex items-center gap-1.5 break-all py-1.5"><i className="fa-solid fa-envelope w-3.5 text-slate-400" aria-hidden="true" />{hr.email}</a>}
+              <p className="text-slate-400">Added by: <span className="text-slate-700">{addedBy(hr)}</span></p>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* HRs table - styled like Candidates table card */}
-      <div className="overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full border-collapse text-xs sm:text-sm border border-slate-200">
           <thead>
             <tr className="bg-slate-50 text-slate-600">
@@ -3270,80 +3479,10 @@ function AdminHRsTable({
                   {toTitleCase(hr.jobType || '')}
                 </td>
                 <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
-                  {(() => {
-                    const addedByRaw = String(hr.addedBy || '').trim();
-                    if (!addedByRaw) return '–';
-
-                    // Hide internal ids/uids/mobiles in "Added By" column
-                    const looksLikeIdOrMobile = (val) => {
-                      const s = String(val || '').trim();
-                      if (!s) return false;
-                      if (/^\d{8,}$/.test(s)) return true; // mobile-like
-                      if (/^[A-Za-z0-9_-]{15,}$/.test(s) && !/\s/.test(s)) return true; // uid/firestore-like
-                      return false;
-                    };
-                    if (looksLikeIdOrMobile(addedByRaw)) return '–';
-
-                    const isAdminAdded = addedByRaw.toLowerCase() === 'admin';
-                    const hasCandidate =
-                      !isAdminAdded &&
-                      Array.isArray(candidateNames) &&
-                      candidateNames.includes(addedByRaw.toLowerCase());
-
-                    if (isAdminAdded) {
-                      return addedByRaw;
-                    }
-
-                    // If it's a known candidate, allow opening candidate view.
-                    if (hasCandidate && onOpenCandidateView) {
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => onOpenCandidateView(addedByRaw)}
-                          className="text-purple-600 font-semibold hover:text-purple-800 hover:underline focus:outline-none focus:underline"
-                        >
-                          {addedByRaw}
-                        </button>
-                      );
-                    }
-
-                    return addedByRaw;
-                  })()}
+                  {addedBy(hr)}
                 </td>
                 <td className="px-3 py-2">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setModalMode('edit');
-                        setEditingId(hr.id);
-                        setForm({
-                          name: hr.name || '',
-                          email: hr.email || '',
-                          mobile: hr.mobile || '',
-                          company: hr.company || '',
-                          technology: hr.technology || '',
-                          jobType: hr.jobType || '',
-                        });
-                        setShowAddModal(true);
-                      }}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded bg-amber-400 text-white hover:bg-amber-500"
-                      aria-label="Edit HR"
-                    >
-                      <i className="fa-solid fa-pen" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
-                      onClick={() => {
-                        setConfirmDeleteId(hr.id);
-                        setConfirmDeleteName(hr.name || '');
-                      }}
-                      aria-label="Delete HR"
-                    >
-                      <i className="fa-solid fa-trash" aria-hidden="true" />
-                    </button>
-                  </div>
+                  {hrActions(hr)}
                 </td>
               </tr>
             ))}
@@ -3386,7 +3525,7 @@ function AdminHRsTable({
                   setConfirmDeleteId(null);
                   setConfirmDeleteName('');
                 }}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                className="btn-circle"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
@@ -3419,7 +3558,7 @@ function AdminHRsTable({
                   setConfirmDeleteName('');
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
-              ><i className="fa-solid fa-trash-can mr-1.5" aria-hidden="true" />
+              ><i className="fa-solid fa-trash mr-1.5" aria-hidden="true" />
                 Delete
               </button>
             </div>
@@ -3449,7 +3588,7 @@ function AdminHRsTable({
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                className="btn-circle"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark" aria-hidden="true" />
@@ -3765,19 +3904,20 @@ const normaliseRoundLabelAdmin = (raw) => {
         <div className="flex items-center">
           <button
             onClick={onBack}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+            className="btn-circle"
           >
             <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
           </button>
         </div>
 
         <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="text-xs sm:text-sm font-semibold text-purple-600">
+          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
+            <i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
             Slot Book By {name}
           </span>
           <button
             type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
+            className="btn-circle"
             aria-label="Reload candidate slots"
           >
             <i className="fa-solid fa-rotate-right text-xs" aria-hidden="true" />
@@ -3903,7 +4043,7 @@ function AdminLeavesTable({ onBackToHome }) {
       setShowAddLeave(false);
     } catch (err) {
       console.error('Failed to add leave:', err);
-      setLeaveError(err?.message || 'Failed to add leave. Please try again.');
+      setLeaveError(friendlyMessage(err, 'Failed to add leave. Please try again.'));
     } finally {
       setSavingLeave(false);
     }
@@ -3936,7 +4076,7 @@ function AdminLeavesTable({ onBackToHome }) {
         <div className="flex items-center">
           <button
             onClick={onBackToHome}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+            className="btn-circle"
           >
             <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
           </button>
@@ -3944,12 +4084,13 @@ function AdminLeavesTable({ onBackToHome }) {
 
         {/* Center: title + refresh (refresh on right side of text) */}
         <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="text-xs sm:text-sm font-semibold text-purple-600">
+          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
+            <i className="fa-solid fa-umbrella-beach mr-1.5" aria-hidden="true" />
             Admin Leaves
           </span>
           <button
             type="button"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
+            className="btn-circle"
             aria-label="Refresh"
             onClick={() => {
               getLeaves(true).then((list) => setLeaves(list));
@@ -3968,7 +4109,7 @@ function AdminLeavesTable({ onBackToHome }) {
               setLeaveError('');
               setShowAddLeave(true);
             }}
-            className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow hover:bg-emerald-600 whitespace-nowrap"
+            className="btn-pill bg-emerald-500"
           >
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
               <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
@@ -4017,7 +4158,7 @@ function AdminLeavesTable({ onBackToHome }) {
                         setConfirmDeleteLeaveId(leave.id);
                         setConfirmDeleteLeaveLabel(leave.dateLabel || leave.date || '');
                       }}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded bg-red-500 text-white text-xs hover:bg-red-600"
+                      className="btn-action bg-red-500"
                       aria-label="Delete leave"
                     >
                       <i className="fa-solid fa-trash" aria-hidden="true" />
@@ -4066,7 +4207,7 @@ function AdminLeavesTable({ onBackToHome }) {
                   setConfirmDeleteLeaveId(null);
                   setConfirmDeleteLeaveLabel('');
                 }}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                className="btn-circle"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
@@ -4100,7 +4241,7 @@ function AdminLeavesTable({ onBackToHome }) {
                   }
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
-              ><i className="fa-solid fa-trash-can mr-1.5" aria-hidden="true" />
+              ><i className="fa-solid fa-trash mr-1.5" aria-hidden="true" />
                 Delete
               </button>
             </div>
@@ -4197,7 +4338,7 @@ function AdminSettingsTab({
           <button
             type="button"
             onClick={onBackToHome}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100 transition-colors"
+            className="btn-circle"
             title="Back to Home"
           >
             <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
@@ -4206,7 +4347,8 @@ function AdminSettingsTab({
 
         {/* Center: Setting Heading */}
         <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="text-xs sm:text-sm font-semibold text-purple-600">
+          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
+            <i className="fa-solid fa-gear mr-1.5" aria-hidden="true" />
             Setting
           </span>
         </div>
@@ -4230,7 +4372,7 @@ function AdminSettingsTab({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/60">
         <div>
           <div className="flex items-center gap-2.5">
-            <h3 className="text-sm sm:text-base font-bold text-gray-900"><i className="fa-solid fa-calendar-week mr-1.5" aria-hidden="true" />
+            <h3 className="text-sm sm:text-base font-bold text-gray-900"><i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
               Saturday Calendar & Slot Booking
             </h3>
             <span
@@ -4514,7 +4656,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
           <button
             type="button"
             onClick={onReload}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 flex-shrink-0"
+            className="btn-circle"
             aria-label="Reload statistics"
           >
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
@@ -4732,7 +4874,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
               {monthlyStats.map((item) => (
                 <div
                   key={item.label}
-                  className="flex-1 min-w-0 text-xs sm:text-sm text-slate-500 text-center whitespace-nowrap"
+                  className="flex-1 min-w-0 text-[10px] leading-tight sm:text-sm text-slate-500 text-center sm:whitespace-nowrap"
                   style={{ minWidth: 14 }}
                 >
                   {item.label}
@@ -4746,6 +4888,9 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
   );
 }
 
+const ProfileApp = lazy(() => import('../profile/App.jsx'));
+const profileTabFor = (hash) => (/^#\/(resumes|r\/)/.test(hash) ? 'resumes' : 'profiles');
+
 export default function AdminDashboard() {
   // Remember last opened tab across refreshes for admin
   const [activeTab, setActiveTab] = useState(() => {
@@ -4757,6 +4902,26 @@ export default function AdminDashboard() {
     }
   });
   const [hrBackTab, setHrBackTab] = useState('home');
+  // Profiles / Resumes tabs keep their page in the URL hash (#/…, see src/profile/App.jsx); the hash picks the tab,
+  // so links like /admin-dashboard#/m/<mobile> and Back/Forward between profile pages land on the right tab.
+  const location = useLocation();
+  useEffect(() => {
+    if (location.hash.startsWith('#/')) setActiveTab(profileTabFor(location.hash));
+  }, [location.hash]);
+  const changeTab = async (tab) => {
+    if (tab === 'profiles' || tab === 'resumes') {
+      window.location.hash = tab === 'resumes' ? '#/resumes' : '#/candidates'; // profile pages ask about unsaved edits themselves
+    } else if (window.location.hash) {
+      if (!(await mayLeave())) return; // unsaved profile / resume edits
+      navigated();
+      window.history.replaceState(window.history.state, '', window.location.pathname); // leave the profile page address
+    }
+    setActiveTab(tab);
+    // When user navigates via main tabs, default HR back to home
+    if (tab === 'hrs') {
+      setHrBackTab('home');
+    }
+  };
   const [showAddForm, setShowAddForm] = useState(false);
   // Default to showing Unselected candidates, matching your other project
   const [candidateSelectionFilter, setCandidateSelectionFilter] = useState('unselected'); // 'selected' | 'unselected'
@@ -4965,9 +5130,6 @@ export default function AdminDashboard() {
     };
 
     loadCandidatesFromFirestore();
-    // This screen keeps its own list in state while mounted; drop the shared copy on leave
-    // so the next visit (or another screen) doesn't see edits made here as stale data.
-    return () => invalidateCollection('candidates');
   }, []);
 
   // Persist admin active tab so refresh keeps the same section
@@ -5078,80 +5240,21 @@ export default function AdminDashboard() {
 
   const [slotFilter, setSlotFilter] = useState('all');
   const [slotSearch, setSlotSearch] = useState('');
-  const [slots, setSlots] = useState([]);
+  const [slotRange, setSlotRange] = useState('thisWeek'); // Slots tab: This Week / Last Week (live) or All (history)
+  const [weekSlots, setWeekSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(true);
   const [slotsError, setSlotsError] = useState(null);
-  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
 
-  // Load slots from Firestore (candidate bookings appear here as pending requests)
+  // Slots list: only the week on screen, live (candidate bookings appear here as pending requests).
   useEffect(() => {
+    if (slotRange === 'all') return undefined;
     setSlotsLoading(true);
     setSlotsError(null);
-    const slotsRef = collection(db, 'events');
-    const q = query(slotsRef, orderBy('createdAt', 'desc'));
-    let cancelled = false;
-
-    const enrichSlotsWithNames = async (uiSlots) => {
-      // Only enrich when name fields are missing (older events may have only ids)
-      const needCandidate = uiSlots
-        .filter((s) => !String(s.candidateName || s.name || '').trim() && String(s.candidateId || '').trim())
-        .map((s) => String(s.candidateId).trim());
-      const needHr = uiSlots
-        .filter((s) => !String(s.hrName || '').trim() && String(s.hrId || '').trim())
-        .map((s) => String(s.hrId).trim());
-
-      if (needCandidate.length === 0 && needHr.length === 0) return;
-
-      // One shared cached read of candidates/hrs instead of a getDoc per missing id.
-      const [candidatesById, hrDocs] = await Promise.all([
-        getCandidatesById(),
-        needHr.length ? getCollectionDocs('hrs').catch(() => []) : [],
-      ]);
-      const hrById = new Map(hrDocs.map((d) => [d.id, d.data()]));
-
-      if (cancelled) return;
-
-      const enriched = uiSlots.map((s) => {
-        const candidateId = String(s.candidateId || '').trim();
-        const candidateMobile = normalizeCandidateMobile(
-          s.candidateMobile || s.mobile || candidateId,
-        );
-        const hrId = String(s.hrId || '').trim();
-
-        const lookupKeys = [candidateMobile, candidateId].filter(Boolean);
-        let candidateDoc = null;
-        for (const key of lookupKeys) {
-          candidateDoc = candidatesById.get(key);
-          if (candidateDoc) break;
-        }
-        const hrDoc = hrId ? hrById.get(hrId) : null;
-
-        const candidateName =
-          String(candidateDoc?.name || '').trim() ||
-          String(s.candidateName || s.name || '').trim();
-
-        const hrName = String(s.hrName || '').trim() || String(hrDoc?.name || '').trim();
-        const hrEmail = String(s.hrEmail || '').trim() || String(hrDoc?.email || '').trim();
-        const hrMobile = String(s.hrMobile || '').trim() || String(hrDoc?.mobile || '').trim();
-
-        return {
-          ...s,
-          candidateName: candidateName || s.candidateName || '',
-          hrName: hrName || s.hrName || '',
-          hrEmail: hrEmail || s.hrEmail || '',
-          hrMobile: hrMobile || s.hrMobile || '',
-        };
-      });
-
-      setSlots(enriched);
-    };
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const uiSlots = slotsSnapshotToUI(snapshot);
-        setSlots(uiSlots);
-        enrichSlotsWithNames(uiSlots);
+    const [from, to] = weekBounds(slotRange === 'lastWeek' ? -1 : 0);
+    return listenSlots(
+      query(collection(db, 'events'), where('date', '>=', from), where('date', '<', to)),
+      (list) => {
+        setWeekSlots(list);
         setSlotsLoading(false);
       },
       (err) => {
@@ -5160,11 +5263,57 @@ export default function AdminDashboard() {
         setSlotsLoading(false);
       },
     );
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [statsRefreshKey]);
+  }, [slotRange]);
+
+  // Pending requests (header count + approval cards), any date, live.
+  const [pendingSlots, setPendingSlots] = useState([]);
+  useEffect(
+    () => listenSlots(query(collection(db, 'events'), where('status', 'in', PENDING_STATUSES)), setPendingSlots, (err) => console.error('Error loading pending slots:', err)),
+    [],
+  );
+
+  // Full history: read once (not live), only when a screen needs it; Statistics' Reload reads it again.
+  const [allSlots, setAllSlots] = useState(null);
+  const slots = allSlots ?? NO_SLOTS;
+  const historyRef = useRef(null);
+  const loadHistory = (fresh = false) => {
+    if (fresh || !historyRef.current) {
+      const run = fetchSlots(query(collection(db, 'events'), orderBy('createdAt', 'desc')));
+      historyRef.current = run;
+      run.then(
+        (list) => historyRef.current === run && setAllSlots(list),
+        (err) => {
+          if (historyRef.current === run) historyRef.current = null;
+          console.error('Error loading slots:', err);
+          setSlotsError(err);
+        },
+      );
+    }
+    return historyRef.current.catch(() => allSlots ?? []);
+  };
+  const needsHistory = activeTab === 'candidates' || activeTab === 'stats' || (activeTab === 'slots' && slotRange === 'all');
+  useEffect(() => {
+    if (needsHistory) loadHistory();
+  }, [needsHistory]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (slotRange === 'all') setSlotsLoading(!allSlots);
+  }, [slotRange, allSlots]);
+
+  // Slots tab summary (this/last week, averages over 4 weeks / 30 days): slots from 30 days ago onwards, read once.
+  const [recentSlots, setRecentSlots] = useState([]);
+  const recentLoaded = useRef(false);
+  useEffect(() => {
+    if (activeTab !== 'slots' || recentLoaded.current) return;
+    recentLoaded.current = true;
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    getDocs(query(collection(db, 'events'), where('date', '>=', ymd(since))))
+      .then((snap) => setRecentSlots(slotsSnapshotToUI(snap)))
+      .catch((err) => {
+        recentLoaded.current = false;
+        console.error('Error loading recent slots:', err);
+      });
+  }, [activeTab]);
 
   // Automatically sync candidate account inactivity to Firestore if their last interview was > 2 weeks ago
   // Each doc is written once per session and mirrored into local state; previously every slots
@@ -5195,7 +5344,7 @@ export default function AdminDashboard() {
   const [hrs, setHrs] = useState([]);
   const [hrSearch, setHrSearch] = useState('');
   const filteredSlots = useMemo(() => {
-    return slots.filter((slot) => {
+    return (slotRange === 'all' ? slots : weekSlots).filter((slot) => {
       const status = String(slot.status || '').trim();
       if (
         slotFilter === 'pending' &&
@@ -5226,7 +5375,7 @@ export default function AdminDashboard() {
       }
       return true;
     });
-  }, [slots, slotFilter, slotSearch]);
+  }, [slots, weekSlots, slotRange, slotFilter, slotSearch]);
 
   const candidateTechOptions = useMemo(() => {
     const seen = new Set();
@@ -5345,23 +5494,7 @@ export default function AdminDashboard() {
     });
   }, [hrs, hrSearch]);
 
-  const pendingApprovals = useMemo(
-    () =>
-      slots.filter((s) => {
-        const status = String(s.status || '').trim();
-        return status === 'pending' || status === 'Pending' || status === 'Pending Approval';
-      }).length,
-    [slots],
-  );
-
-  const pendingSlots = useMemo(
-    () =>
-      slots.filter((s) => {
-        const status = String(s.status || '').trim();
-        return status === 'pending' || status === 'Pending' || status === 'Pending Approval';
-      }),
-    [slots],
-  );
+  const pendingApprovals = pendingSlots.length;
 
   const handleToggleStatus = async (id) => {
     const candidate = candidates.find((c) => c.id === id);
@@ -5454,10 +5587,10 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleViewCandidate = (id) => {
+  const handleViewCandidate = async (id) => {
     const candidate = candidates.find((c) => c.id === id);
     if (candidate) {
-      const candidateSlots = slots.filter((s) => slotMatchesCandidate(s, candidate));
+      const candidateSlots = (await loadHistory()).filter((s) => slotMatchesCandidate(s, candidate));
       setSelectedViewCandidate({
         name: candidate.name,
         candidate,
@@ -5566,27 +5699,27 @@ export default function AdminDashboard() {
       return Number.isNaN(d.getTime()) ? null : d;
     };
 
-    const lastWeek = slots.filter((s) => {
+    const lastWeek = recentSlots.filter((s) => {
       const d = getSlotDate(s);
       return d && d >= oneWeekAgo && d < now;
     }).length;
-    const thisWeek = slots.filter((s) => {
+    const thisWeek = recentSlots.filter((s) => {
       const d = getSlotDate(s);
       return d && d >= startOfToday;
     }).length;
-    const recentFourWeeks = slots.filter((s) => {
+    const recentFourWeeks = recentSlots.filter((s) => {
       const d = getSlotDate(s);
       return d && d >= fourWeeksAgo;
     }).length;
-    const recentThirtyDays = slots.filter((s) => {
+    const recentThirtyDays = recentSlots.filter((s) => {
       const d = getSlotDate(s);
       return d && d >= thirtyDaysAgo;
     }).length;
 
-    const total = slots.length;
-    const pending = slots.filter((s) => s.status === 'pending' || s.status === 'Pending').length;
-    const approved = slots.filter((s) => s.status === 'Approved').length;
-    const rejected = slots.filter((s) => s.status === 'Rejected').length;
+    const total = recentSlots.length;
+    const pending = recentSlots.filter((s) => s.status === 'pending' || s.status === 'Pending').length;
+    const approved = recentSlots.filter((s) => s.status === 'Approved').length;
+    const rejected = recentSlots.filter((s) => s.status === 'Rejected').length;
     return {
       total,
       lastWeek,
@@ -5597,7 +5730,7 @@ export default function AdminDashboard() {
       approved,
       rejected,
     };
-  }, [slots]);
+  }, [recentSlots]);
 
   const handleDeleteHR = async (id) => {
     try {
@@ -5618,29 +5751,15 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AdminHeader
-        activeTab={activeTab}
-        onChangeTab={(tab) => {
-          setActiveTab(tab);
-          // When user navigates via main tabs, default HR back to home
-          if (tab === 'hrs') {
-            setHrBackTab('home');
-          }
-        }}
-      />
+      <AdminHeader activeTab={activeTab} onChangeTab={changeTab} />
       <AdminTopNav
         activeTab={activeTab}
-        onChange={(tab) => {
-          setActiveTab(tab);
-          if (tab === 'hrs') {
-            setHrBackTab('home');
-          }
-        }}
+        onChange={changeTab}
         pendingApprovals={pendingApprovals}
       />
-      <main className="p-2 sm:p-4 md:p-8">
+      <main className="p-2 sm:p-4 md:p-8 print:p-0">
         {pendingSlots.length > 0 && (
-          <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-3">
+          <div className="print:hidden mb-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-3">
             {pendingSlots.map((slot) => {
               const slotId = slot.firestoreId || slot.id;
               // Always show full date using shared formatter
@@ -5863,12 +5982,14 @@ export default function AdminDashboard() {
               loading={slotsLoading}
               error={slotsError}
               stats={slotStats}
-              onOpenCandidateSlots={(candidateName) => {
+              timeRange={slotRange}
+              onChangeTimeRange={setSlotRange}
+              onOpenCandidateSlots={async (candidateName) => {
                 const candidate = candidates.find(
                   (c) => (c.name || '').trim() === (candidateName || '').trim(),
                 );
                 const candidateSlots = candidate
-                  ? slots.filter((s) => slotMatchesCandidate(s, candidate))
+                  ? (await loadHistory()).filter((s) => slotMatchesCandidate(s, candidate))
                   : [];
                 setSelectedSlotsCandidate({
                   name: candidate?.name || candidateName,
@@ -5897,12 +6018,12 @@ export default function AdminDashboard() {
               onChangeSearch={setHrSearch}
               onDeleteHR={handleDeleteHR}
               candidateNames={candidates.map((c) => (c.name || '').trim().toLowerCase()).filter(Boolean)}
-              onOpenCandidateView={(addedByName) => {
+              onOpenCandidateView={async (addedByName) => {
                 const candidate = candidates.find(
                   (c) => (c.name || '').trim().toLowerCase() === (addedByName || '').trim().toLowerCase(),
                 );
                 if (candidate) {
-                  const candidateSlots = slots.filter((s) => slotMatchesCandidate(s, candidate));
+                  const candidateSlots = (await loadHistory()).filter((s) => slotMatchesCandidate(s, candidate));
                   setSelectedViewCandidate({
                     name: candidate.name,
                     candidate,
@@ -6020,11 +6141,15 @@ export default function AdminDashboard() {
             }}
           />
           )
+        ) : activeTab === 'profiles' || activeTab === 'resumes' ? (
+          <Suspense fallback={<div className="p-6 text-center text-sm text-slate-500">Loading…</div>}>
+            <ProfileApp />
+          </Suspense>
         ) : activeTab === 'stats' ? (
           <AdminStatisticsChart
             slots={slots}
             candidates={candidates}
-            onReload={() => setStatsRefreshKey((k) => k + 1)}
+            onReload={() => loadHistory(true)}
           />
         ) : activeTab === 'leaves' ? (
           <AdminLeavesTable onBackToHome={() => setActiveTab('home')} />
@@ -6047,7 +6172,7 @@ export default function AdminDashboard() {
                 <div className="flex flex-col items-center gap-2 sm:hidden">
                   {/* Today's date with calendar icon */}
                   <div className="flex items-center gap-2 text-xs text-purple-600">
-                    <i className="fa-regular fa-calendar-days" aria-hidden="true" />
+                    <i className="fa-solid fa-calendar-day" aria-hidden="true" />
                     <span className="font-semibold">
                       Today: {adminTodayLabel}
                     </span>
@@ -6056,12 +6181,13 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-center gap-2">
                     {/* Mobile text without 'Calendar' */}
                     <span className="text-xs font-semibold text-purple-600">
+                      <i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
                       Slot Booking
                     </span>
                     <button
                       type="button"
                       onClick={() => setCalendarRefreshKey((k) => k + 1)}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 flex-shrink-0"
+                      className="btn-circle"
                       aria-label="Reload calendar"
                     >
                       <i className="fa-solid fa-rotate-right text-xs" aria-hidden="true" />
@@ -6092,13 +6218,14 @@ export default function AdminDashboard() {
 
                     {/* Center: Slot Booking + reload - iPad: static; desktop: absolute */}
                     <div className="absolute md:relative md:left-0 md:translate-x-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 flex items-center gap-2">
-                      <span className="text-xs sm:text-sm font-semibold text-purple-600">
+                      <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
+                        <i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
                         Slot Booking
                       </span>
                       <button
                         type="button"
                         onClick={() => setCalendarRefreshKey((k) => k + 1)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 flex-shrink-0"
+                        className="btn-circle"
                         aria-label="Reload calendar"
                       >
                         <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
@@ -6143,13 +6270,13 @@ export default function AdminDashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-800"><i className="fa-solid fa-circle-info mr-1.5" aria-hidden="true" />
+              <h3 className="text-sm font-semibold text-slate-800"><i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
                 Slot Details
               </h3>
               <button
                 type="button"
                 onClick={() => setCalendarSelectedEvent(null)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                className="btn-circle"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />

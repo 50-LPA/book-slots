@@ -1,3 +1,4 @@
+import { isQuotaError } from '../utils/quota';
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
@@ -71,7 +72,8 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
           });
         }
       } catch (err) {
-        if (!cancelled) setError(err?.message || 'Failed to load profile.');
+        // The daily database limit is an admin matter: candidates see no error for it.
+        if (!cancelled && !isQuotaError(err)) setError(err?.message || 'Failed to load profile.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -121,7 +123,7 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
       setSuccess('Profile updated successfully.');
     } catch (err) {
       setShowPreview(false);
-      setError(err?.message || 'Failed to update profile.');
+      setError(isQuotaError(err) ? 'Failed to update profile. Please try again later.' : err?.message || 'Failed to update profile.');
     } finally {
       setSaving(false);
     }
@@ -159,7 +161,7 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            className="btn-circle"
             aria-label="Back to dashboard"
           >
             <i className="fa-solid fa-arrow-left text-xs" aria-hidden="true" />
@@ -167,7 +169,7 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
         ) : (
           <div className="w-8" />
         )}
-        <h1 className="text-sm sm:text-base font-semibold text-purple-600 text-center"><i className="fa-solid fa-pen-to-square mr-1.5" aria-hidden="true" />
+        <h1 className="text-sm sm:text-base font-semibold text-purple-600 text-center"><i className="fa-solid fa-pen mr-1.5" aria-hidden="true" />
           Edit {displayName}
         </h1>
         <div className="w-8" />
@@ -216,7 +218,7 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
               disabled={saving || loading}
               className="inline-flex items-center gap-1.5 rounded-full bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <i className="fa-solid fa-pen-to-square text-[11px]" aria-hidden="true" />
+              <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
               {saving ? 'Updating...' : 'Update Candidate'}
             </button>
           </div>
@@ -247,7 +249,7 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
                 type="button"
                 disabled={saving}
                 onClick={() => setShowPreview(false)}
-                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200 disabled:opacity-60"
+                className="btn-circle"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />

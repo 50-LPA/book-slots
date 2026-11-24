@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { Suspense, lazy, useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   collection,
@@ -25,7 +25,6 @@ import {
   subscribeToCandidateSlots,
   isSlotPast,
   getCollectionDocs,
-  invalidateCollection,
 } from '../firebase/slotsService';
 import { checkHrDuplicates } from '../firebase/hrService';
 import {
@@ -38,6 +37,11 @@ import { parseISOToDate } from '../calendar';
 import { downloadWithSaveAs } from '../utils/downloadUtils';
 import { CandidateProfileEditForm } from '../pages/CandidateProfileEdit';
 import { useAuth } from '../context/AuthContext';
+import { mayLeave, navigated } from '../profile/unsaved.js';
+import PaginationBar from '../Components/PaginationBar';
+
+// Candidate's own resume (editor + preview), from src/profile; loaded only when the tab opens.
+const MyResume = lazy(() => import('../profile/MyResume.jsx'));
 
 
 // Normalise legacy round labels for candidate views (calendar + lists)
@@ -65,102 +69,6 @@ function normaliseRoundLabel(raw) {
   return r;
 }
 
-// Reusable pagination bar: left = count label, right = « < pages > » + per-page selector
-function PaginationBar({
-  totalItems,
-  currentPage,
-  itemsPerPage,
-  onPageChange,
-  onItemsPerPageChange,
-  label = 'Items',
-  optionsPerPage = [10, 20, 25, 50],
-}) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-
-  const pageNumbers = [];
-  const maxVisible = 5;
-  let first = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-  let last = Math.min(totalPages, first + maxVisible - 1);
-  if (last - first + 1 < maxVisible) {
-    first = Math.max(1, last - maxVisible + 1);
-  }
-  for (let i = first; i <= last; i++) {
-    pageNumbers.push(i);
-  }
-
-  return (
-    <div className="mt-3 flex items-center justify-between gap-3 flex-wrap px-3 py-2">
-      {/* Left: count */}
-      <div className="text-xs sm:text-sm text-slate-600">
-        {totalItems} {label}
-      </div>
-      {/* Right: « < 1 2 3 ... > » + per page */}
-      <div className="flex items-center gap-1 sm:gap-2">
-        <button
-          type="button"
-          onClick={() => onPageChange(1)}
-          disabled={currentPage <= 1}
-          className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          aria-label="First page"
-        >
-          &laquo;
-        </button>
-        <button
-          type="button"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          aria-label="Previous page"
-        >
-          &lsaquo;
-        </button>
-        {pageNumbers.map((num) => (
-          <button
-            key={num}
-            type="button"
-            onClick={() => onPageChange(num)}
-            className={`min-w-[28px] px-2 py-1 rounded text-sm font-medium ${
-              num === currentPage
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            {num}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          aria-label="Next page"
-        >
-          &rsaquo;
-        </button>
-        <button
-          type="button"
-          onClick={() => onPageChange(totalPages)}
-          disabled={currentPage >= totalPages}
-          className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          aria-label="Last page"
-        >
-          &raquo;
-        </button>
-        <select
-          value={itemsPerPage}
-          onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-          className="ml-2 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs sm:text-sm text-slate-600"
-        >
-          {optionsPerPage.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-}
 
 function getInitials(name) {
   const cleaned = String(name || '').trim();
@@ -380,7 +288,7 @@ function FeedbackRequiredModal({
                 disabled={submitting || !feedbackText.trim()}
                 className="inline-flex items-center gap-1.5 rounded-full bg-purple-600 px-5 py-2 text-xs font-semibold text-white shadow hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <i className="fa-solid fa-check text-xs" aria-hidden="true" />
+                <i className="fa-solid fa-floppy-disk text-xs" aria-hidden="true" />
                 {submitting ? 'Saving Feedback...' : 'Save Feedback & Unlock'}
               </button>
             </div>
@@ -415,6 +323,33 @@ function FeedbackRequiredModal({
   );
 }
 
+const NAV_LABELS = { slots: 'Slots', hrs: 'HRs', profile: 'Profile', myprofile: 'My Resume' };
+// Same icons as the navigation and page titles.
+const CRUMB_ICONS = { Home: 'fa-house', Slots: 'fa-calendar-days', HRs: 'fa-user-tie', Profile: 'fa-id-card', 'My Resume': 'fa-file-lines', 'Book New Slot': 'fa-calendar-plus' };
+
+// Home › … › current page. items: [label, onClick?][]; the last item (no onClick) is the current page.
+function Breadcrumbs({ items }) {
+  return (
+    <nav aria-label="Breadcrumb" className="px-2 pt-2 sm:px-4 md:px-8 print:hidden">
+      <ol className="flex flex-wrap items-center gap-x-1 text-xs sm:text-sm text-slate-500">
+        {items.map(([label, onClick], i) => (
+          <li key={label} className="flex items-center gap-1">
+            {i > 0 && <i className="fa-solid fa-chevron-right text-[9px] text-slate-400" aria-hidden="true" />}
+            {CRUMB_ICONS[label] && <i className={`fa-solid ${CRUMB_ICONS[label]} text-[11px] ${onClick ? 'text-purple-600' : 'text-slate-700'}`} aria-hidden="true" />}
+            {onClick ? (
+              <button type="button" onClick={onClick} className="py-1 font-medium text-purple-600 hover:text-purple-800 hover:underline">
+                {label}
+              </button>
+            ) : (
+              <span aria-current="page" className="py-1 font-semibold text-slate-800">{label}</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
 function Header({
   userName,
   onLogout,
@@ -431,7 +366,8 @@ function Header({
   const navItems = [
     { id: 'home', label: 'Home', icon: 'fa-solid fa-house' },
     { id: 'slots', label: 'Slots', icon: 'fa-solid fa-calendar-days' },
-    { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-user-group' },
+    { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-user-tie' },
+    { id: 'myprofile', label: 'My Resume', icon: 'fa-solid fa-file-lines' },
   ];
 
   const handleNavClick = (id) => {
@@ -443,9 +379,9 @@ function Header({
 
   return (
     <>
-      <div className="bg-blue-100 px-2 sm:px-4 md:px-8 py-2 sm:py-3 md:py-4 flex items-center justify-between gap-2 sm:gap-3 relative">
+      <div className="bg-blue-100 px-2 sm:px-4 md:px-8 py-2 sm:py-3 md:py-4 flex items-center justify-between gap-2 sm:gap-3 relative print:hidden">
         {/* Left Section: hamburger + title */}
-        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 max-w-[30%] sm:max-w-none">
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 max-w-[38%] sm:max-w-none">
           <button
             type="button"
             onClick={() => setNavOpen((open) => !open)}
@@ -455,7 +391,7 @@ function Header({
             <i className="fa-solid fa-bars w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
           </button>
           <h1 className="text-xs sm:text-base md:text-xl font-bold text-gray-900 truncate">
-            <i className="fa-solid fa-user-graduate mr-2 text-purple-600" aria-hidden="true" />
+            <i className="fa-solid fa-calendar-check mr-1 sm:mr-2 text-purple-600" aria-hidden="true" />
             Book Slots
           </h1>
         </div>
@@ -467,7 +403,7 @@ function Header({
               {totalSlotsCount}
             </span>
             <span className="text-[9px] sm:text-[11px] text-slate-500 font-medium whitespace-nowrap">
-              Total Slots
+              <i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots
             </span>
           </div>
         </div>
@@ -523,7 +459,7 @@ function Header({
                   }}
                   className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-2 inline-flex items-center justify-center gap-2"
                 >
-                  <i className="fa-solid fa-user text-xs" aria-hidden="true" />
+                  <i className="fa-solid fa-id-card text-xs" aria-hidden="true" />
                   Profile
                 </button>
                 <button
@@ -570,7 +506,7 @@ function Header({
                   {totalSlotsCount}
                 </span>
                 <span className="text-[11px] text-slate-300 font-medium whitespace-nowrap">
-                  Total Slots
+                  <i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots
                 </span>
               </div>
               {navItems.map((item) => (
@@ -597,7 +533,7 @@ function Header({
                   }}
                   className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-left bg-blue-500 hover:bg-blue-600 text-white"
                 >
-                  <i className="fa-solid fa-cloud-arrow-down w-4 h-4" aria-hidden="true" />
+                  <i className="fa-solid fa-file-arrow-down w-4 h-4" aria-hidden="true" />
                   <span>Download Personal Detail Form 3.0</span>
                 </button>
               )}
@@ -640,7 +576,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
             <button
               type="button"
               onClick={() => setCalendarRefreshKey((k) => k + 1)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 flex-shrink-0"
+              className="btn-circle"
               aria-label="Reload calendar"
             >
               <i className="fa-solid fa-rotate-right text-xs" aria-hidden="true" />
@@ -652,7 +588,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
               <button
                 type="button"
                 onClick={onOpenAddHR}
-                className="flex-1 justify-center inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap bg-emerald-500 hover:bg-emerald-600"
+                className="btn-pill flex-1 bg-emerald-500"
               >
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
                   <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
@@ -663,12 +599,12 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
                 type="button"
                 onClick={onOpenBookSlot}
                 title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Add New Slot'}
-                className={`flex-1 justify-center inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap ${
+                className={`btn-pill flex-1 justify-center ${
                   hasPendingFeedback ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'
                 }`}
               >
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
-                  <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-plus'} text-xs`} aria-hidden="true" />
+                  <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-calendar-plus'} text-xs`} aria-hidden="true" />
                 </span>
                 <span>{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
               </button>
@@ -695,7 +631,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
               <button
                 type="button"
                 onClick={() => setCalendarRefreshKey((k) => k + 1)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 flex-shrink-0"
+                className="btn-circle"
                 aria-label="Reload calendar"
               >
                 <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
@@ -707,7 +643,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
               <button
                 type="button"
                 onClick={onOpenAddHR}
-                className="inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap bg-emerald-500 hover:bg-emerald-600"
+                className="btn-pill bg-emerald-500"
               >
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
                   <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
@@ -718,12 +654,12 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
                 type="button"
                 onClick={onOpenBookSlot}
                 title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Add New Slot'}
-                className={`inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap ${
+                className={`btn-pill ${
                   hasPendingFeedback ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'
                 }`}
               >
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
-                  <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-plus'} text-xs`} aria-hidden="true" />
+                  <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-calendar-plus'} text-xs`} aria-hidden="true" />
                 </span>
                 <span>{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
               </button>
@@ -755,13 +691,13 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-800"><i className="fa-solid fa-circle-info mr-1.5" aria-hidden="true" />
+              <h3 className="text-sm font-semibold text-slate-800"><i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
                 Slot Details
               </h3>
               <button
                 type="button"
                 onClick={() => setCalendarSelectedEvent(null)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                className="btn-circle"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
@@ -1053,7 +989,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                             )}
                             {hrMobile && (
                               <div className="flex items-center gap-1.5">
-                                <i className="fa-solid fa-phone text-slate-500 w-3.5" aria-hidden="true" />
+                                <i className="fa-solid fa-mobile-screen text-slate-500 w-3.5" aria-hidden="true" />
                                 <span>{hrMobile}</span>
                               </div>
                             )}
@@ -1110,7 +1046,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                               `${slot.company || slot.companyName || 'Slot'} - ${slot.dateLabel || ''}`,
                             );
                           }}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded bg-red-500 text-white hover:bg-red-600"
+                          className="btn-action bg-red-500"
                           aria-label="Delete"
                         >
                           <i className="fa-solid fa-trash" aria-hidden="true" />
@@ -1128,7 +1064,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
           <button
             type="button"
             onClick={onBackToHome}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+            className="btn-circle"
           >
             <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
           </button>
@@ -1142,7 +1078,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
           <button
             type="button"
             onClick={() => setRefreshKey((k) => k + 1)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
+            className="btn-circle"
             aria-label="Reload slots"
           >
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
@@ -1155,12 +1091,12 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
             type="button"
             onClick={onBookNewSlot}
             title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Add New Slot'}
-            className={`inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap ${
+            className={`btn-pill ${
                   hasPendingFeedback ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'
                 }`}
               >
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
-                  <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-plus'} text-xs`} aria-hidden="true" />
+                  <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-calendar-plus'} text-xs`} aria-hidden="true" />
                 </span>
                 <span>{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
           </button>
@@ -1176,7 +1112,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
             <span className="text-sm sm:text-base font-semibold text-slate-800">
               {totalSlots}
             </span>
-            <span className="text-[11px] text-slate-500">Total Slots</span>
+            <span className="text-[11px] text-slate-500"><i className="fa-solid fa-calendar-days mr-1" aria-hidden="true" />Total Slots</span>
           </div>
 
           {/* Per-round cards, same style as total */}
@@ -1194,13 +1130,13 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
         )}
         <div className="flex items-center justify-end gap-3 sm:ml-auto">
           <div className="relative w-28 sm:w-36">
-            <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400" aria-hidden="true" />
             <input
               type="text"
               placeholder="Search slots..."
               value={slotSearch}
               onChange={(e) => setSlotSearch(e.target.value)}
-              className="w-full rounded-full border border-slate-200 bg-white pl-7 pr-8 py-1.5 text-[11px] sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="filter-search"
             />
             {slotSearch && (
               <button
@@ -1360,7 +1296,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                   setConfirmDeleteSlotId(null);
                   setConfirmDeleteSlotLabel('');
                 }}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                className="btn-circle"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
@@ -1391,7 +1327,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                   }
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
-              ><i className="fa-solid fa-trash-can mr-1.5" aria-hidden="true" />
+              ><i className="fa-solid fa-trash mr-1.5" aria-hidden="true" />
                 Delete
               </button>
             </div>
@@ -1415,7 +1351,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-800"><i className="fa-solid fa-comment-medical mr-1.5" aria-hidden="true" />
+              <h3 className="text-sm font-semibold text-slate-800"><i className="fa-solid fa-comment-dots mr-1.5" aria-hidden="true" />
                 Add Feedback
               </h3>
               <button
@@ -1426,7 +1362,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                     setFeedbackText('');
                   }
                 }}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                className="btn-circle"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
@@ -1553,14 +1489,14 @@ function CandidateHrsList({
           <button
             type="button"
             onClick={onBackToHome}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-100"
+            className="btn-circle"
             aria-label="Back to home"
           >
             <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
           </button>
         </div>
         <div className="flex-1 flex items-center justify-center gap-2">
-          <h2 className="text-base sm:text-lg font-bold text-slate-800"><i className="fa-solid fa-address-book mr-1.5" aria-hidden="true" />My Added HRs</h2>
+          <h2 className="text-base sm:text-lg font-bold text-slate-800"><i className="fa-solid fa-user-tie mr-1.5" aria-hidden="true" />My Added HRs</h2>
           <button
             type="button"
             onClick={onReload}
@@ -1576,7 +1512,7 @@ function CandidateHrsList({
           <button
             type="button"
             onClick={onAddNewHR}
-            className="inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-sm font-semibold text-white shadow whitespace-nowrap bg-emerald-500 hover:bg-emerald-600"
+            className="btn-pill bg-emerald-500"
               >
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
                   <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
@@ -1614,7 +1550,7 @@ function CandidateHrsList({
               </div>
               {hr.mobile && (
                 <a href={`tel:${hr.mobile}`} className="mt-2 flex items-center gap-1.5 text-xs text-slate-700">
-                  <i className="fa-solid fa-phone w-3.5 text-slate-400" aria-hidden="true" />
+                  <i className="fa-solid fa-mobile-screen w-3.5 text-slate-400" aria-hidden="true" />
                   {hr.mobile}
                 </a>
               )}
@@ -1679,6 +1615,7 @@ export default function CandidateDashboard() {
   const [bookSlotSelectHrId, setBookSlotSelectHrId] = useState(null);
   // Remember last opened tab across refreshes for candidate.
   // If coming from a successful booking with openSlots, prefer "slots" once.
+  const [bookFrom, setBookFrom] = useState('home');
   const [activeNav, setActiveNav] = useState(() => {
     try {
       const stored = sessionStorage.getItem('sb_candidate_active_nav');
@@ -1785,6 +1722,7 @@ export default function CandidateDashboard() {
       setShowFeedbackRequiredModal(true);
       return;
     }
+    setBookFrom(activeNav); // breadcrumb: the page Book Slot was opened from
     setShowBookSlot(true);
     setActiveNav('slots');
   };
@@ -1840,8 +1778,8 @@ export default function CandidateDashboard() {
           setHrsLoading(true);
         }
         setHrsError(null);
-        // Shared cached read (the calendar already loads hrs); Reload forces a fresh one.
-        const hrDocs = await getCollectionDocs('hrs', { fresh: hrsRefreshKey > 0 });
+        // Shared live listener: always current, so Reload costs no extra reads.
+        const hrDocs = await getCollectionDocs('hrs');
         const hrsData = hrDocs.map((doc) => ({
           id: doc.id, // Store Firestore document ID
           name: doc.data().name || '',
@@ -2056,6 +1994,7 @@ export default function CandidateDashboard() {
       setShowFeedbackRequiredModal(true);
       return;
     }
+    setBookFrom(activeNav); // breadcrumb: the page Book Slot was opened from
     setShowBookSlot(true);
     setActiveNav('slots');
     setBookSlotSelectHrId(hrId);
@@ -2122,7 +2061,6 @@ export default function CandidateDashboard() {
         createdAt: serverTimestamp(),
       });
 
-      invalidateCollection('hrs');
       // Update local state with Firestore ID
       setHrList((prev) => [
         {
@@ -2154,7 +2092,11 @@ export default function CandidateDashboard() {
     }
   }, [activeNav]);
 
-  const handleNavClick = (navId) => {
+  const handleNavClick = async (navId) => {
+    if (activeNav === 'myprofile' && navId !== 'myprofile') {
+      if (!(await mayLeave())) return; // unsaved resume edits
+      navigated();
+    }
     setActiveNav(navId);
     if (navId === 'home') {
       setShowBookSlot(false);
@@ -2245,33 +2187,41 @@ export default function CandidateDashboard() {
         activeNav={activeNav}
         onChangeNav={handleNavClick}
         totalSlotsCount={candidateSlots.length}
-        onEditProfile={() => setActiveNav('profile')}
+        onEditProfile={() => handleNavClick('profile')}
         onDownloadForm={() =>
           downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')
         }
         onLogout={handleLogout}
       />
       <Navbar 
-        onOpenAddHR={() => {
-          setActiveNav('hrs');
-        }}
+        onOpenAddHR={() => handleNavClick('hrs')}
         onDownloadForm={() =>
           downloadWithSaveAs('/interview_process_candidate_details.pdf', 'Personal_Detail_Form.pdf')
         }
-        onEditProfile={() => setActiveNav('profile')}
+        onEditProfile={() => handleNavClick('profile')}
         onNavChange={handleNavClick}
         activeNav={activeNav}
       />
+      <Breadcrumbs
+        items={[
+          ['Home', activeNav === 'home' && !showBookSlot ? null : () => handleNavClick('home')],
+          ...(showBookSlot
+            ? [...(bookFrom !== 'home' && NAV_LABELS[bookFrom] ? [[NAV_LABELS[bookFrom], () => { setShowBookSlot(false); setActiveNav(bookFrom); }]] : []), ['Book New Slot']]
+            : activeNav !== 'home' && NAV_LABELS[activeNav]
+            ? [[NAV_LABELS[activeNav]]]
+            : []),
+        ]}
+      />
       {!showBookSlot && activeNav === 'home' && (
-        <div className="px-2 sm:px-4 md:px-8">
+        <div className="px-2 sm:px-4 md:px-8 print:hidden">
           <PlacedCandidatesMarquee className="mb-2 sm:mb-2 !mb-2" speedSeconds={20} />
         </div>
       )}
       <main
-        className={`px-2 pb-2 sm:px-4 sm:pb-4 md:px-8 md:pb-8 ${
+        className={`px-2 pb-2 sm:px-4 sm:pb-4 md:px-8 md:pb-8 print:p-0 ${
           !showBookSlot && activeNav === 'home'
             ? 'pt-0 sm:pt-0 md:pt-0'
-            : 'pt-2 sm:pt-4 md:pt-6'
+            : 'pt-1 sm:pt-2'
         }`}
       >
         {showBookSlot ? (
@@ -2295,6 +2245,10 @@ export default function CandidateDashboard() {
             onBack={() => setActiveNav('home')}
             onLogout={handleLogout}
           />
+        ) : activeNav === 'myprofile' ? (
+          <Suspense fallback={<div className="p-6 text-center text-sm text-slate-500">Loading…</div>}>
+            <MyResume mobile={candidateUser?.mobile || candidateProfile?.mobile} candidate={candidateProfile} onBack={() => handleNavClick('home')} />
+          </Suspense>
         ) : activeNav === 'slots' ? (
           <MySlots
             onBookNewSlot={handleOpenBookSlot}

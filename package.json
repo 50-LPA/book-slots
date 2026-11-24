@@ -20,7 +20,8 @@
     "postbuild": "node scripts/check-build-size.js",
     "serve:prod": "npm run build && npx serve -s build -l 3000",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "test:profile": "node --test src/profile/*.nodetest.js"
   },
   "eslintConfig": {
     "extends": [

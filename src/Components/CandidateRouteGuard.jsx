@@ -84,10 +84,6 @@ export default function CandidateRouteGuard() {
               }
               sessionStorage.removeItem('sb_user');
               signOut(auth).catch(() => {});
-              localStorage.removeItem('candidates');
-              localStorage.removeItem('name');
-              localStorage.removeItem('email');
-              localStorage.removeItem('uid');
               if (!cancelled) setRedirectTo('/login');
               if (!cancelled) setState('redirect');
               return;
