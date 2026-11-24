@@ -109,7 +109,7 @@ export default function CandidateList({ rows, error, refreshing, refresh }) {
       <CardHeader
         onBack={() => window.history.back()}
         icon={ICONS.profile}
-        title="Candidate List"
+        title="Profiles"
         extra={<CircleButton icon={ICONS.refresh} label="Refresh list" onClick={refresh} disabled={refreshing} dim={refreshing} />}
         actions={
           <Button icon={ICONS.plus} onClick={() => go('#/new')}>
@@ -119,7 +119,7 @@ export default function CandidateList({ rows, error, refreshing, refresh }) {
       />
 
       {/* Count + filters. Phones: search + a "Filters" button that opens the rest in a 2-column grid. Desktop: one row. */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <StatCounts gap="gap-2" className="mr-auto" items={[
           ['Total', rows && shown.length],
           ['Inquiry', rows && shown.filter((r) => r.phase === 'inquiry').length, 'amber'],

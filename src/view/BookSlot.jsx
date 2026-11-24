@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import PageHeader from '../Components/PageHeader';
 import { collection, addDoc, getDocs, doc, getDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import { getSlotsForDate, isSlotAvailable, getLeaves, formatDateDDMMYYYY } from '../firebase/slotsService';
@@ -720,17 +721,8 @@ export default function BookSlot({
   return (
     <div className="w-full">
       {/* Card same width as My Slots list */}
-      <div className="bg-white rounded-lg sm:rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6 w-full">
-          <div className="flex items-center mb-6">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="btn-circle"
-            >
-              <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-            </button>
-            <h2 className="flex-1 text-center text-purple-600 font-semibold text-sm md:text-base"><i className="fa-solid fa-calendar-plus mr-1.5" aria-hidden="true" />Add New Slot</h2>
-          </div>
+      <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6 w-full">
+          <PageHeader icon="fa-calendar-plus" title="Add New Slot" onBack={handleClose} backLabel="Back" />
 
           {/* Tab view only (768px–1023px): reordered layout */}
           <div className="hidden md:block lg:hidden space-y-4">

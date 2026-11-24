@@ -1,5 +1,6 @@
 import { isQuotaError } from '../utils/quota';
 import React, { useEffect, useMemo, useState } from 'react';
+import PageHeader from '../Components/PageHeader';
 import { collection, doc, getDocs, query, updateDoc, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import {
@@ -157,24 +158,12 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
       onSubmit={onSave}
       className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6"
     >
-      <div className="mb-3 flex items-center justify-between">
-        {typeof onBack === 'function' ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="btn-circle"
-            aria-label="Back to dashboard"
-          >
-            <i className="fa-solid fa-arrow-left text-xs" aria-hidden="true" />
-          </button>
-        ) : (
-          <div className="w-8" />
-        )}
-        <h1 className="text-sm sm:text-base font-semibold text-purple-600 text-center"><i className="fa-solid fa-pen mr-1.5" aria-hidden="true" />
-          Edit {displayName}
-        </h1>
-        <div className="w-8" />
-      </div>
+      <PageHeader
+        icon="fa-user-pen"
+        title={`Edit ${displayName}`}
+        onBack={typeof onBack === 'function' ? onBack : undefined}
+        backLabel="Back to dashboard"
+      />
 
       {loading ? (
         <p className="text-sm text-slate-600">Loading profile...</p>

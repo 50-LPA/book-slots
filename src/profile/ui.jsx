@@ -1,6 +1,7 @@
 // Shared building blocks. Change a look here and every page that uses it follows.
 import { useEffect, useRef, useState } from 'react'
 import { ICONS, Icon } from './icons.jsx'
+import PageHeader from '../Components/PageHeader'
 
 // Page body inside the book-slots admin dashboard (its <main> already pads; no breadcrumbs, like the other tabs).
 export const Page = ({ children }) => <div className="font-lato">{children}</div>
@@ -14,19 +15,8 @@ export function Card({ children }) {
   )
 }
 
-// Card title row: back button left · title centred (+ extra, e.g. refresh) · actions right. Wraps on small screens.
-export function CardHeader({ onBack, backLabel = 'Go back', icon, title, extra, actions }) {
-  return (
-    <div className="grid grid-cols-[auto_1fr] items-center gap-2 lg:grid-cols-[1fr_auto_1fr]">
-      <div>{onBack && <CircleButton icon={ICONS.back} label={backLabel} onClick={onBack} />}</div>
-      <div className="flex items-center justify-center gap-2">
-        <h1 className="flex items-center gap-1.5 text-center text-xs font-semibold text-purple-600 sm:text-sm">{icon && <Icon d={icon} className="h-3.5 w-3.5" />}{title}</h1>
-        {extra}
-      </div>
-      <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 lg:col-span-1">{actions}</div>
-    </div>
-  )
-}
+// Card title row: the shared page header (src/Components/PageHeader.jsx); actions wrap below on small screens.
+export const CardHeader = (props) => <PageHeader stackActions {...props} />
 
 const BUTTON = {
   primary: 'bg-emerald-500 text-white enabled:hover:bg-emerald-600',

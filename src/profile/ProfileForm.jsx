@@ -285,6 +285,7 @@ export default function ProfileForm({ record, prefill, readOnly, onEdit, onSave,
         backLabel="Back to all candidates"
         icon={readOnly ? ICONS.profile : record ? ICONS.pencil : ICONS.plus}
         title={readOnly ? 'View Candidate' : record ? 'Update Candidate' : 'New Candidate'}
+        parents={[{ label: 'Profiles', href: '#/candidates' }]}
         actions={<>
           <Segmented label="Profile phase" options={PHASES} value={f.phase} onChange={set('phase')} disabled={readOnly}
             border="border-gray-300" idle="text-gray-500 enabled:hover:bg-gray-50"
@@ -299,7 +300,7 @@ export default function ProfileForm({ record, prefill, readOnly, onEdit, onSave,
       />
 
       {/* Inner card, split: A4 sheet left | career fields right (stacked on smaller screens). Only two cards in total. */}
-      <div className="mt-4 flex flex-col overflow-hidden rounded-xl border border-gray-200 xl:flex-row">
+      <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 xl:flex-row">
       <aside inert={readOnly} className="min-w-0 flex-1 border-b border-gray-200 p-4 xl:border-b-0">
         <div className="xl:sticky xl:top-4">
           <CareerFields passOut={f.passOut} companies={f.companies} onPassOut={set('passOut')} onCompanies={setCompanies} />

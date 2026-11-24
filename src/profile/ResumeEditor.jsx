@@ -201,13 +201,14 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
   )
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5 print:border-0 print:p-0 print:shadow-none">
+    <section className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-md sm:px-6 sm:py-6 print:border-0 print:p-0 print:shadow-none">
       <div className="print:hidden">
         <CardHeader
           onBack={onBack}
           backLabel="Back"
           icon={ICONS.document}
           title={`Resume · ${candidate.name || 'Candidate'}`}
+          parents={[{ label: 'Resumes', href: '#/resumes' }]}
           actions={<>
             <span className="px-1 text-xs text-gray-500" title="Ctrl/Cmd + S saves">{dirty ? '● Unsaved changes' : '✓ Saved'}</span>
             <Button variant="plain" icon={ICONS.refresh} onClick={pull}>Pull from profile</Button>
@@ -217,7 +218,7 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
         />
       </div>
 
-      <div className="mt-4 grid items-start gap-4 lg:grid-cols-2 print:mt-0 print:block">
+      <div className="grid items-start gap-4 lg:grid-cols-2 print:block">
         {/* Editor */}
         <form onSubmit={(e) => e.preventDefault()} className={`min-w-0 rounded-xl border border-gray-200 bg-white p-3 shadow-sm print:hidden ${pane === 'preview' ? 'max-lg:hidden' : ''}`}>
           {/* Jump bar: stays at the top while the form scrolls */}

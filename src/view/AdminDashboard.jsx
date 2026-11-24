@@ -7,7 +7,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
   onSnapshot,
   doc,
   updateDoc,
@@ -19,6 +18,7 @@ import {
 import { signOut } from 'firebase/auth';
 import { mayLeave, navigated } from '../profile/unsaved.js';
 import StatCounts from '../Components/StatCounts';
+import PageHeader, { HomeCrumb, PageTitle } from '../Components/PageHeader';
 import { friendlyMessage } from '../utils/quota';
 import { db, auth, adminSetCandidateAuth, adminDeleteCandidateAuth, normalizeMobile } from '../firebase/firebase';
 import {
@@ -221,10 +221,10 @@ function AdminHeader({ activeTab, onChangeTab }) {
           >
             <i className="fa-solid fa-bars w-4 h-4" aria-hidden="true" />
           </button>
-        <h1 className="text-sm sm:text-base md:text-xl font-bold text-gray-900 truncate">
+        <p className="text-sm sm:text-base md:text-xl font-bold text-gray-900 truncate">
           <i className="fa-solid fa-calendar-check mr-2 text-purple-600" aria-hidden="true" />
           Book Slots
-        </h1>
+        </p>
       </div>
 
               <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
@@ -596,24 +596,12 @@ function AdminCandidatesTable({
 
   return (
     <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
-      {/* Header row - back + title + top-right buttons */}
-      <div className="flex items-center justify-between gap-3 mb-3">
-        {/* Left: back only */}
-        <div className="flex items-start">
-          <button
-            onClick={onBackToHome}
-            className="btn-circle"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Center: title + refresh (refresh on right side of text) */}
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
-            <i className="fa-solid fa-users mr-1.5" aria-hidden="true" />
-            Candidate List
-          </span>
+      <PageHeader
+        icon="fa-users"
+        title="Candidates"
+        onBack={onBackToHome}
+        backLabel="Back to home"
+        extra={
           <button
             type="button"
             onClick={() => {
@@ -624,26 +612,21 @@ function AdminCandidatesTable({
               onChangeSearch('');
             }}
             className="btn-circle"
-            aria-label="Refresh"
+            aria-label="Reset filters"
+            title="Reset filters"
           >
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
           </button>
-        </div>
-
-        {/* Right: Add Candidate */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Add Candidate */}
-          <button
-            onClick={onOpenAddForm}
-            className="btn-pill bg-emerald-500"
-          >
+        }
+        actions={
+          <button type="button" onClick={onOpenAddForm} className="btn-pill bg-emerald-500" aria-label="Add New Candidate">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
               <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
             </span>
-            <span>Add New Candidate</span>
+            <span className="hidden sm:inline">Add New Candidate</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filters row under Add Candidate */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -1177,29 +1160,13 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       onSubmit={handleSubmit}
       className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6"
     >
-      {/* Header: back button left, title centered like other pages */}
-      <div className="flex items-center justify-between mb-4 gap-3">
-        {/* Left: back button */}
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={onBack}
-            className="btn-circle"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4 text-slate-600" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Center: title */}
-        <div className="flex-1 text-center">
-          <h2 className="text-sm sm:text-base font-semibold text-purple-600"><i className="fa-solid fa-plus mr-1.5" aria-hidden="true" />
-            Add New Candidate
-          </h2>
-        </div>
-
-        {/* Right: spacer to balance layout */}
-        <div className="w-10 sm:w-16" />
-      </div>
+      <PageHeader
+        icon="fa-user-plus"
+        title="Add New Candidate"
+        onBack={onBack}
+        backLabel="Back to candidates"
+        parents={[{ label: 'Candidates', onClick: onBack }]}
+      />
 
       {successMessage && (
         <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">
@@ -1613,26 +1580,13 @@ function AdminEditCandidateForm({ candidate, hrs = [], onBack, onSubmit }) {
       onSubmit={handleSubmit}
       className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6"
     >
-      {/* Header: grey back button left, title centered */}
-      <div className="flex items-center justify-between mb-4 gap-3">
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={onBack}
-            className="btn-circle"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="flex-1 text-center">
-          <h2 className="text-sm sm:text-base font-semibold text-purple-600"><i className="fa-solid fa-pen mr-1.5" aria-hidden="true" />
-            Edit {form.name ? form.name : 'Name of Candidate'}
-          </h2>
-        </div>
-
-        <div className="w-10 sm:w-16" />
-      </div>
+      <PageHeader
+        icon="fa-user-pen"
+        title={`Edit ${form.name || 'Candidate'}`}
+        onBack={onBack}
+        backLabel="Back to candidates"
+        parents={[{ label: 'Candidates', onClick: onBack }]}
+      />
 
       {error && (
         <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
@@ -2165,26 +2119,13 @@ function AdminSlotsTable({
   );
 
   return (
-    <div className="bg-white rounded-lg sm:rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
-      {/* Header row with back + title */}
-      <div className="flex items-center justify-between mb-2 gap-3">
-        {/* Left: back button only */}
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={onBackToHome}
-            className="btn-circle"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Center: title + refresh (refresh on right side of text) */}
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
-            <i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
-            Slots List
-          </span>
+    <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
+      <PageHeader
+        icon="fa-calendar-days"
+        title="Slots"
+        onBack={onBackToHome}
+        backLabel="Back to home"
+        extra={
           <button
             type="button"
             onClick={() => {
@@ -2197,15 +2138,13 @@ function AdminSlotsTable({
               setHrSearch('');
             }}
             className="btn-circle"
-            aria-label="Refresh"
+            aria-label="Reset filters"
+            title="Reset filters"
           >
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
           </button>
-        </div>
-
-        {/* Right: empty spacer */}
-        <div className="w-32 sm:w-40" />
-      </div>
+        }
+      />
 
       {/* Error message */}
       {error && (
@@ -2692,6 +2631,7 @@ function AdminHRsTable({
   hrs,
   search,
   onBackToHome,
+  onReload,
   onChangeSearch,
   onAddHR,
   onUpdateHR,
@@ -3011,35 +2951,17 @@ function AdminHRsTable({
 
   return (
     <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
-      {/* Header row - back + title + top-right buttons */}
-      <div className="flex items-center justify-between gap-3 mb-3">
-        {/* Left: back only */}
-        <div className="flex items-start">
-          <button
-            onClick={onBackToHome}
-            className="btn-circle"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Center: title + refresh (refresh on right side of text) */}
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
-            <i className="fa-solid fa-user-tie mr-1.5" aria-hidden="true" />
-            Hrs List
-          </span>
-          <button
-            type="button"
-            className="btn-circle"
-            aria-label="Refresh"
-          >
+      <PageHeader
+        icon="fa-user-tie"
+        title="HRs"
+        onBack={onBackToHome}
+        backLabel="Back"
+        extra={
+          <button type="button" onClick={onReload} className="btn-circle" aria-label="Reload HRs" title="Reload HRs">
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
           </button>
-        </div>
-
-        {/* Right: Add New HR – match candidate dashboard style */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        }
+        actions={
           <button
             type="button"
             onClick={() => {
@@ -3056,14 +2978,15 @@ function AdminHRsTable({
               setShowAddModal(true);
             }}
             className="btn-pill bg-emerald-500"
+            aria-label="Add New HR"
           >
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
               <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
             </span>
-            <span>Add New HR</span>
+            <span className="hidden sm:inline">Add New HR</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filters + total count row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -3739,7 +3662,7 @@ function AdminHRsTable({
 }
 
 // Detailed view: all slots booked by a specific candidate (from Slots tab)
-function AdminCandidateSlotsView({ data, onBack }) {
+function AdminCandidateSlotsView({ data, onBack, parent = 'Candidates' }) {
   const { name, candidate, slots } = data;
 
   const experience =
@@ -3904,36 +3827,18 @@ const normaliseRoundLabelAdmin = (raw) => {
 
   return (
     <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
-      {/* Header row: back, title + reload center, referred by right */}
-      <div className="flex items-center justify-between mb-4 gap-3">
-        <div className="flex items-center">
-          <button
-            onClick={onBack}
-            className="btn-circle"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
-            <i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
-            Slot Book By {name}
-          </span>
-          <button
-            type="button"
-            className="btn-circle"
-            aria-label="Reload candidate slots"
-          >
-            <i className="fa-solid fa-rotate-right text-xs" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="text-[11px] sm:text-xs text-slate-600 whitespace-nowrap">
-          Referred By:{' '}
-          <span className="font-semibold text-slate-800">{referredBy}</span>
-        </div>
-      </div>
+      <PageHeader
+        icon="fa-calendar-check"
+        title={`Slots · ${name}`}
+        onBack={onBack}
+        backLabel={`Back to ${parent}`}
+        parents={[{ label: parent, onClick: onBack }]}
+        actions={
+          <div className="text-[11px] sm:text-xs text-slate-600 whitespace-nowrap">
+            Referred By: <span className="font-semibold text-slate-800">{referredBy}</span>
+          </div>
+        }
+      />
 
       {/* Summary row: always one line; cells share the width and text shrinks on small screens */}
       <div className="mb-2 flex flex-nowrap items-start justify-between gap-1 sm:gap-3 text-slate-700">
@@ -4075,38 +3980,25 @@ function AdminLeavesTable({ onBackToHome }) {
 
   return (
     <div className="relative bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-4 gap-3">
-        {/* Left: back */}
-        <div className="flex items-center">
-          <button
-            onClick={onBackToHome}
-            className="btn-circle"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Center: title + refresh (refresh on right side of text) */}
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
-            <i className="fa-solid fa-umbrella-beach mr-1.5" aria-hidden="true" />
-            Admin Leaves
-          </span>
+      <PageHeader
+        icon="fa-umbrella-beach"
+        title="Admin Leaves"
+        onBack={onBackToHome}
+        backLabel="Back to home"
+        extra={
           <button
             type="button"
             className="btn-circle"
-            aria-label="Refresh"
+            aria-label="Reload leaves"
+            title="Reload leaves"
             onClick={() => {
               getLeaves(true).then((list) => setLeaves(list));
             }}
           >
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
           </button>
-        </div>
-
-        {/* Right: add leave */}
-        <div className="flex items-center gap-3">
+        }
+        actions={
           <button
             type="button"
             onClick={() => {
@@ -4115,14 +4007,15 @@ function AdminLeavesTable({ onBackToHome }) {
               setShowAddLeave(true);
             }}
             className="btn-pill bg-emerald-500"
+            aria-label="Add New Leave"
           >
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
               <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
             </span>
-            <span>Add New Leave</span>
+            <span className="hidden sm:inline">Add New Leave</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -4335,43 +4228,28 @@ function AdminSettingsTab({
   onBackToHome,
 }) {
   return (
-    <div className="w-full min-h-[70vh] bg-white rounded-lg sm:rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6 space-y-4">
-      {/* Header row - back button + Setting heading */}
-      <div className="flex items-center justify-between gap-3 mb-6">
-        {/* Left: back button */}
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={onBackToHome}
-            className="btn-circle"
-            title="Back to Home"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Center: Setting Heading */}
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
-            <i className="fa-solid fa-gear mr-1.5" aria-hidden="true" />
-            Setting
-          </span>
-        </div>
-
-        {/* Right: Save Status / Spacer */}
-        <div className="flex items-center justify-end min-w-9">
-          {settingsSavedMessage && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-              <i className="fa-solid fa-circle-check text-xs" /> {settingsSavedMessage}
-            </span>
-          )}
-          {isSavingSlotSettings && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 bg-purple-50 px-2.5 py-0.5 rounded-full">
-              <i className="fa-solid fa-circle-notch fa-spin text-xs" /> Saving...
-            </span>
-          )}
-        </div>
-      </div>
+    <div className="w-full min-h-[70vh] bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
+      <PageHeader
+        icon="fa-gear"
+        title="Settings"
+        onBack={onBackToHome}
+        backLabel="Back to home"
+        actions={
+          <>
+            {settingsSavedMessage && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                <i className="fa-solid fa-circle-check text-xs" /> {settingsSavedMessage}
+              </span>
+            )}
+            {isSavingSlotSettings && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 bg-purple-50 px-2.5 py-0.5 rounded-full">
+                <i className="fa-solid fa-circle-notch fa-spin text-xs" /> Saving...
+              </span>
+            )}
+          </>
+        }
+      />
+      <div className="space-y-4">
 
       {/* Option 1: Saturday Show / Hide Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/60">
@@ -4482,6 +4360,7 @@ function AdminSettingsTab({
           </select>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -4501,7 +4380,7 @@ function statsCandidateRecordKey(candidate) {
   return `name:${name.toLowerCase()}`;
 }
 
-function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
+function AdminStatisticsChart({ slots = [], candidates = [], onReload, onBackToHome }) {
   const int = (v) => {
     const n = parseInt(v, 10);
     return Number.isFinite(n) ? n : 0;
@@ -4652,24 +4531,22 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload }) {
   const [hoveredGreenIndex, setHoveredGreenIndex] = useState(null);
 
   return (
-    <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-5 sm:px-6 sm:py-6">
-      <div className="flex items-center justify-center gap-2">
-        <h2 className="text-sm sm:text-base font-semibold text-slate-800"><i className="fa-solid fa-chart-column mr-1.5" aria-hidden="true" />
-          Statistic
-        </h2>
-        {typeof onReload === 'function' && (
-          <button
-            type="button"
-            onClick={onReload}
-            className="btn-circle"
-            aria-label="Reload statistics"
-          >
-            <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
-          </button>
-        )}
-      </div>
+    <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
+      <PageHeader
+        icon="fa-chart-column"
+        title="Statistics"
+        onBack={onBackToHome}
+        backLabel="Back to home"
+        extra={
+          typeof onReload === 'function' && (
+            <button type="button" onClick={onReload} className="btn-circle" aria-label="Reload statistics" title="Reload statistics">
+              <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
+            </button>
+          )
+        }
+      />
 
-      <div className="mt-4 max-w-lg mx-auto w-full relative" ref={statsCandidatePickerRef}>
+      <div className="max-w-lg mx-auto w-full relative" ref={statsCandidatePickerRef}>
         <label htmlFor="stats-candidate-search" className="block text-xs font-medium text-slate-600 mb-1"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
           Candidate
         </label>
@@ -4928,6 +4805,18 @@ export default function AdminDashboard() {
     }
   };
   const [showAddForm, setShowAddForm] = useState(false);
+  // Breadcrumb root on every admin page: back to Home, closing any open sub-page.
+  const homeCrumb = {
+    label: 'Home',
+    icon: 'fa-house',
+    onClick: () => {
+      setShowAddForm(false);
+      setEditingCandidate(null);
+      setSelectedViewCandidate(null);
+      setSelectedSlotsCandidate(null);
+      changeTab('home');
+    },
+  };
   // Default to showing Unselected candidates, matching your other project
   const [candidateSelectionFilter, setCandidateSelectionFilter] = useState('unselected'); // 'selected' | 'unselected'
   const [candidateTechnologyFilter, setCandidateTechnologyFilter] = useState('all');
@@ -5755,6 +5644,7 @@ export default function AdminDashboard() {
         onChange={changeTab}
         pendingApprovals={pendingApprovals}
       />
+      <HomeCrumb.Provider value={homeCrumb}>
       <main className="p-2 sm:p-4 md:p-8 print:p-0">
         {pendingSlots.length > 0 && (
           <div className="print:hidden mb-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-3">
@@ -5964,6 +5854,7 @@ export default function AdminDashboard() {
             <AdminCandidateSlotsView
               data={selectedSlotsCandidate}
               onBack={() => setSelectedSlotsCandidate(null)}
+              parent="Slots"
             />
           ) : (
             <AdminSlotsTable
@@ -6007,12 +5898,14 @@ export default function AdminDashboard() {
             <AdminCandidateSlotsView
               data={selectedViewCandidate}
               onBack={() => setSelectedViewCandidate(null)}
+              parent="HRs"
             />
           ) : (
             <AdminHRsTable
               hrs={filteredHRs}
               search={hrSearch}
               onBackToHome={() => setActiveTab(hrBackTab)}
+              onReload={reloadHrs}
               onChangeSearch={setHrSearch}
               onDeleteHR={handleDeleteHR}
               candidateNames={candidates.map((c) => (c.name || '').trim().toLowerCase()).filter(Boolean)}
@@ -6150,6 +6043,7 @@ export default function AdminDashboard() {
             slots={slots}
             candidates={candidates}
             onReload={() => loadHistory(true)}
+            onBackToHome={() => setActiveTab('home')}
           />
         ) : activeTab === 'leaves' ? (
           <AdminLeavesTable onBackToHome={() => setActiveTab('home')} />
@@ -6180,10 +6074,7 @@ export default function AdminDashboard() {
                   {/* Slot Booking / Slot Booking Calendar + reload */}
                   <div className="flex items-center justify-center gap-2">
                     {/* Mobile text without 'Calendar' */}
-                    <span className="text-xs font-semibold text-purple-600">
-                      <i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
-                      Slot Booking
-                    </span>
+                    <PageTitle icon="fa-calendar-days">Slot Booking</PageTitle>
                     <button
                       type="button"
                       onClick={() => setCalendarRefreshKey((k) => k + 1)}
@@ -6218,10 +6109,7 @@ export default function AdminDashboard() {
 
                     {/* Center: Slot Booking + reload - iPad: static; desktop: absolute */}
                     <div className="absolute md:relative md:left-0 md:translate-x-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 flex items-center gap-2">
-                      <span className="whitespace-nowrap text-xs sm:text-sm font-semibold text-purple-600">
-                        <i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
-                        Slot Booking
-                      </span>
+                      <PageTitle icon="fa-calendar-days">Slot Booking</PageTitle>
                       <button
                         type="button"
                         onClick={() => setCalendarRefreshKey((k) => k + 1)}
@@ -6466,6 +6354,7 @@ export default function AdminDashboard() {
       />
 
       </main>
+      </HomeCrumb.Provider>
 
       {/* HR Success Toast Notification */}
       {showHrSuccessToast && (

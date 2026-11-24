@@ -35,10 +35,10 @@ export default function ResumeList({ rows: allRows, error, refreshing, refresh }
       <CardHeader
         onBack={() => window.history.back()}
         icon={ICONS.document}
-        title="Resume Builder"
+        title="Resumes"
         extra={<CircleButton icon={ICONS.refresh} label="Refresh list" onClick={refresh} disabled={refreshing} dim={refreshing} />}
       />
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <StatCounts gap="gap-2" className="mr-auto" items={[['Total', rows?.length], ['Ready', rows && made, 'green'], ['Not started', rows && rows.length - made, 'amber']]} />
         <FilterSelect label="Resume status" value={status} onChange={reset(setStatus)} options={STATUS} className="md:w-36" />
         <SearchInput label="Search candidates" value={q} onChange={reset(setQ)} placeholder="Name or phone..." className="md:w-52" />

@@ -27,6 +27,7 @@ import {
   getCollectionDocs,
 } from '../firebase/slotsService';
 import { clearSyncedCollections } from '../firebase/syncedCollection';
+import PageHeader, { PageTitle } from '../Components/PageHeader';
 import { checkHrDuplicates } from '../firebase/hrService';
 import {
   getCandidateMatchKeys,
@@ -391,10 +392,10 @@ function Header({
           >
             <i className="fa-solid fa-bars w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
           </button>
-          <h1 className="text-xs sm:text-base md:text-xl font-bold text-gray-900 truncate">
+          <p className="text-xs sm:text-base md:text-xl font-bold text-gray-900 truncate">
             <i className="fa-solid fa-calendar-check mr-1 sm:mr-2 text-purple-600" aria-hidden="true" />
             Book Slots
-          </h1>
+          </p>
         </div>
 
         {/* Center Section: Total Slots Summary Card (visible on mobile and desktop) */}
@@ -571,9 +572,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
           {/* Title + reload */}
           <div className="flex items-center justify-center gap-2">
             {/* Mobile heading without 'Calendar' */}
-            <h2 className="text-sm font-semibold text-slate-900"><i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
-              Slot Booking
-            </h2>
+            <PageTitle icon="fa-calendar-days">Slot Booking</PageTitle>
             <button
               type="button"
               onClick={() => setCalendarRefreshKey((k) => k + 1)}
@@ -607,7 +606,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
                   <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-calendar-plus'} text-xs`} aria-hidden="true" />
                 </span>
-                <span>{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
+                <span className="hidden sm:inline">{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
               </button>
             </div>
 
@@ -626,9 +625,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
 
             {/* Center: Title + reload - iPad: static; desktop: absolute */}
             <div className="absolute md:relative md:left-0 md:translate-x-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 flex items-center gap-2 md:justify-center">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 whitespace-nowrap"><i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
-                Slot Booking
-              </h2>
+              <PageTitle icon="fa-calendar-days">Slot Booking</PageTitle>
               <button
                 type="button"
                 onClick={() => setCalendarRefreshKey((k) => k + 1)}
@@ -662,7 +659,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
                   <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-calendar-plus'} text-xs`} aria-hidden="true" />
                 </span>
-                <span>{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
+                <span className="hidden sm:inline">{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
               </button>
 
             </div>
@@ -1057,52 +1054,32 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
   };
 
   return (
-    <div className="bg-white rounded-lg sm:rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
-      {/* Header: back button left, title centered, Book New Slot button right */}
-      <div className="flex items-center justify-between mb-4 gap-3">
-        {/* Left: back button */}
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={onBackToHome}
-            className="btn-circle"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Center: title + reload button */}
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <h2 className="text-sm sm:text-base font-semibold text-slate-900"><i className="fa-solid fa-calendar-days mr-1.5" aria-hidden="true" />
-            My Slots
-          </h2>
-          <button
-            type="button"
-            onClick={() => setRefreshKey((k) => k + 1)}
-            className="btn-circle"
-            aria-label="Reload slots"
-          >
+    <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
+      <PageHeader
+        icon="fa-calendar-days"
+        title="My Slots"
+        onBack={onBackToHome}
+        backLabel="Back to home"
+        extra={
+          <button type="button" onClick={() => setRefreshKey((k) => k + 1)} className="btn-circle" aria-label="Reload slots" title="Reload slots">
             <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
           </button>
-        </div>
-
-        {/* Right: Book New Slot button */}
-        <div className="flex items-center">
+        }
+        actions={
           <button
             type="button"
             onClick={onBookNewSlot}
             title={hasPendingFeedback ? 'Feedback required for completed slot to unlock booking' : 'Add New Slot'}
-            className={`btn-pill ${
-                  hasPendingFeedback ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'
-                }`}
-              >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
-                  <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-calendar-plus'} text-xs`} aria-hidden="true" />
-                </span>
-                <span>{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
+            aria-label={hasPendingFeedback ? 'Add New Slot (locked)' : 'Add New Slot'}
+            className={`btn-pill ${hasPendingFeedback ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+          >
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+              <i className={`fa-solid ${hasPendingFeedback ? 'fa-lock' : 'fa-calendar-plus'} text-xs`} aria-hidden="true" />
+            </span>
+            <span className="hidden sm:inline">{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Metrics + search row */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -1484,44 +1461,26 @@ function CandidateHrsList({
   };
 
   return (
-    <div className="rounded-lg sm:rounded-2xl border border-slate-300 bg-white shadow-md p-3 sm:p-5">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onBackToHome}
-            className="btn-circle"
-            aria-label="Back to home"
-          >
-            <i className="fa-solid fa-arrow-left w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <h2 className="text-base sm:text-lg font-bold text-slate-800"><i className="fa-solid fa-user-tie mr-1.5" aria-hidden="true" />My Added HRs</h2>
-          <button
-            type="button"
-            onClick={onReload}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 ${
-              refreshing ? 'opacity-80' : ''
-            }`}
-            aria-label="Reload HR list"
-          >
+    <div className="bg-white rounded-2xl shadow-md border border-slate-200 px-4 py-4 sm:px-6 sm:py-6">
+      <PageHeader
+        icon="fa-user-tie"
+        title="My HRs"
+        onBack={onBackToHome}
+        backLabel="Back to home"
+        extra={
+          <button type="button" onClick={onReload} className="btn-circle" aria-label="Reload HR list" title="Reload HR list">
             <i className={`fa-solid fa-rotate-right text-sm ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
           </button>
-        </div>
-        <div className="flex items-center gap-2 justify-end">
-          <button
-            type="button"
-            onClick={onAddNewHR}
-            className="btn-pill bg-emerald-500"
-              >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
-                  <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
-                </span>
-                <span>Add New HR</span>
+        }
+        actions={
+          <button type="button" onClick={onAddNewHR} className="btn-pill bg-emerald-500" aria-label="Add New HR">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
+              <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+            </span>
+            <span className="hidden sm:inline">Add New HR</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {loading ? (
         <p className="text-sm text-slate-500">Loading HRs...</p>
