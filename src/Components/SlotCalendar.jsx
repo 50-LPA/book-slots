@@ -398,6 +398,15 @@ function SlotCalendar({
                                   <span className="shrink-0 opacity-70" aria-hidden="true">·</span>
                                   <span className="shrink-0 font-bold tabular-nums tracking-tight sm:tracking-normal">{label}</span>
                                 </div>
+                              ) : !isCandidateView && hasTimes ? (
+                                // Admin: candidate name · time, one line; a long name is cut ("…"), never the time.
+                                <div className="flex min-w-0 items-baseline gap-1 whitespace-nowrap leading-tight text-[10px] sm:gap-1.5 sm:text-[13px]">
+                                  <span className="min-w-0 truncate font-bold">{label}</span>
+                                  <span className="shrink-0 opacity-70" aria-hidden="true">·</span>
+                                  <span className="shrink-0 font-semibold tabular-nums tracking-tight opacity-90 sm:tracking-normal">
+                                    {shortTime(event.__startDate)}–{shortTime(event.__endDate)}
+                                  </span>
+                                </div>
                               ) : (
                                 <div className="font-bold truncate whitespace-nowrap leading-tight text-[11px] sm:text-[13px]">
                                   {label}

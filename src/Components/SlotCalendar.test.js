@@ -7,7 +7,7 @@ describe('SlotCalendar random-time slot display', () => {
   const baseDate = new Date('2026-03-02T12:00:00Z'); // A Monday
   const weekStart = getWeekStart(baseDate);
 
-  test('Admin dashboard view: displays only bold candidate name without time for 5:45 PM to 6:45 PM slot', () => {
+  test('Admin dashboard view: bold candidate name · short time (5:45–6:45) on one line', () => {
     // 5:45 PM = 17:45, 6:45 PM = 18:45
     const monday545PM = new Date(weekStart);
     monday545PM.setHours(17, 45, 0, 0);
@@ -43,9 +43,11 @@ describe('SlotCalendar random-time slot display', () => {
     expect(container).toBeInTheDocument();
     expect(container).not.toHaveAttribute('title');
 
-    // Time must NOT be shown in the slot
-    expect(screen.queryByText('5:45 PM - 6:45 PM')).not.toBeInTheDocument();
-    expect(screen.queryByText('5:45 PM')).not.toBeInTheDocument();
+    // Short time range follows the name on the same line
+    expect(screen.getByText('5:45–6:45')).toHaveClass('shrink-0');
+    expect(nameEl).toHaveClass('truncate');
+    expect(nameEl.parentElement).toHaveTextContent('Rahul Sharma·5:45–6:45');
+    expect(nameEl.parentElement).toHaveClass('whitespace-nowrap');
   });
 
   test('Public / other calendar view: a booked slot shows its time on one line (5:45–6:45)', () => {
@@ -82,7 +84,7 @@ describe('SlotCalendar random-time slot display', () => {
     expect(screen.queryByText('Slot Booked')).not.toBeInTheDocument();
   });
 
-  test('Slot crossing boundary with 30 min duration (5:45 PM to 6:15 PM) displays only bold name without time', () => {
+  test('Slot crossing boundary with 30 min duration (5:45 PM to 6:15 PM) shows bold name · 5:45–6:15', () => {
     const monday545PM = new Date(weekStart);
     monday545PM.setHours(17, 45, 0, 0);
 
@@ -114,8 +116,7 @@ describe('SlotCalendar random-time slot display', () => {
     expect(nameEl).toBeInTheDocument();
     expect(nameEl).toHaveClass('font-bold');
 
-    // Time must NOT be shown
-    expect(screen.queryByText('5:45 PM - 6:15 PM')).not.toBeInTheDocument();
+    expect(screen.getByText('5:45–6:15')).toBeInTheDocument();
   });
 
   test('Calendar column headers display date format without dashes (e.g. 2 Mar 2026)', () => {
