@@ -6,7 +6,7 @@ import {
   CITIES, COLORS, COMMON_STACK_KEYS, DESIGNATIONS, FONTS, HOBBIES, LANGUAGES, LISTS, MARITAL, POINTS,
   STACK_KEYS, STACK_OPTIONS, STRENGTHS, TEMPLATES, appendLine, applyStack, profileTech, stackOf, skillCategories, skillIdeas, techDuties, techSkills, designationFor, dobIso, emailIdeas, experienceLine, filledSummary, formatDob,
   fromProfile, lines, normalize, pullProfile, stackLine, readyProjects, adysunDates,
-  SECTIONS, datesProblem, emailProblem, moveItem, phoneProblem, pullChanges,
+  SECTIONS, datesProblem, emailProblem, moveItem, phoneProblem,
 } from './resume.js'
 import { totalMonths } from './career.js'
 import { titleCase } from './options.js'
@@ -28,23 +28,26 @@ const pill = 'h-7 min-w-0 shrink-0 rounded-full border border-gray-200 bg-white 
 const iconBtn = 'h-6 w-6 rounded-md text-sm leading-none text-gray-500 hover:bg-gray-100 disabled:opacity-25 disabled:hover:bg-transparent'
 
 // `resume` = the saved resume, or null for a new one (then prefilled from `candidate`). onSave(resume) resolves when saved.
+// A saved resume opens with the admission profile's details already applied (pullProfile); anything that changed
+// shows as unsaved until Save.
 // draftKey: where unsaved edits are kept on this device.
 export default function ResumeEditor({ candidate, resume, onSave, onBack, draftKey }) {
   // Resumes saved before the stack picker existed take the profile's technologies as their stack.
-  const [init] = useState(() => {
-    if (!resume) return normalize(fromProfile(candidate))
+  const [{ base, init }] = useState(() => {
+    if (!resume) return { base: null, init: normalize(fromProfile(candidate)) }
     const { primary, secondary: _s, ...r } = resume // earlier primary/secondary picker → one stack list
-    return normalize({ ...r, tech: resume.tech ?? (primary !== undefined ? stackOf(resume) : profileTech(candidate)) })
+    const b = normalize({ ...r, tech: resume.tech ?? (primary !== undefined ? stackOf(resume) : profileTech(candidate)) })
+    return { base: b, init: normalize(pullProfile(b, candidate)) }
   })
   const [d, setD] = useState(init)
-  const [saved, setSaved] = useState(resume ? init : null) // new resume: unsaved until the first Save
+  const [saved, setSaved] = useState(base) // new resume: unsaved until the first Save
   const [saving, setSaving] = useState(false)
   const [pageCount, setPageCount] = useState(1)
   const [page, setPage] = useState(0) // preview shows one page at a time
   const [fontTick, setFontTick] = useState(0)
   const [pane, setPane] = useState('edit') // phones: editor or preview
   const dirty = JSON.stringify(d) !== JSON.stringify(saved) // a new, prefilled resume counts as unsaved (Save is enabled)
-  const edited = JSON.stringify(d) !== JSON.stringify(saved ?? init) // …but only real edits warn on leaving or keep a draft
+  const edited = dirty && JSON.stringify(d) !== JSON.stringify(init) // …but only real edits (not the profile's) warn on leaving or keep a draft
   const shown = useDeferredValue(d) // the preview catches up without slowing typing
   const pagesRef = useRef(null), stageRef = useRef(null), previewRef = useRef(null)
 
@@ -127,13 +130,6 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
   })
-  // Shows exactly what would change before pulling.
-  const pull = async () => {
-    const next = pullProfile(d, candidate)
-    const changes = pullChanges(d, next)
-    if (!changes.length) return toast('The resume already matches the admission profile.')
-    if (await confirmAsk({ title: 'Pull these from the admission profile?', message: changes.map((c) => '• ' + c).join('\n') + '\n\nEverything else stays as it is.', ok: 'Pull' })) setD(next)
-  }
   // The PDF file name comes from the page title.
   // Page breaks are measured on screen: a hidden preview (phones, Edit view) would print as one clipped page.
   const showPreview = () => { if (previewRef.current && !previewRef.current.offsetParent) flushSync(() => setPane('preview')) }
@@ -211,7 +207,6 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
           parents={[{ label: 'Resumes', href: '#/resumes' }]}
           actions={<>
             <span className="px-1 text-xs text-gray-500" title="Ctrl/Cmd + S saves">{dirty ? '● Unsaved changes' : '✓ Saved'}</span>
-            <Button variant="plain" icon={ICONS.refresh} onClick={pull}>Pull from admission profile</Button>
             <Button variant="dark" icon={ICONS.download} onClick={pdf} disabled={!ok} title={ok ? '' : `Add at least ${SUMMARY_MIN} summary points`}>Download PDF</Button>
             <Button icon={ICONS.save} onClick={save} disabled={saving || !dirty} title="Save (Ctrl/Cmd + S)">{saving ? 'Saving…' : 'Save'}</Button>
           </>}
