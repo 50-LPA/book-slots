@@ -76,7 +76,7 @@ function cleanHr(raw = {}) {
   return hr;
 }
 // What a candidate may see of an HR: the contact itself, never who else added it.
-export const forCandidate = (h) => h && { id: h.id, name: h.name, email: h.email, mobile: h.mobile, company: h.company, technology: h.technology, jobType: h.jobType };
+export const forCandidate = (h) => h && { id: h.id, name: h.name, email: h.email, mobile: h.mobile, company: h.company, technology: h.technology, jobType: h.jobType, createdAt: h.createdAt };
 // A candidate's duplicate gets the matched HR's contact only (they typed its email/mobile), so "Use this HR" still works.
 const noDuplicates = (items, hr, exceptId, admin = true) => {
   const { errors, byEmail, byMobile } = findHrDuplicates(items, hr, exceptId);

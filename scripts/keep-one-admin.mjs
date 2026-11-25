@@ -1,12 +1,17 @@
 // One admin only: keeps the admin/{uid} doc named "Viraj Kadam" and removes every other admin (its admin doc and
 // its Firebase Auth login). Dry run (lists what it would do) unless --write. Refuses unless exactly one admin has that name.
-// Run: FIREBASE_CLIENT_EMAIL=… FIREBASE_PRIVATE_KEY=… REACT_APP_FIREBASE_PROJECT_ID=… node scripts/keep-one-admin.mjs [--write]
+// Run: netlify dev:exec -- node scripts/keep-one-admin.mjs [--write]   (the "--" passes --write to this script)
 // Cost: 1 read per admin doc (+1 per removed admin, to keep logins that are also candidates) + 1 delete per removed admin. New admins can't be added from the app (firestore.rules).
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
 const KEEP = 'viraj kadam';
+const missing = ['REACT_APP_FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY'].filter((k) => !process.env[k]);
+if (missing.length) {
+  console.error(`Missing ${missing.join(', ')}. They are in the Netlify site's environment: run\n  netlify dev:exec -- node scripts/keep-one-admin.mjs [--write]`);
+  process.exit(1);
+}
 const projectId = process.env.REACT_APP_FIREBASE_PROJECT_ID;
 initializeApp({
   credential: cert({

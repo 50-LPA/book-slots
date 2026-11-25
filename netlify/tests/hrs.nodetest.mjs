@@ -17,5 +17,5 @@ test('a candidate sees only HRs they added', () => {
 
 test('candidates never get who else added an HR', () => {
   const out = forCandidate({ id: 'h', name: 'N', email: 'e', mobile: 'm', company: 'c', technology: 't', jobType: 'j', addedBy: 'X', addedById: '9000000000', createdAt: 1 });
-  assert.deepEqual(Object.keys(out).sort(), ['company', 'email', 'id', 'jobType', 'mobile', 'name', 'technology']);
+  assert.deepEqual(Object.keys(out).sort(), ['company', 'createdAt', 'email', 'id', 'jobType', 'mobile', 'name', 'technology']);
 });

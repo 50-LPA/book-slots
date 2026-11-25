@@ -344,9 +344,26 @@ async function fetchPublicSlotDocs(fromYMD, toYMD, fresh = false) {
 }
 
 /** Public calendar / candidate calendar: approved slots of the range as "Slot Booked" events, no personal details. */
-export function subscribeToPublicSlots(from, toExclusive, callback) {
+// Always the whole Mon–Sat week of `from` (one URL per week, so one edge-cache entry whatever the day count),
+// shared by callers within 30 s (settings arriving after the first draw re-run the effect).
+const publicWeeks = new Map(); // monday YMD -> { at, promise }
+function publicWeek(from) {
+  const monday = new Date(from.getFullYear(), from.getMonth(), from.getDate() - ((from.getDay() + 6) % 7));
+  const key = toYMD(monday);
+  const hit = publicWeeks.get(key);
+  if (hit && Date.now() - hit.at < 30000) return hit.promise;
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+  const promise = fetchPublicSlotDocs(key, toYMD(sunday)).catch((err) => {
+    publicWeeks.delete(key);
+    throw err;
+  });
+  publicWeeks.set(key, { at: Date.now(), promise });
+  return promise;
+}
+
+export function subscribeToPublicSlots(from, _toExclusive, callback) {
   let live = true;
-  fetchPublicSlotDocs(toYMD(from), toYMD(toExclusive))
+  publicWeek(from)
     .then((docs) => live && callback(mapDocsToEvents(docs, null, null)))
     .catch((err) => {
       console.error('Error loading slots for calendar:', err);
