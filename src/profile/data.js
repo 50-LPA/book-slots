@@ -7,7 +7,7 @@
 // Cost per sync: 2 reads + 1 per changed record (was: 1 per record, on every page load and every Refresh).
 import { useEffect, useState } from 'react'
 import {
-  Timestamp, addDoc, collection, doc, getCount, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, where, writeBatch,
+  Timestamp, addDoc, collection, doc, getCount, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, where, writeBatch,
 } from 'firebase/firestore/lite'
 import { db, withTimeout } from './firebase.js'
 import { auth } from '../firebase/firebase'
@@ -47,7 +47,7 @@ function persist() {
 }
 export function clearCache() { // on logout: the copy holds candidate details, so it doesn't stay on the device
   cache = lastSync = null; lastFull = 0; firstSync = null; firstDone = false
-  resumeCache.clear()
+  resumeCache.clear(); mine.clear()
   state = { rows: null, refreshing: false, error: '' }
   try {
     localStorage.removeItem(KEY)
@@ -182,6 +182,19 @@ export async function removeCandidate(id, name) {
   })
   return true
 }
+
+// The logged-in candidate's own profile (Admission Profile and My Resume tabs): read once per page load and shared,
+// so switching tabs costs no reads. The query must filter on phone: firestore.rules let a candidate read only their own.
+const mine = new Map() // phone -> Promise<profile | null>
+export function getMine(phone) {
+  if (!mine.has(phone)) {
+    mine.set(phone, withTimeout(getDocs(query(candidates, where('phone', '==', phone), limit(1))))
+      .then((s) => (s.docs[0] ? toRow(s.docs[0]) : null))
+      .catch((err) => { mine.delete(phone); throw err }))
+  }
+  return mine.get(phone)
+}
+export const rememberMine = (phone, profile) => mine.set(phone, Promise.resolve(profile))
 
 // Resumes read this session, so reopening one (or copying its look, or Undo after delete) costs no read.
 // An entry is dropped when a sync brings a change to that candidate.

@@ -1,10 +1,8 @@
 // Candidate's own admission profile ("Admission Profile" tab of the candidate dashboard): the A4 sheet the admin
-// fills in, view only. Linked by mobile: admissionProfiles.phone == the login mobile (1 read per open).
+// fills in, view only. Linked by mobile: admissionProfiles.phone == the login mobile (read once per page load, shared with My Resume).
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { collection, getDocs, limit, query, where } from 'firebase/firestore/lite'
 import { normalizeMobile } from '../firebase/firebase'
-import { db, withTimeout } from './firebase.js'
-import { titleCase } from './options.js'
+import { getMine } from './data.js'
 import { Card, Loading } from './ui.jsx'
 import { isQuotaError } from '../utils/quota'
 const ProfileForm = lazy(() => import('./ProfileForm.jsx'))
@@ -15,12 +13,8 @@ export default function MyAdmissionProfile({ mobile, onBack }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    // The query must filter on phone: firestore.rules let a candidate read only their own admission profile.
-    withTimeout(getDocs(query(collection(db, 'admissionProfiles'), where('phone', '==', phone), limit(1))))
-      .then((snap) => {
-        const d = snap.docs[0]
-        setRecord(d ? { id: d.id, ...d.data(), name: titleCase(d.data().name) } : null)
-      })
+    getMine(phone)
+      .then(setRecord)
       .catch((err) => setError(isQuotaError(err) ? 'quota' : err.message))
   }, [phone])
 

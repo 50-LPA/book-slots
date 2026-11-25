@@ -1,10 +1,10 @@
 // Candidate's own resume ("My Resume" tab of the candidate dashboard): the same editor and preview the admin uses,
-// filled in for the logged-in candidate. Linked by mobile: profiles.phone == the login mobile; resumes/{profile id}.
+// filled in for the logged-in candidate. Linked by mobile: admissionProfiles.phone == the login mobile; resumes/{profile id}.
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { addDoc, collection, doc, getDoc, getDocs, limit, query, serverTimestamp, where } from 'firebase/firestore/lite'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore/lite'
 import { normalizeMobile } from '../firebase/firebase'
 import { db, withTimeout } from './firebase.js'
-import { saveResume } from './data.js'
+import { getMine, getResume, rememberMine, saveResume } from './data.js'
 import { TECH, titleCase } from './options.js'
 import { Card, Loading } from './ui.jsx'
 import { Toaster } from './toast.jsx'
@@ -23,27 +23,27 @@ export default function MyResume({ mobile, candidate, onBack }) {
 
   useEffect(() => {
     (async () => {
-      // The query must filter on phone: firestore.rules let a candidate read only their own profile.
-      const snap = await withTimeout(getDocs(query(collection(db, 'admissionProfiles'), where('phone', '==', phone), limit(1))))
-      const d = snap.docs[0]
-      if (!d) return setData({ profile: null, resume: null })
-      const r = d.data().hasResume ? await withTimeout(getDoc(doc(db, 'resumes', d.id))) : null
-      setData({ profile: { id: d.id, ...d.data(), name: titleCase(d.data().name) }, resume: r?.exists() ? r.data() : null })
+      // Shared with the Admission Profile tab, and resumes are kept once read: reopening this tab costs no reads.
+      const profile = await getMine(phone)
+      setData({ profile, resume: profile?.hasResume ? await getResume(profile.id) : null })
     })().catch((err) => setError(isQuotaError(err) ? 'quota' : err.message))
   }, [phone])
 
   // First save without a profile: create a minimal one (name + mobile) so the resume is linked and the admin sees it.
+  // Confirmed, since only candidates whose admission was confirmed get a login account (Candidates list).
   const save = (resume) => saveMine(resume).catch((err) => {
     throw isQuotaError(err) ? new Error('Please try again later.') : err // no limit wording for candidates
   })
   const saveMine = async (resume) => {
-    let id = data.profile?.id
-    if (!id) {
+    let profile = data.profile
+    if (!profile) {
       const name = titleCase(resume.name || candidate?.name || 'Candidate')
-      id = (await withTimeout(addDoc(collection(db, 'admissionProfiles'), { name, phone, phase: 'inquiry', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }))).id
-      setData((v) => ({ ...v, profile: { id, name, phone, phase: 'inquiry' } }))
+      const id = (await withTimeout(addDoc(collection(db, 'admissionProfiles'), { name, phone, phase: 'confirmed', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }))).id
+      profile = { id, name, phone, phase: 'confirmed', visitDates: [], companies: [] }
+      setData((v) => ({ ...v, profile }))
     }
-    await saveResume(id, resume)
+    await saveResume(profile.id, resume)
+    rememberMine(phone, { ...profile, hasResume: true }) // reopening the tab shows this resume from the session copy
   }
 
   // The logged-in candidate's own details (book-slots login record) on top of their saved profile (jobs, pass-out year).
