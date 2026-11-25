@@ -6,7 +6,7 @@ import { MON, SCORE_UNITS, formatMonthYear, formatScore, parseMonthYear, parseSc
 export const inp = 'mt-0.5 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-800 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100'
 export const sel = 'rounded-md border border-gray-300 bg-white px-1.5 py-1.5 text-sm text-gray-800 outline-none focus:border-brand-400'
 export const lbl = 'block text-xs text-gray-600'
-export const addBtn = 'rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-bold text-gray-700 hover:bg-gray-50 mobile:py-2'
+export const addBtn = 'rounded-md border border-green-600 bg-white px-2.5 py-1 text-xs font-bold text-green-700 hover:bg-green-50 mobile:py-2'
 // Collapsible form section (native <details>), with an optional count and hint. `id` is the jump-bar target.
 export function Section({ id, title, count, hint, children }) {
   return (
@@ -38,7 +38,7 @@ export function InsertPicker({ options, onPick, label = '+ Insert a common lineâ
   if (!options.length) return null
   return (
     <select value="" onChange={(e) => e.target.value && onPick(e.target.value)} aria-label={label}
-      className="mt-1 h-7 w-full rounded-md border border-dashed border-gray-300 bg-white px-1.5 text-xs text-gray-600 outline-none hover:border-brand-300 mobile:h-9">
+      className="mt-1 h-7 w-full rounded-md border border-dashed border-green-600 bg-white px-1.5 text-xs text-green-700 outline-none hover:bg-green-50 mobile:h-9">
       <option value="">{label}</option>
       {options.map((o) => <option key={o}>{o}</option>)}
     </select>

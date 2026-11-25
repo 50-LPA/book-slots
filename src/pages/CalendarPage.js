@@ -11,7 +11,7 @@ import {
   parseISOToDate,
 } from '../calendar';
 import {
-  subscribeToApprovedSlots,
+  subscribeToPublicSlots,
   getLeaves,
   subscribeToSlotSettings,
   getStoredSlotSettings,
@@ -37,7 +37,7 @@ export default function CalendarPage() {
   const dayCount = showSaturday ? 6 : 5;
 
   useEffect(() => {
-    const unsubscribe = subscribeToApprovedSlots(
+    const unsubscribe = subscribeToPublicSlots(
       weekStart,
       getWeekEndExclusive(weekStart, dayCount),
       (approvedEvents) => setEvents(approvedEvents),

@@ -3,11 +3,13 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import './index.css';
 import { AuthProvider } from './context/AuthContext';
 import { QuotaBanner } from './utils/quota';
+// The public calendar is the home page: bundled in main, so its slot services ship once for every page
+// and the dashboards' lazy chunks stay within the request budget (scripts/check-build-size.js).
+import CalendarPage from './pages/CalendarPage';
 
 const Login = React.lazy(() => import('./pages/Login'));
-const AdminRouteGuard = React.lazy(() => import('./Components/AdminRouteGuard'));
-const CandidateRouteGuard = React.lazy(() => import('./Components/CandidateRouteGuard'));
-const CalendarPage = React.lazy(() => import('./pages/CalendarPage'));
+const AdminRouteGuard = React.lazy(() => import(/* webpackChunkName: "dashboard" */ './Components/AdminRouteGuard'));
+const CandidateRouteGuard = React.lazy(() => import(/* webpackChunkName: "dashboard" */ './Components/CandidateRouteGuard'));
 
 // When a logged-in user lands on "/", send them to the correct dashboard
 function RootRoute() {

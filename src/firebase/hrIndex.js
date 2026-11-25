@@ -24,10 +24,25 @@ const patch = (fn) => {
 // action: 'create' { hr } | 'update' { id, hr } | 'delete' { id }. Resolves the server's answer ({ hr } or { ok }).
 export async function saveHr(action, payload) {
   const { data } = await callFunction('hrs', action)(payload);
-  if (action === 'create') patch((items) => [data.hr, ...items.filter((h) => h.id !== data.hr.id)]);
+  if (action === 'create') {
+    patch((items) => [data.hr, ...items.filter((h) => h.id !== data.hr.id)]);
+    if (mineList) mineList = mineList.then((items) => [data.hr, ...items.filter((h) => h.id !== data.hr.id)], () => { mineList = null; return []; });
+  }
   if (action === 'update') patch((items) => items.map((h) => (h.id === data.hr.id ? data.hr : h)));
   if (action === 'delete') patch((items) => items.filter((h) => h.id !== payload.id));
   return data;
 }
 
-export const forgetHrIndex = () => { list = null; }; // logout
+// Candidate: only the HRs they added, from the hrs function (they can't read the index). Cached per page load.
+let mineList = null;
+export function getMyHrs({ fresh = false } = {}) {
+  if (fresh || !mineList) {
+    mineList = callFunction('hrs', 'mine')({}).then(({ data }) => data.hrs || []).catch((err) => {
+      mineList = null;
+      throw err;
+    });
+  }
+  return mineList;
+}
+
+export const forgetHrIndex = () => { list = null; mineList = null; }; // logout

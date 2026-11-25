@@ -112,11 +112,11 @@ export default function CandidateList({ rows, error, refreshing, refresh }) {
         title="Admission Profiles"
         extra={<CircleButton icon={ICONS.refresh} label="Refresh list" onClick={refresh} disabled={refreshing} dim={refreshing} />}
         actions={
-          <button type="button" onClick={() => go('#/new')} className="btn-pill bg-emerald-500" aria-label="Add Candidate">
+          <button type="button" onClick={() => go('#/new')} className="btn-pill bg-emerald-500" aria-label="New Admission">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 border border-white/40">
               <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
             </span>
-            <span className="hidden sm:inline">Add Candidate</span>
+            <span className="hidden sm:inline">New Admission</span>
           </button>
         }
       />

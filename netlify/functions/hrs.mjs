@@ -1,4 +1,5 @@
 // HR writes (create: admins and candidates; update/delete: admins), plus the HR index they keep current.
+// Candidates never see the index: `mine` returns only the HRs they added (firestore.rules: hrs/hrIndex are admin-only).
 // hrIndex/all holds every HR as one JSON string, so the candidate dashboard reads 1 doc instead of the whole
 // hrs collection (467 docs, once per login). Writing an HR and the index in one transaction keeps them in step,
 // so clients may not write either directly (firestore.rules). Env: as admin-auth.mjs.
@@ -74,10 +75,26 @@ function cleanHr(raw = {}) {
   if (Object.keys(fieldErrors).length) throw new HttpError(400, 'Check the highlighted fields.', { fieldErrors });
   return hr;
 }
-const noDuplicates = (items, hr, exceptId) => {
+// What a candidate may see of an HR: the contact itself, never who else added it.
+export const forCandidate = (h) => h && { id: h.id, name: h.name, email: h.email, mobile: h.mobile, company: h.company, technology: h.technology, jobType: h.jobType };
+// A candidate's duplicate gets the matched HR's contact only (they typed its email/mobile), so "Use this HR" still works.
+const noDuplicates = (items, hr, exceptId, admin = true) => {
   const { errors, byEmail, byMobile } = findHrDuplicates(items, hr, exceptId);
-  if (Object.keys(errors).length) throw new HttpError(409, 'This HR is already saved.', { fieldErrors: errors, existingHrForEmail: byEmail, existingHrForMobile: byMobile });
+  const show = admin ? (h) => h : forCandidate;
+  if (Object.keys(errors).length) throw new HttpError(409, 'This HR is already saved.', { fieldErrors: errors, existingHrForEmail: show(byEmail), existingHrForMobile: show(byMobile) });
 };
+
+// Added by this candidate: by addedById (their mobile, or uid on old rows); rows without one, by exact name.
+export const addedBy = (user, h) => {
+  const id = String(h.addedById || '').trim();
+  if (id) return id === user.uid || normMobile(id) === user.mobile;
+  return !!user.ownName && String(h.addedBy || '').trim().toLowerCase() === user.ownName.toLowerCase();
+};
+async function mine(user) {
+  if (user.admin) throw new HttpError(400, 'Admins read the HR index directly.');
+  const items = await getFirestore().runTransaction((tx) => readIndex(tx));
+  return { hrs: items.filter((h) => addedBy(user, h)).map(forCandidate) };
+}
 
 async function create(user, data) {
   const hr = cleanHr(data.hr);
@@ -87,11 +104,11 @@ async function create(user, data) {
   const item = toItem(ref.id, { ...hr, ...meta, createdAt: Date.now() });
   await db.runTransaction(async (tx) => {
     const items = await readIndex(tx);
-    noDuplicates(items, hr);
+    noDuplicates(items, hr, undefined, user.admin);
     tx.set(ref, { ...hr, ...meta, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
     tx.set(indexRef(), indexData([item, ...items]));
   });
-  return { hr: item };
+  return { hr: user.admin ? item : forCandidate(item) };
 }
 
 async function update(user, data) {
@@ -139,10 +156,10 @@ async function caller(uid, email) {
   if (!cand.exists) throw new HttpError(403, 'Sign in again.');
   const c = cand.data();
   const mobile = normMobile(c.mobile) || normMobile(String(email || '').split('@')[0]);
-  return { admin: false, name: String(c.name || '').trim() || 'Candidate', addedById: mobile || uid };
+  return { admin: false, uid, mobile, ownName: String(c.name || '').trim(), name: String(c.name || '').trim() || 'Candidate', addedById: mobile || uid };
 }
 
-const actions = { create, update, delete: remove };
+const actions = { create, update, delete: remove, mine };
 
 export default async (req) => {
   try {

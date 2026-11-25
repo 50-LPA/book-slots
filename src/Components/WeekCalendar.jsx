@@ -10,14 +10,18 @@ import CalendarToolbar from './CalendarToolbar';
 import SlotCalendar from './SlotCalendar';
 import {
   subscribeToApprovedSlots,
+  subscribeToPublicSlots,
+  slotOwnEvents,
   getLeaves,
   subscribeToSlotSettings,
   getStoredSlotSettings,
 } from '../firebase/slotsService';
 
 // candidateIds: when provided (candidate dashboard), other slots show "Slot Booked" + blue; own slots show name + referrer color.
+// live (admin): every slot with its details, kept live. Otherwise only time + status come from the server and
+// ownSlots (the candidate's own events, already loaded) put back the details of their own slots.
 // onEventClick: optional handler when clicking an event (admin dashboard popup, etc.)
-function WeekCalendar({ candidateIds = [], onEventClick, settings: settingsProp }) {
+function WeekCalendar({ candidateIds = [], ownSlots = [], live = false, onEventClick, settings: settingsProp }) {
   const today = useMemo(() => new Date(), []);
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [events, setEvents] = useState([]);
@@ -40,13 +44,21 @@ function WeekCalendar({ candidateIds = [], onEventClick, settings: settingsProp 
   const dayCount = showSaturday ? 6 : 5;
 
   useEffect(() => {
-    const unsubscribe = subscribeToApprovedSlots(
+    const subscribe = live ? subscribeToApprovedSlots : subscribeToPublicSlots;
+    const unsubscribe = subscribe(
       weekStart,
       getWeekEndExclusive(weekStart, dayCount),
       (evts) => setEvents(evts),
     );
     return () => unsubscribe();
-  }, [weekStart, dayCount]);
+  }, [weekStart, dayCount, live]);
+
+  // Own approved slots in full, by id, over the public "Slot Booked" entries.
+  const shownEvents = useMemo(() => {
+    if (live || !ownSlots.length) return events;
+    const own = slotOwnEvents(ownSlots);
+    return events.map((e) => own.get(e.id) || e);
+  }, [events, ownSlots, live]);
 
   useEffect(() => {
     getLeaves().then((list) => setLeaveDates(list.map((l) => l.date).filter(Boolean)));
@@ -69,11 +81,11 @@ function WeekCalendar({ candidateIds = [], onEventClick, settings: settingsProp 
 
   const weekEvents = useMemo(
     () =>
-      events.filter((event) => {
+      shownEvents.filter((event) => {
         const eventDate = parseISOToDate(event.start);
         return eventDate >= weekStart && eventDate < weekEndExclusive;
       }),
-    [weekStart, weekEndExclusive, events],
+    [weekStart, weekEndExclusive, shownEvents],
   );
 
   const handleToday = React.useCallback(() => setWeekStart(getWeekStart(new Date())), []);

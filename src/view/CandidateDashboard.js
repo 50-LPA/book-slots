@@ -8,7 +8,6 @@ import {
   getDoc,
   onSnapshot,
   doc,
-  deleteDoc,
   updateDoc,
   serverTimestamp,
 } from 'firebase/firestore';
@@ -25,7 +24,7 @@ import {
   isSlotPast,
 } from '../firebase/slotsService';
 import { clearSyncedCollections } from '../firebase/syncedCollection';
-import { getHrIndex, saveHr, forgetHrIndex } from '../firebase/hrIndex';
+import { getMyHrs, saveHr, forgetHrIndex } from '../firebase/hrIndex';
 import PageHeader, { Breadcrumbs, PageTitle } from '../Components/PageHeader';
 import {
   getCandidateMatchKeys,
@@ -543,7 +542,7 @@ function LockNote({ text, className = '' }) {
   return text ? <p className={`mt-1 text-[11px] leading-tight text-red-600 ${className}`}>{text}</p> : null;
 }
 
-function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [], hasPendingFeedback = false, lockNote = '' }) {
+function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [], ownSlots = [], hasPendingFeedback = false, lockNote = '' }) {
   const headerDate = new Date();
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [calendarSelectedEvent, setCalendarSelectedEvent] = useState(null);
@@ -667,6 +666,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
           <WeekCalendar
             key={calendarRefreshKey}
             candidateIds={candidateIds}
+            ownSlots={ownSlots}
             onEventClick={(event) => {
               if (Array.isArray(candidateIds) && slotMatchesCandidateKeys(event, candidateIds)) {
                 setCalendarSelectedEvent(event);
@@ -908,17 +908,6 @@ function MySlots({ slots = [], onBookNewSlot, onBackToHome, hrList = [], hasPend
     return `${startLabel} - ${endLabel} (${durLabel})`;
   };
 
-  const [confirmDeleteSlotId, setConfirmDeleteSlotId] = useState(null);
-  const [confirmDeleteSlotLabel, setConfirmDeleteSlotLabel] = useState('');
-
-  const handleDeleteSlot = async (id) => {
-    try {
-      await deleteDoc(doc(db, 'events', id));
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to delete slot:', err);
-    }
-  };
 
   const totalItems = filteredSlots.length;
   const startIdx = (currentPage - 1) * itemsPerPage;
@@ -1015,22 +1004,7 @@ function MySlots({ slots = [], onBookNewSlot, onBackToHome, hrList = [], hasPend
                           </button>
                         );
     })();
-    const deleteBtn = (!isSlotPast(slot) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setConfirmDeleteSlotId(slot.id);
-                            setConfirmDeleteSlotLabel(
-                              `${slot.company || slot.companyName || 'Slot'} - ${slot.dateLabel || ''}`,
-                            );
-                          }}
-                          className="btn-action bg-red-500"
-                          aria-label="Delete"
-                        >
-                          <i className="fa-solid fa-trash" aria-hidden="true" />
-                        </button>
-                      ));
-    return { isToday, displayDate, timeLabel, hrCell, feedbackCell, deleteBtn };
+    return { isToday, displayDate, timeLabel, hrCell, feedbackCell };
   };
 
   return (
@@ -1118,7 +1092,7 @@ function MySlots({ slots = [], onBookNewSlot, onBackToHome, hrList = [], hasPend
         {/* Phones: one card per slot instead of an 8-column table */}
         <ul className="sm:hidden space-y-3">
           {paginatedSlots.map((slot) => {
-            const { isToday, displayDate, timeLabel, hrCell, feedbackCell, deleteBtn } = getSlotParts(slot);
+            const { isToday, displayDate, timeLabel, hrCell, feedbackCell } = getSlotParts(slot);
             const round = normaliseRoundLabel(slot.round || slot.interviewRound);
             return (
               <li key={slot.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -1132,7 +1106,6 @@ function MySlots({ slots = [], onBookNewSlot, onBackToHome, hrList = [], hasPend
                       {[slot.technology, round].filter(Boolean).join(' · ') || '-'}
                     </p>
                   </div>
-                  {deleteBtn}
                 </div>
                 <p className="mt-2 text-sm text-slate-700">
                   <i className="fa-solid fa-calendar-day mr-1.5 text-slate-400" aria-hidden="true" />
@@ -1168,17 +1141,14 @@ function MySlots({ slots = [], onBookNewSlot, onBackToHome, hrList = [], hasPend
                 <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
                   Date
                 </th>
-                <th className="px-3 py-2 text-left font-semibold border-b border-r border-slate-200">
+                <th className="px-3 py-2 text-left font-semibold border-b border-slate-200">
                   Feedback
-                </th>
-                <th className="px-3 py-2 text-center font-semibold border-b border-slate-200">
-                  Actions
                 </th>
               </tr>
             </thead>
             <tbody>
               {paginatedSlots.map((slot, index) => {
-                const { isToday, displayDate, timeLabel, hrCell, feedbackCell, deleteBtn } = getSlotParts(slot);
+                const { isToday, displayDate, timeLabel, hrCell, feedbackCell } = getSlotParts(slot);
 
                 return (
                   <tr
@@ -1215,11 +1185,8 @@ function MySlots({ slots = [], onBookNewSlot, onBackToHome, hrList = [], hasPend
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-slate-700 border-r border-slate-200">
+                    <td className="px-3 py-2 text-slate-700">
                       {feedbackCell}
-                    </td>
-                    <td className="px-3 py-2 text-slate-700 text-center">
-                      {deleteBtn}
                     </td>
                   </tr>
                 );
@@ -1229,68 +1196,6 @@ function MySlots({ slots = [], onBookNewSlot, onBackToHome, hrList = [], hasPend
         </div>
         </>
       )}
-      {/* Delete slot confirmation modal */}
-      {confirmDeleteSlotId && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4"
-          onClick={() => {
-            setConfirmDeleteSlotId(null);
-            setConfirmDeleteSlotLabel('');
-          }}
-        >
-          <div
-            className="relative w-full max-w-sm rounded-xl bg-white shadow-lg px-5 py-4 max-h-[90dvh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-800"><i className="fa-solid fa-triangle-exclamation text-amber-500 mr-1.5" aria-hidden="true" />
-                Are you sure you want to delete this slot?
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmDeleteSlotId(null);
-                  setConfirmDeleteSlotLabel('');
-                }}
-                className="btn-circle"
-                aria-label="Close"
-              >
-                <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
-              </button>
-            </div>
-            <p className="text-xs text-slate-600 mb-4">
-              {confirmDeleteSlotLabel}
-            </p>
-            <div className="flex justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmDeleteSlotId(null);
-                  setConfirmDeleteSlotLabel('');
-                }}
-                className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
-              ><i className="fa-solid fa-xmark mr-1.5" aria-hidden="true" />
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const id = confirmDeleteSlotId;
-                  setConfirmDeleteSlotId(null);
-                  setConfirmDeleteSlotLabel('');
-                  if (id) {
-                    await handleDeleteSlot(id);
-                  }
-                }}
-                className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-500 text-white hover:bg-red-600"
-              ><i className="fa-solid fa-trash mr-1.5" aria-hidden="true" />
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Add Feedback modal */}
       {feedbackSlot && (
         <div
@@ -1560,8 +1465,6 @@ export default function CandidateDashboard() {
   });
   const [userName, setUserName] = useState('');
   const [candidateTechnologies, setCandidateTechnologies] = useState([]);
-  const [hrOwnerIds, setHrOwnerIds] = useState([]);
-  const [hrOwnerNames, setHrOwnerNames] = useState([]);
 
   const candidateUser = (() => {
     try {
@@ -1719,7 +1622,7 @@ export default function CandidateDashboard() {
           setHrsLoading(true);
         }
         setHrsError(null);
-        setHrList(await getHrIndex({ fresh: hrsRefreshKey > 0 }));
+        setHrList(await getMyHrs({ fresh: hrsRefreshKey > 0 })); // only the HRs this candidate added
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Failed to fetch HRs:', err);
@@ -1761,25 +1664,12 @@ export default function CandidateDashboard() {
         const raw = sessionStorage.getItem('sb_user');
         const parsed = raw ? JSON.parse(raw) : null;
         const cachedName = (parsed?.name || '').trim();
-        // Always seed owner keys first, even if we early-return on cached profile.
-        const ownerIds = new Set(
-          [parsed?.id, parsed?.mobile, currentUser?.uid, currentUser?.email]
-            .map((v) => String(v || '').trim())
-            .filter(Boolean),
-        );
-        const ownerNames = new Set(
-          [cachedName, currentUser?.displayName]
-            .map((v) => String(v || '').trim())
-            .filter(Boolean),
-        );
         const cachedTechs = Array.isArray(parsed?.technologies)
           ? parsed.technologies.map((t) => String(t || '').trim()).filter(Boolean)
           : [];
         if (cachedTechs.length) setCandidateTechnologies(cachedTechs);
         if (cachedName) {
           setUserName(cachedName);
-          setHrOwnerIds([...ownerIds]);
-          setHrOwnerNames([...ownerNames]);
         }
 
         const candidateId = String(parsed?.id || parsed?.firestoreId || '').trim();
@@ -1796,16 +1686,12 @@ export default function CandidateDashboard() {
           };
           setCandidateProfile(profile);
 
-          ownerIds.add(docId);
           const name = String(data?.name || cachedName || '').trim();
           if (name) {
             setUserName(name);
-            ownerNames.add(name);
           }
           const techs = normaliseTechnologies(data);
           if (techs.length) setCandidateTechnologies(techs);
-          setHrOwnerIds([...ownerIds]);
-          setHrOwnerNames([...ownerNames]);
 
           try {
             sessionStorage.setItem(
@@ -1869,6 +1755,8 @@ export default function CandidateDashboard() {
     const hrId = String(existingHr?.id || '').trim();
     if (!hrId) return;
     setShowAddHR(false);
+    // The matched HR (contact only) joins this candidate's list, so Book Slot can select it.
+    setHrList((prev) => (prev.some((h) => h.id === hrId) ? prev : [existingHr, ...prev]));
 
     let currentProfile = candidateProfile;
     if (isCandidateInactive) {
@@ -1942,76 +1830,7 @@ export default function CandidateDashboard() {
     }
   };
 
-  const myHrList = useMemo(() => {
-    if (!Array.isArray(hrList) || hrList.length === 0) return [];
-    const norm = (v) => String(v || '').trim().toLowerCase();
-    const digits = (v) => String(v || '').replace(/\D/g, '');
-
-    // Support multiple historical identifiers used in addedById.
-    let sbUser = null;
-    try {
-      const raw = sessionStorage.getItem('sb_user');
-      sbUser = raw ? JSON.parse(raw) : null;
-    } catch {
-      sbUser = null;
-    }
-
-    const myIds = new Set(
-      [
-        ...(candidateIds || []),
-        ...hrOwnerIds,
-        sbUser?.id,
-        sbUser?.mobile,
-        currentUser?.uid,
-        currentUser?.email,
-      ]
-        .map((v) => String(v || '').trim())
-        .filter(Boolean),
-    );
-    const myIdNorms = new Set([...myIds].map(norm).filter(Boolean));
-    const myIdDigits = new Set([...myIds].map(digits).filter(Boolean));
-
-    const myNames = new Set(
-      [userName, sbUser?.name, currentUser?.displayName, ...hrOwnerNames]
-        .map(norm)
-        .filter(Boolean),
-    );
-    const myNameList = [...myNames];
-    const myMobileDigits = digits(sbUser?.mobile);
-
-    return hrList.filter((hr) => {
-      const addedById = String(hr.addedById || '').trim();
-      const addedByName = norm(hr.addedBy);
-      const addedByIdDigits = digits(addedById);
-      const addedByIdNorm = norm(addedById);
-      const addedByNameDigits = digits(hr.addedBy);
-
-      // 1) Exact id/email/uid/mobile match
-      if (addedById && myIds.has(addedById)) return true;
-      // 1b) Partial id match for legacy mixed formats
-      for (const id of myIds) {
-        const idNorm = norm(id);
-        if (!idNorm) continue;
-        if (!addedByIdNorm) continue;
-        if (addedByIdNorm.includes(idNorm) || idNorm.includes(addedByIdNorm)) return true;
-      }
-      // 1c) addedBy stored as id/email/mobile in some old rows
-      if (addedByName && myIdNorms.has(addedByName)) return true;
-      // 2) Numeric mobile-style match (for old data formats)
-      if (myMobileDigits && addedByIdDigits && myMobileDigits === addedByIdDigits) return true;
-      if (addedByIdDigits && myIdDigits.has(addedByIdDigits)) return true;
-      if (addedByNameDigits && myIdDigits.has(addedByNameDigits)) return true;
-      // 3) Name-based fallback (exact normalized name only)
-      if (addedByName && myNames.has(addedByName)) return true;
-      // 3b) Name contains match for legacy value formats
-      for (const nm of myNameList) {
-        if (!nm) continue;
-        if (!addedByName) continue;
-        if (addedByName.includes(nm) || nm.includes(addedByName)) return true;
-      }
-      return false;
-    });
-  }, [hrList, candidateIds, userName, currentUser, hrOwnerIds, hrOwnerNames]);
+  const myHrList = hrList; // the server already returns only this candidate's HRs
 
   const handleLogout = () => {
     sessionStorage.removeItem('sb_user');
@@ -2120,6 +1939,7 @@ export default function CandidateDashboard() {
         ) : (
           <CandidateCalendarArea
             candidateIds={candidateIds}
+            ownSlots={candidateSlots}
             onOpenAddHR={() => {
               setActiveNav('hrs');
               setShowAddHR(true);

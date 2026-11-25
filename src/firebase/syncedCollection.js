@@ -7,7 +7,7 @@ import { db } from './firebase';
 
 // ponytail: a delete made on another device shows up as a count mismatch and costs one full reload;
 // add tombstones (soft delete) if that ever happens often.
-const FULL_EVERY = 24 * 60 * 60 * 1000; // full reload at least daily, to heal anything the deltas missed
+const FULL_EVERY = 7 * 24 * 60 * 60 * 1000; // full reload at least weekly, to heal anything the deltas missed (a daily one costs N reads/day)
 const FRESH_FOR = 5 * 60 * 1000; // within a page, reuse the copy this long before asking the server again
 const EPOCH = Timestamp.fromMillis(0);
 

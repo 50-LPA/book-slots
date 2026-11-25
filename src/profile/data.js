@@ -1,9 +1,9 @@
 // Candidate records in Firestore, plus one local copy shared by every page.
 //
-// Fewer reads: the copy is kept in localStorage, so a reload or a new session doesn't re-read every record.
+// Fewer reads: the copy is kept in IndexedDB, so a reload or a new session doesn't re-read every record.
 // A sync (once per session after login, and on Refresh) fetches only records changed since the last sync,
 // plus a count of all records (1 read). Deletes made on another device don't show up as changes, so a count
-// that doesn't match the copy triggers one full reload; a full reload also runs once a day as a safety net.
+// that doesn't match the copy triggers one full reload; a full reload also runs once a week as a safety net.
 // Cost per sync: 2 reads + 1 per changed record (was: 1 per record, on every page load and every Refresh).
 import { useEffect, useState } from 'react'
 import {
@@ -21,36 +21,54 @@ const candidates = collection(db, 'admissionProfiles')
 // the candidate only carries `hasResume: true` (set on the first save) for the Resumes tab.
 const resumes = collection(db, 'resumes')
 const KEY = 'admission-profile:candidates'
-const FULL_EVERY = 24 * 60 * 60 * 1000 // full reload at least this often (ms)
+const FULL_EVERY = 7 * 24 * 60 * 60 * 1000 // full reload at least weekly (ms): deltas + the count check cover the rest
 
 // lastSync = newest updatedAt the server has sent us (server time, so device clocks don't matter).
 // Local saves are stamped with the device time and don't move it, so the next sync re-reads them from the server.
-let { rows: cache = null, lastSync = null, lastFull = 0 } = restore()
-let state = { rows: cache, refreshing: false, error: '' }
+let cache = null, lastSync = null, lastFull = 0
+let state = { rows: null, refreshing: false, error: '' }
 const subscribers = new Set()
 const emit = (patch) => { state = { ...state, ...patch }; subscribers.forEach((fn) => fn(state)) }
 const publish = (rows) => { cache = rows; persist(); emit({ rows }) }
 export const cached = (id) => cache?.find((r) => r.id === id)
 
+// The copy lives in IndexedDB as one JSON string: no ~5 MB cap like localStorage, which signed records outgrow.
+// Blocked (private mode) → memory only: everything is re-read once per session.
+let idbp
+const idb = () => (idbp ??= new Promise((resolve, reject) => {
+  const r = indexedDB.open('admission-profile', 1)
+  r.onupgradeneeded = () => r.result.createObjectStore('kv')
+  r.onsuccess = () => resolve(r.result)
+  r.onerror = () => reject(r.error)
+}))
+const kv = (mode, fn) => idb().then((d) => new Promise((resolve, reject) => {
+  const t = d.transaction('kv', mode)
+  const req = fn(t.objectStore('kv'))
+  t.oncomplete = () => resolve(req.result)
+  t.onerror = () => reject(t.error)
+}))
 // Timestamps are stored as { seconds, nanoseconds } and turned back into Timestamps on load.
-function restore() {
+const restored = (async () => {
+  let json = await kv('readonly', (s) => s.get(KEY)).catch(() => undefined), legacy = false
+  if (json == null) try { json = localStorage.getItem(KEY); legacy = json != null; localStorage.removeItem(KEY) } catch { /* none */ }
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY), (_k, v) => (v?.seconds != null && v?.nanoseconds != null ? new Timestamp(v.seconds, v.nanoseconds) : v)) ?? {}
-    if (saved.rows) saved.rows = saved.rows.map(named) // copies saved before names were title-cased
-    return saved
-  } catch { return {} }
-}
-// ponytail: localStorage (~5 MB) holds a few hundred signed records; move to IndexedDB if it ever fills.
-// When it's full or blocked, saving the copy is skipped and the app reloads everything per session, as before.
+    const saved = JSON.parse(json, (_k, v) => (v?.seconds != null && v?.nanoseconds != null ? new Timestamp(v.seconds, v.nanoseconds) : v))
+    if (!saved?.rows || cache) return // nothing saved, or a sync already filled the copy
+    ;({ lastSync = null, lastFull = 0 } = saved)
+    cache = saved.rows.map(named) // copies saved before names were title-cased
+    if (legacy) persist() // moved over from localStorage
+    emit({ rows: cache })
+  } catch { /* unreadable copy: the first sync reloads everything */ }
+})()
 function persist() {
-  try { localStorage.setItem(KEY, JSON.stringify({ rows: cache, lastSync, lastFull })) } catch { /* see above */ }
+  kv('readwrite', (s) => s.put(JSON.stringify({ rows: cache, lastSync, lastFull }), KEY)).catch(() => {})
 }
 export function clearCache() { // on logout: the copy holds candidate details, so it doesn't stay on the device
   cache = lastSync = null; lastFull = 0; firstSync = null; firstDone = false
   resumeCache.clear(); mine.clear()
   state = { rows: null, refreshing: false, error: '' }
+  kv('readwrite', (s) => s.delete(KEY)).catch(() => {})
   try {
-    localStorage.removeItem(KEY)
     Object.keys(localStorage).filter((k) => k.startsWith(DRAFT)).forEach((k) => localStorage.removeItem(k)) // unsaved resume drafts
   } catch { /* nothing stored */ }
 }
@@ -85,6 +103,7 @@ export function sync() {
   running ??= (async () => {
     emit({ refreshing: true })
     try {
+      await restored
       await auth.authStateReady() // after a reload, Lite Firestore would otherwise send the first read without the login
       await (cache && lastSync && Date.now() - lastFull < FULL_EVERY ? delta() : full())
       emit({ error: '' })

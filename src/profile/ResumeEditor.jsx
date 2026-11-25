@@ -154,6 +154,8 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
     .filter((g, i, all) => all.findIndex((x) => x.cat === g.cat) === i && !d.skills.some((s) => s.cat.toLowerCase() === g.cat.toLowerCase()))
   // Company suggestions: the profile's companies and the resume's own jobs.
   const companies = [...(candidate.companies ?? []).map((c) => c.name?.trim()), ...d.experience.map((e) => e.company?.trim())]
+  // A project's company: one of the companies in this resume's Experience section.
+  const jobCompanies = [...new Set(d.experience.map((e) => e.company?.trim()).filter(Boolean))]
 
   // One field of a repeatable card (see LISTS in resume.js for the field kinds).
   const field = (list, i, item, f) => {
@@ -174,12 +176,25 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
         : x === ALL_KEYS ? COMMON_STACK_KEYS.filter((k) => !keys(v).includes(k)).reduce((t, k) => appendLine(t, stackLine(k, d)), v)
         : appendLine(v, stackLine(x, d)))
       return (
-        <div key={f.k} className={LISTS[list].fields.filter((x) => x.type === 'ta').length > 1 ? 'col-span-2' : 'col-span-full'}>
+        <div key={f.k} className="col-span-full">
           <label className={lbl}>{f.label}
             <textarea rows={3} placeholder={f.ph} className={`${inp} resize-y`} value={v} onChange={(e) => put(e.target.value)} />
           </label>
           <InsertPicker options={insert} onPick={pick} label={f.insert === 'keys' ? '+ Insert a detail (filled from your skills)…' : undefined} />
         </div>
+      )
+    }
+    if (list === 'projects' && f.k === 'company') {
+      const known = jobCompanies.some((c) => c.toLowerCase() === v.trim().toLowerCase())
+      return (
+        <label key={f.k} className={lbl}>{f.label}
+          <select className={`${inp} ${v ? '' : 'text-gray-400'}`} value={v} onChange={(e) => put(e.target.value)} disabled={!jobCompanies.length && !v}
+            title={jobCompanies.length ? undefined : 'Add a company in Experience first'}>
+            <option value="">{jobCompanies.length ? 'Select company' : 'Add a job in Experience first'}</option>
+            {jobCompanies.map((c) => <option key={c} value={c}>{c}</option>)}
+            {v && !known && <option value={v}>{v} (not in Experience)</option>}
+          </select>
+        </label>
       )
     }
     const options = f.list === 'companies' ? companies
@@ -279,14 +294,14 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
                 <button type="button" className={addBtn} onClick={() => add(list, {})}>+ Add {one}</button>
                 {list === 'skills' && (
                   <select value="" aria-label="Add a ready skill group" onChange={(e) => e.target.value && add('skills', readyGroups.find((g) => g.cat === e.target.value))}
-                    className="h-7 min-w-0 max-w-full rounded-md border border-dashed border-gray-300 bg-white px-1.5 text-xs text-gray-600 mobile:h-9">
+                    className="h-7 min-w-0 max-w-full rounded-md border border-dashed border-green-600 bg-white px-1.5 text-xs text-green-700 hover:bg-green-50 mobile:h-9">
                     <option value="">+ Add a ready group…</option>
                     {readyGroups.map((g) => <option key={g.cat} value={g.cat}>{g.cat} — {g.items}</option>)}
                   </select>
                 )}
                 {list === 'projects' && readyProjectList.length > 0 && (
                   <select value="" aria-label="Add a ready project" onChange={(e) => e.target.value && add('projects', readyProjectList.find((p) => p.name === e.target.value))}
-                    className="h-7 min-w-0 max-w-full rounded-md border border-dashed border-gray-300 bg-white px-1.5 text-xs text-gray-600 mobile:h-9">
+                    className="h-7 min-w-0 max-w-full rounded-md border border-dashed border-green-600 bg-white px-1.5 text-xs text-green-700 hover:bg-green-50 mobile:h-9">
                     <option value="">+ Add a ready project…</option>
                     {readyProjectList.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
                   </select>

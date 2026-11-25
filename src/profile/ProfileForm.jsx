@@ -2,11 +2,11 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { applySalary } from './salary.js'
 import { toast } from './toast.jsx'
 import { useUnsaved } from './unsaved.js'
-import { ADVANCE_DUE, PHASES, TECH, advance, titleCase } from './options.js'
+import { ADVANCE_DUE, PHASES, TECH, advance, latestPassOut, titleCase, withPassOuts } from './options.js'
 import { ICONS, Icon } from './icons.jsx'
 import { Button, Card, CardHeader, Segmented } from './ui.jsx'
 import { CareerFields, CareerTimeline } from './Career.jsx'
-import { totalMonths } from './career.js'
+import { gapTotal, span, totalMonths } from './career.js'
 const SignaturePad = lazy(() => import('./SignaturePad.jsx')) // only downloaded when someone signs
 
 const DOC_CHARGES = [
@@ -47,7 +47,8 @@ const newForm = (today = fmtDate(new Date())) => ({
   ctc: '', varPay: '', fixPay: '', inHand: '',
   advanceAmount: '', // rupees paid towards the advance (digits); status is worked out from it
   phase: 'inquiry', // 'inquiry' | 'confirmed'
-  passOut: '', // 'YYYY-MM'
+  passOuts: [], // { type: PASS_OUTS value, date: 'YYYY-MM' }
+  passOut: '', // latest pass-out 'YYYY-MM' (timeline, gaps, resume); set from passOuts
   companies: [], // { name, from: 'YYYY-MM', to: 'YYYY-MM', present: bool }
   signature: '', // PNG data URL drawn on the signature pad
   signedAt: '', // ISO time the candidate saved the signature
@@ -243,24 +244,50 @@ function withExperience(form) {
 }
 
 
+// Candidate's own view: quick facts above the sheet.
+function MyStats({ f }) {
+  const a = advance(f)
+  const gap = f.passOut ? gapTotal(f.passOut, f.companies) : null
+  const exp = (Number(f.expYears) || 0) * 12 + (Number(f.expMonths) || 0)
+  const stats = [
+    ['Status', f.phase === 'confirmed' ? 'Confirmed' : 'Inquiry', f.phase === 'confirmed' ? 'text-emerald-700' : 'text-gray-700'],
+    ['Advance', a.status === 'paid' ? '✓ Fully paid' : a.status === 'partial' ? `Partially paid · ₹${a.due.toLocaleString('en-IN')} due` : 'Unpaid',
+      { paid: 'text-emerald-700', partial: 'text-amber-700', unpaid: 'text-red-600' }[a.status]],
+    ['Total experience', exp ? span(exp) : '—', 'text-gray-800'],
+    ['Total gap', gap === null ? '—' : gap ? span(gap) : 'No gaps', gap ? 'text-red-600' : 'text-emerald-700'],
+  ]
+  return (
+    <dl className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {stats.map(([k, v, tone]) => (
+        <div key={k} className="flex flex-col-reverse rounded-xl border border-gray-200 px-4 py-3">
+          <dt className="text-xs text-gray-500">{k}</dt>
+          <dd className={`mb-0.5 font-bold ${tone}`}>{v}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 // `record` is a saved candidate (or undefined for a new one). `onSave(form)` resolves true when saved.
 // prefill: fields for a new record (e.g. phone from the book-slots candidate list); counts as unsaved.
 // mine: the candidate's own view (candidate dashboard): the A4 sheet only, read-only.
 export default function ProfileForm({ record, prefill, readOnly, mine, onEdit, onSave, onBack, onDelete, onResume }) {
-  const [f, setF] = useState(() => withExperience({ ...newForm(), ...record, ...prefill }))
-  const [saved, setSaved] = useState(() => (prefill ? withExperience({ ...newForm(), ...record }) : f))
+  const [f, setF] = useState(() => withExperience(withPassOuts({ ...newForm(), ...record, ...prefill })))
+  const [saved, setSaved] = useState(() => (prefill ? withExperience(withPassOuts({ ...newForm(), ...record })) : f))
   const [saving, setSaving] = useState(false)
   const [signing, setSigning] = useState(false)
   const dirty = JSON.stringify(f) !== JSON.stringify(saved)
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }))
   const setSalary = (k) => (v) => setF((p) => applySalary(p, k, v))
   const setCompanies = (companies) => setF((p) => withExperience({ ...p, companies }))
+  const setPassOuts = (passOuts) => setF((p) => ({ ...p, passOuts, passOut: latestPassOut(passOuts) }))
   const toggleTech = (t) => set('tech')(f.tech.includes(t) ? f.tech.filter((x) => x !== t) : [...f.tech, t])
 
   useUnsaved(dirty) // leaving the page (tab, link, Back, closing) with unsaved edits asks first
 
   const save = async () => {
     if (!f.name.trim()) return toast('Please enter the candidate name before saving.', { tone: 'error' })
+    if (!f.passOuts.some((p) => p.type && /^\d{4}-\d{2}$/.test(p.date))) return toast('Please add at least one pass-out (type, month and year) before saving.', { tone: 'error' })
     setSaving(true)
     try {
       if (await onSave(f)) setSaved(f)
@@ -283,9 +310,9 @@ export default function ProfileForm({ record, prefill, readOnly, mine, onEdit, o
     <Card>
       <CardHeader
         onBack={onBack}
-        backLabel={mine ? 'Back' : 'Back to all candidates'}
+        backLabel={mine ? 'Back' : 'Back to admission profiles'}
         icon={readOnly ? ICONS.profile : record ? ICONS.pencil : ICONS.plus}
-        title={mine ? 'My Admission Profile' : readOnly ? 'View Candidate' : record ? 'Update Candidate' : 'New Candidate'}
+        title={mine ? 'My Admission Profile' : readOnly ? 'View Admission' : record ? 'Update Admission' : 'New Admission'}
         parents={mine ? undefined : [{ label: 'Admission Profiles', href: '#/candidates' }]}
         actions={<>
           <Segmented label="Admission profile phase" options={PHASES} value={f.phase} onChange={set('phase')} disabled={readOnly}
@@ -300,12 +327,14 @@ export default function ProfileForm({ record, prefill, readOnly, mine, onEdit, o
         </>}
       />
 
+      {mine && <MyStats f={f} />}
+
       {/* Inner card, split: A4 sheet left | career fields right (stacked on smaller screens). Only two cards in total. */}
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 xl:flex-row">
       {!mine && <>
       <aside inert={readOnly} className="min-w-0 flex-1 border-b border-gray-200 p-4 xl:border-b-0">
         <div className="xl:sticky xl:top-4">
-          <CareerFields passOut={f.passOut} companies={f.companies} onPassOut={set('passOut')} onCompanies={setCompanies} />
+          <CareerFields passOuts={f.passOuts} passOut={f.passOut} companies={f.companies} onPassOuts={setPassOuts} onCompanies={setCompanies} />
         </div>
       </aside>
       <div className="hidden w-px bg-gray-200 xl:block" />

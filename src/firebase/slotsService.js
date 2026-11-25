@@ -335,6 +335,35 @@ function mapDocsToEvents(docs, cCache = globalCandidatesCache, hCache = globalHr
 const toYMD = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+// Time + status of every slot in [fromYMD, toYMD), from netlify/functions/public-slots.mjs (events are not
+// publicly readable). As [{ id, data() }] so the usual slot parsing applies. fresh skips the 30 s edge cache.
+async function fetchPublicSlotDocs(fromYMD, toYMD, fresh = false) {
+  const res = await fetch(`/.netlify/functions/public-slots?from=${fromYMD}&to=${toYMD}${fresh ? '&fresh=1' : ''}`);
+  if (!res.ok) throw new Error(`Could not load slots (${res.status}).`);
+  return (await res.json()).map(({ id, ...d }) => ({ id, data: () => d }));
+}
+
+/** Public calendar / candidate calendar: approved slots of the range as "Slot Booked" events, no personal details. */
+export function subscribeToPublicSlots(from, toExclusive, callback) {
+  let live = true;
+  fetchPublicSlotDocs(toYMD(from), toYMD(toExclusive))
+    .then((docs) => live && callback(mapDocsToEvents(docs, null, null)))
+    .catch((err) => {
+      console.error('Error loading slots for calendar:', err);
+      if (live) callback([]);
+    });
+  return () => {
+    live = false;
+  };
+}
+
+/** A candidate's own event docs (raw data with id) → Map(id → full calendar event), approved ones only. */
+export function slotOwnEvents(ownSlots) {
+  const events = mapDocsToEvents(ownSlots.map(({ id, ...d }) => ({ id, data: () => d })), null, null);
+  return new Map(events.map((e) => [e.id, e]));
+}
+
+/** Admin calendar: live, with names and contacts (admin-only read in firestore.rules). */
 export function subscribeToApprovedSlots(from, toExclusive, callback) {
   // Only the visible week is read (date is a YYYY-MM-DD string). Single-field range = no composite
   // index; non-approved docs in the week are dropped client-side by mapDocsToEvents.
@@ -679,17 +708,15 @@ export function slotsSnapshotToUI(snapshot) {
 export async function getSlotsForDate(dateStr) {
   if (!dateStr || typeof dateStr !== 'string') return [];
   try {
-    const slotsRef = collection(db, SLOTS_COLLECTION);
-
-    // Events schema stores date as a YYYY-MM-DD string. Prefer that path.
-    let qRef;
-    qRef = query(slotsRef, where('date', '==', dateStr));
-
-    const snapshot = await getDocs(qRef);
+    // Every slot that day except rejected ones (time fields only), uncached: this check guards a booking.
+    const next = new Date(`${dateStr.slice(0, 10)}T00:00:00`);
+    next.setDate(next.getDate() + 1);
+    const docs = await fetchPublicSlotDocs(dateStr.slice(0, 10), toYMD(next), true);
 
     const result = [];
-    snapshot.forEach((docSnap) => {
+    docs.forEach((docSnap) => {
       const data = docSnap.data();
+      if (String(data.status || '').trim().toLowerCase() === 'rejected') return; // a rejected request frees its time
 
       // Derive startHour/startMinute/duration similarly to slotDocToUI
       let startHour = data.startHour;

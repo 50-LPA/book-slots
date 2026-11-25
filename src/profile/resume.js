@@ -1,7 +1,7 @@
 // Resume content: defaults, profile → resume mapping, and the HTML blocks the preview paginates.
 // No React/Firebase, so `node --test` runs it. Ported from the standalone resume-builder.
 import { monthLabel, toIdx, totalMonths } from './career.js'
-import { TECH, titleCase } from './options.js'
+import { TECH, passOutLabel, titleCase } from './options.js'
 // Suggestion data (technology profiles, skill sets, ready lines, cities, degrees…) lives in resumeData.js.
 import {
   ACHIEVEMENTS, BACKEND_TECH, BOARD, CONTRIBUTIONS, DEFAULT_SKILLS, DEGREES, DESIGNATIONS, FRONTEND_TECH, INSTITUTES, RESPONSIBILITIES,
@@ -268,8 +268,15 @@ export function pullProfile(r0, c) {
     designation: r.designation || designationFor(stackOf(r)),
     experience: [...jobs, ...old.filter((e) => !jobs.some((j) => same(j.company, e.company)))],
     skills: [...skills, ...techSkills(stackOf(r)).filter((t) => !skills.some((s) => same(s.cat, t.cat)))], // missing groups only; edits stay
-    education: r.education?.length || !ym(c.passOut) ? r.education : [{ degree: '', institute: '', year: ym(c.passOut), score: '' }],
+    education: r.education?.length ? r.education : passOutEducation(c),
   }
+}
+// Education for a resume that has none: one entry per pass-out (newest first, type as the degree),
+// or the single pass-out year of an older record.
+function passOutEducation(c) {
+  const list = (c.passOuts ?? []).filter((p) => ym(p.date)).sort((a, b) => b.date.localeCompare(a.date))
+  if (list.length) return list.map((p) => ({ degree: passOutLabel(p.type), institute: '', year: ym(p.date), score: '' }))
+  return ym(c.passOut) ? [{ degree: '', institute: '', year: ym(c.passOut), score: '' }] : []
 }
 // New resume: profile details, technical skill groups and summary for the technologies, and the latest job's role.
 export function fromProfile(c) {

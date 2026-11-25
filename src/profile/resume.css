@@ -30,11 +30,24 @@
 .rb-page section.contd { margin-top: 0; }
 .rb-page h2:empty { display: none; }
 .rb-page .s-about .kv + .kv { margin-top: .5em; }
+/* Bullet per template (colour from ::marker above) */
+.tpl-classic ul { list-style: square; }
+.tpl-minimal ul { list-style-type: '– '; }
+.tpl-minimal li::marker { color: #9ca3af; }
+.tpl-modern ul { list-style-type: '▸ '; }
+.tpl-executive ul { list-style-type: '◆ '; }
+.tpl-executive li::marker { font-size: .75em; }
 
 /* Classic: clean single column, accent rules */
 .tpl-classic { font-family: Lato, Calibri, 'Segoe UI', Arial, sans-serif; }
 .tpl-classic header { border-bottom: 2px solid var(--accent); padding-bottom: .8em; }
 .tpl-classic h2 { border-bottom: 1px solid var(--line); padding-bottom: .3em; }
+
+/* Classic: traditional — square bullets, ruled tech box, italic dates */
+.tpl-classic .desig { letter-spacing: .03em; }
+.tpl-classic .meta { font-style: italic; }
+.tpl-classic .stack { background: none; border-left: 2px solid var(--accent); border-radius: 0; padding: .15em .65em; }
+.tpl-classic .sub { font-style: italic; }
 
 /* Minimal: label column, hairline separators */
 .tpl-minimal { font-family: 'Helvetica Neue', Arial, sans-serif; }
@@ -45,6 +58,15 @@
 .tpl-minimal h2:empty { display: block; }
 .tpl-minimal .s-summary { display: block; border-top: 0; }
 .tpl-minimal .s-summary h2 { display: none; }
+
+/* Minimal: near-monochrome — grey headings, dash bullets, plain tech line, quiet weights */
+.tpl-minimal h2 { color: #6b7280; }
+.tpl-minimal .desig { color: #6b7280; font-weight: 400; letter-spacing: .04em; }
+.tpl-minimal .row strong, .tpl-minimal .kv b { font-weight: 500; }
+.tpl-minimal .kv b { color: #374151; }
+.tpl-minimal .meta { font-size: .85em; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; }
+.tpl-minimal .stack { background: none; padding: 0; color: #6b7280; }
+.tpl-minimal header { padding-bottom: .4em; }
 
 /* Modern: soft tinted sidebar + accent edge, repeated on every page */
 .tpl-modern { padding: 0; display: grid; grid-template-columns: 31% 1fr; grid-template-rows: auto 1fr; grid-template-areas: "aside header" "aside main";
@@ -59,6 +81,13 @@
 .tpl-modern h1 { color: var(--accent); }
 .tpl-modern h2 { border-bottom: 1px solid var(--line); padding-bottom: .25em; }
 
+/* Modern: rounded outlined tech box, accent labels and dates, upper-case designation */
+.tpl-modern .desig { text-transform: uppercase; letter-spacing: .08em; font-size: .95em; font-weight: 600; }
+.tpl-modern .meta { color: var(--accent); font-weight: 600; }
+.tpl-modern .kv b { color: var(--accent); }
+.tpl-modern .stack { border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.tpl-modern aside .kv b { color: #111827; }
+
 /* Executive: tinted header, accent top edge, right column with divider on every page */
 .tpl-executive { padding: 0; display: grid; grid-template-columns: 1fr 30%; grid-template-rows: auto 1fr; grid-template-areas: "header header" "main aside";
   font-family: Cambria, Georgia, serif; border-top: 2mm solid var(--accent); }
@@ -70,6 +99,15 @@
 .tpl-executive aside { grid-area: aside; padding: 0 13mm 10mm 6mm; border-left: 1px solid var(--line); }
 .tpl-executive.cont main, .tpl-executive.cont aside { padding-top: 11mm; }
 .tpl-executive h2 { border-left: 3px solid var(--accent); padding-left: .5em; }
+
+/* Executive: serif formality — italic designation, small-caps dates, ruled tech line, wider headings */
+.tpl-executive .desig { font-style: italic; }
+.tpl-executive h2 { letter-spacing: .13em; }
+.tpl-executive .meta { font-variant: small-caps; letter-spacing: .03em; color: #4b5563; }
+.tpl-executive .contact { color: #374151; }
+.tpl-executive .row strong { color: var(--accent); }
+.tpl-executive .stack { background: none; border-radius: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: .3em 0; }
+.tpl-executive .sub { font-style: italic; }
 
 /* sidebar templates: single column inside the aside */
 .tpl-modern aside .row, .tpl-executive aside .row { display: block; }

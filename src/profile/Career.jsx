@@ -1,6 +1,7 @@
 import { gapDates, gaps, layout, monthLabel, span, toIdx, totalMonths } from './career.js'
 import { ICONS, Icon } from './icons.jsx'
 import { Button } from './ui.jsx'
+import { PASS_OUTS } from './options.js'
 
 const COLORS = [
   'border-brand-400 bg-brand-50 text-brand-900',
@@ -119,16 +120,17 @@ const input = 'h-8 w-full rounded-lg border border-gray-200 bg-white px-2.5 text
 const row = 'grid grid-cols-[20px_minmax(0,1fr)_minmax(0,1fr)_24px] items-center gap-1.5 @xl:grid-cols-[20px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_44px_24px]'
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-const FIRST_YEAR = 2005
-const YEARS = Array.from({ length: new Date().getFullYear() - FIRST_YEAR + 1 }, (_, i) => String(FIRST_YEAR + i)) // 2005 → this year
+const FIRST_YEAR = 1990 // HSC pass-outs of experienced candidates go back this far
+const YEARS = Array.from({ length: new Date().getFullYear() - FIRST_YEAR + 1 }, (_, i) => String(FIRST_YEAR + i)) // 1990 → this year
 
 // Month dropdown then year dropdown, stored as "YYYY-MM" (half-filled stays "YYYY-" / "-MM" and is ignored by the timeline).
 function MonthYear({ value = '', onChange, label, disabled, invalid }) {
   const [y = '', m = ''] = value.split('-')
   const put = (yy, mm) => onChange(yy || mm ? `${yy}-${mm}` : '')
-  const cls = `${input} select-sm px-1.5 ${invalid ? 'border-red-400 text-red-600' : ''}`
+  const half = !disabled && !y !== !m // only one of month/year picked: not counted anywhere until both are set
+  const cls = `${input} select-sm px-1.5 ${invalid || half ? 'border-red-400 text-red-600' : ''}`
   return (
-    <span className="grid grid-cols-2 gap-1" title={invalid ? 'Exit date is before the joining date' : undefined}>
+    <span className="grid grid-cols-2 gap-1" title={half ? 'Pick both month and year' : invalid ? 'Exit date is before the joining date' : undefined}>
       <select value={disabled ? '' : m} disabled={disabled} onChange={(e) => put(y, e.target.value)} aria-label={`${label} month`} className={cls}>
         <option value="">{disabled ? '—' : 'Month'}</option>
         {MONTHS.map((name, i) => <option key={name} value={String(i + 1).padStart(2, '0')}>{name}</option>)}
@@ -141,16 +143,38 @@ function MonthYear({ value = '', onChange, label, disabled, invalid }) {
   )
 }
 
-// Side panel next to the sheet: pass-out month + any number of companies.
-export function CareerFields({ passOut, companies, onPassOut, onCompanies }) {
+// Side panel next to the sheet: any number of pass-outs (type + month/year) and companies.
+// passOut = the latest pass-out (worked out by the form), where the career timeline and gaps start.
+export function CareerFields({ passOuts, passOut, companies, onPassOuts, onCompanies }) {
+  const updatePassOut = (i, patch) => onPassOuts(passOuts.map((p, j) => (j === i ? { ...p, ...patch } : p)))
   const update = (i, patch) => onCompanies(companies.map((c, j) => (j === i ? { ...c, ...patch } : c)))
   // Only one company can be the current one; clicking the selected radio again clears it.
   const setPresent = (i) => onCompanies(companies.map((c, j) => ({ ...c, present: j === i ? !c.present : false })))
   return (
     <div className="space-y-4 font-lato">
-      <div className="flex items-center gap-3">
-        <span className="whitespace-nowrap text-xs font-bold text-gray-600">Pass-out month &amp; year</span>
-        <span className="flex-1"><MonthYear value={passOut} onChange={onPassOut} label="Pass-out" /></span>
+      {/* One pass-out is required, so the first row is always there (no ×); + on the last row adds another. */}
+      <div className="space-y-2">
+        <span className="text-xs font-bold text-gray-600"><span className="text-red-500">*</span> Pass-outs</span>
+        {(passOuts.length ? passOuts : [{ type: '', date: '' }]).map((p, i, rows) => (
+          <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto_auto] items-center gap-2">
+            <select value={p.type} onChange={(e) => (passOuts.length ? updatePassOut(i, { type: e.target.value }) : onPassOuts([{ ...p, type: e.target.value }]))}
+              aria-label={`Pass-out ${i + 1} type`} className={`${input} select-sm px-1.5 ${p.type ? '' : 'text-gray-400'}`}>
+              <option value="">Type</option>
+              {PASS_OUTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            <MonthYear value={p.date} onChange={(v) => (passOuts.length ? updatePassOut(i, { date: v }) : onPassOuts([{ ...p, date: v }]))} label={`Pass-out ${i + 1}`} />
+            <button type="button" aria-label={`Remove pass-out ${i + 1}`} title="Remove" disabled={i === 0}
+              onClick={() => onPassOuts(passOuts.filter((_, j) => j !== i))}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:invisible">
+              <Icon d={ICONS.close} className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" aria-label="Add a pass-out" title="Add a pass-out"
+              onClick={() => onPassOuts([...(passOuts.length ? passOuts : [p]), { type: '', date: '' }])}
+              className={`flex h-6 w-6 items-center justify-center rounded-full border border-emerald-500 text-emerald-600 hover:bg-emerald-50 ${i === rows.length - 1 ? '' : 'invisible'}`}>
+              <Icon d={ICONS.plus} className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
       </div>
 
       <div className="flex items-center justify-between">

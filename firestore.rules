@@ -56,29 +56,32 @@ service cloud.firestore {
       allow update: if isAdmin() || (signedIn() && request.auth.uid == id && candidateSelfEditOk());
     }
 
-    // Interview slots: public calendar reads them.
+    // Interview slots: the admin and the slot's own candidate only. Public screens get time + status from
+    // netlify/functions/public-slots.mjs, never names, mobiles, HR contacts or companies.
+    // Own-event check first: a candidate's read then costs no extra rule read.
     match /events/{id} {
-      allow read: if true;
+      allow read: if (signedIn() && ownsEvent(resource.data)) || isAdmin();
       allow create: if isAdmin()
         || (activeCandidate()
             && ownsEvent(request.resource.data)
             && request.resource.data.status == 'Pending Approval'
             && request.resource.data.get('isApproved', false) == false);
+      // A candidate may only add their interview feedback; every other field, on every slot, is admin-only.
       allow update: if isAdmin()
         || (isCandidate() && ownsEvent(resource.data)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['feedback', 'updatedAt']));
-      allow delete: if isAdmin() || (isCandidate() && ownsEvent(resource.data));
+      allow delete: if isAdmin(); // candidates never delete slots
     }
 
-    // HR contacts: candidates can add, only admins edit/delete. Not public.
-    // HRs are written only by the hrs Netlify function (Admin SDK), which keeps hrIndex/all (every HR in one doc,
-    // what the candidate dashboard reads) in the same transaction and re-checks the fields and duplicates.
+    // HR contacts: admin-only reads. Candidates add HRs and get only the ones they added through the hrs
+    // Netlify function (Admin SDK), which also keeps hrIndex/all (every HR in one doc, the admin's list) in the
+    // same transaction and re-checks the fields and duplicates.
     match /hrs/{id} {
-      allow read: if signedIn();
+      allow read: if isAdmin();
       allow write: if false;
     }
     match /hrIndex/{id} {
-      allow read: if signedIn();
+      allow read: if isAdmin();
       allow write: if false;
     }
 
@@ -95,7 +98,7 @@ service cloud.firestore {
         && text(d, 'phone', 10) && text(d, 'parentsNo', 10) && text(d, 'spouseNo', 10)
         && text(d, 'reference', 200)
         && maxList(d, 'visitDates', 50) && text(d, 'signDate', 20)
-        && text(d, 'passOut', 7)
+        && text(d, 'passOut', 7) && maxList(d, 'passOuts', 10)
         && (!('phase' in d) || d.phase in ['inquiry', 'confirmed'])
         && maxList(d, 'tech', 20) && maxList(d, 'companies', 50)
         && (!('hasResume' in d) || d.hasResume is bool) && (!('resumeAt' in d) || d.resumeAt is timestamp)

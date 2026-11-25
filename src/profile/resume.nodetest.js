@@ -267,3 +267,11 @@ test('new resume gets the projects with the Adysun job dates; switching stack re
   assert.match(de.projects[0].stack, /Role: Data Engineer/)
   assert.equal(de.projects[1].bullets, r.projects[1].bullets) // the hand-edited one still kept
 })
+
+test('education comes from the pass-outs, newest first, only when the resume has none', () => {
+  const c = { name: 'asha', companies: [], passOut: '2021-06', passOuts: [{ type: 'hsc', date: '2014-03' }, { type: 'graduation', date: '2021-06' }, { type: 'phd', date: '2025-' }] }
+  assert.deepEqual(fromProfile(c).education.map((e) => [e.degree, e.year]), [['Graduation', 'Jun 2021'], ['HSC', 'Mar 2014']])
+  const written = normalize({ education: [{ degree: 'B.E.', institute: 'X', year: 'Jun 2021', score: '' }] })
+  assert.equal(pullProfile(written, c).education, written.education) // entries already written stay
+  assert.deepEqual(fromProfile({ name: 'old', companies: [], passOut: '2019-05' }).education.map((e) => e.year), ['May 2019']) // older single pass-out
+})

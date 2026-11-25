@@ -71,6 +71,7 @@ import {
   selectionPayload,
   validateSelection,
   SelectedDetailsView,
+  EDIT_TECH_OPTIONS,
 } from '../Components/CandidateSelectionFields';
 import PaginationBar from '../Components/PaginationBar';
 
@@ -122,27 +123,7 @@ function normaliseTechLabelAdmin(raw) {
   return v;
 }
 
-const CANDIDATE_TECH_OPTIONS = [
-  'PHP',
-  '.Net',
-  'Python',
-  'Data Science',
-  'MERN Stack',
-  'MEAN Stack',
-  'Java',
-  'React Devloper',
-  'App Support',
-  'Busness Analyst',
-  'Manual Testing',
-  'Automation Testing',
-  'DevOps (AWS)',
-  'DevOps (Azure)',
-  'Data Analysts',
-  'AEM',
-  'Power BI',
-  'Security',
-  'Other',
-];
+const CANDIDATE_TECH_OPTIONS = EDIT_TECH_OPTIONS;
 
 function startOfLocalDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -924,27 +905,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const techOptions = [
-    'PHP',
-    '.Net',
-    'Python',
-    'Data Science',
-    'MERN Stack',
-    'MEAN Stack',
-    'Java',
-    'React Devloper',
-    'App Support',
-    'Busness Analyst',
-    'Manual Testing',
-    'Automation Testing',
-    'DevOps (AWS)',
-    'DevOps (Azure)',
-    'Data Analysts',
-    'AEM',
-    'Power BI',
-    'Security',
-    'Other',
-  ];
+  const techOptions = CANDIDATE_TECH_OPTIONS;
 
   const handleChange = (field) => (e) => {
     let value = e.target.value;
@@ -4113,42 +4074,44 @@ function statsCandidateRecordKey(candidate) {
   return `name:${name.toLowerCase()}`;
 }
 
-function AdminStatisticsChart({ slots = [], candidates = [], onReload, onBackToHome }) {
-  const int = (v) => {
-    const n = parseInt(v, 10);
-    return Number.isFinite(n) ? n : 0;
-  };
+// Pure date helpers for the statistics chart (module scope: not rebuilt on every render).
+const int = (v) => {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : 0;
+};
 
-  const parseAnyDate = (value) => {
-    if (!value) return null;
-    try {
-      if (value?.toDate) {
-        const d = value.toDate();
-        return Number.isNaN(d.getTime()) ? null : d;
-      }
-    } catch {
-      // ignore
-    }
-    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
-    const raw = String(value).trim();
-    if (!raw) return null;
-    // Supports yyyy-mm-dd, mm/dd/yyyy, dd/mm/yyyy (best-effort)
-    const iso = new Date(raw);
-    if (!Number.isNaN(iso.getTime())) return iso;
-    const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (m) {
-      const a = int(m[1]);
-      const b = int(m[2]);
-      const y = int(m[3]);
-      // If day > 12, treat as dd/mm/yyyy; else default to mm/dd/yyyy
-      const isDMY = a > 12;
-      const mm = isDMY ? b : a;
-      const dd = isDMY ? a : b;
-      const d = new Date(y, mm - 1, dd);
+const parseAnyDate = (value) => {
+  if (!value) return null;
+  try {
+    if (value?.toDate) {
+      const d = value.toDate();
       return Number.isNaN(d.getTime()) ? null : d;
     }
-    return null;
-  };
+  } catch {
+    // ignore
+  }
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  // Supports yyyy-mm-dd, mm/dd/yyyy, dd/mm/yyyy (best-effort)
+  const iso = new Date(raw);
+  if (!Number.isNaN(iso.getTime())) return iso;
+  const m = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (m) {
+    const a = int(m[1]);
+    const b = int(m[2]);
+    const y = int(m[3]);
+    // If day > 12, treat as dd/mm/yyyy; else default to mm/dd/yyyy
+    const isDMY = a > 12;
+    const mm = isDMY ? b : a;
+    const dd = isDMY ? a : b;
+    const d = new Date(y, mm - 1, dd);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+};
+
+function AdminStatisticsChart({ slots = [], candidates = [], onReload, onBackToHome }) {
   const [statsCandidateKey, setStatsCandidateKey] = useState('');
   const [candidatePickerOpen, setCandidatePickerOpen] = useState(false);
   const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
@@ -4287,6 +4250,7 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload, onBackToH
           <input
             id="stats-candidate-search"
             type="text"
+            role="combobox"
             autoComplete="off"
             value={searchFieldValue}
             onChange={(e) => {
@@ -5778,6 +5742,7 @@ export default function AdminDashboard() {
                   <WeekCalendar
                     key={calendarRefreshKey}
                     settings={slotSettings}
+                    live
                     onEventClick={(event) => {
                       setCalendarSelectedEvent(event);
                     }}
