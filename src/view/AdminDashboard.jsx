@@ -20,7 +20,7 @@ import { mayLeave, navigated } from '../profile/unsaved.js';
 import StatCounts from '../Components/StatCounts';
 import PageHeader, { Breadcrumbs, PageTitle, SetTrail } from '../Components/PageHeader';
 import { friendlyMessage } from '../utils/quota';
-import { db, auth, adminSetCandidateAuth, adminDeleteCandidateAuth, normalizeMobile } from '../firebase/firebase';
+import { db, auth, adminSetCandidateAuth, adminDeleteCandidateAuth, adminGetCandidatePassword, normalizeMobile } from '../firebase/firebase';
 import {
   updateSlotStatus,
   deleteSlot,
@@ -1427,16 +1427,16 @@ function AdminEditCandidateForm({ candidate, hrs = [], onBack, onSubmit }) {
   const [showPassword, setShowPassword] = useState(false);
   const [savedPassword, setSavedPassword] = useState('');
 
-  // Current password from the admin-only copy (none for candidates whose password predates it).
+  // Current password, decrypted by the admin function (none for candidates whose password predates the copy).
   const candidateUid = candidate?.firestoreId;
   useEffect(() => {
     setSavedPassword('');
     setForm((prev) => ({ ...prev, password: '' }));
     if (!candidateUid) return undefined;
     let live = true;
-    getDoc(doc(db, 'candidateSecrets', candidateUid))
-      .then((snap) => {
-        const pw = live && snap.exists() ? String(snap.data().password || '') : '';
+    adminGetCandidatePassword({ uid: candidateUid })
+      .then(({ data }) => {
+        const pw = live ? String(data.password || '') : '';
         if (!pw) return;
         setSavedPassword(pw);
         setForm((prev) => ({ ...prev, password: pw }));
@@ -4829,7 +4829,6 @@ export default function AdminDashboard() {
   const [candidateStatusFilter, setCandidateStatusFilter] = useState('active'); // 'all' | 'active' | 'inactive'
   const [candidateSearch, setCandidateSearch] = useState('');
   const [candidates, setCandidates] = useState([]);
-  const [candidatesLoaded, setCandidatesLoaded] = useState(false);
   const [showHrSuccessToast, setShowHrSuccessToast] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [calendarSelectedEvent, setCalendarSelectedEvent] = useState(null);
@@ -5026,8 +5025,6 @@ export default function AdminDashboard() {
         // eslint-disable-next-line no-console
         console.error('Error loading candidates from Firestore:', err);
         setCandidates([]);
-      } finally {
-        setCandidatesLoaded(true);
       }
     };
 
@@ -5191,7 +5188,7 @@ export default function AdminDashboard() {
     }
     return historyRef.current.catch(() => allSlots ?? []);
   };
-  const needsHistory = ['candidates', 'stats', 'slots', 'profiles', 'resumes'].includes(activeTab); // profiles/resumes: active status
+  const needsHistory = ['candidates', 'stats', 'slots'].includes(activeTab);
   useEffect(() => {
     if (needsHistory) loadHistory();
   }, [needsHistory]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -5207,16 +5204,6 @@ export default function AdminDashboard() {
     since.setHours(0, 0, 0, 0);
     return slots.filter((s) => s.date instanceof Date && s.date >= since);
   }, [slots]);
-
-  // Profiles / Resumes list only Active candidates (same status as the Candidates list), matched by mobile.
-  // null until candidates and slot history are in, so the lists never flash inactive candidates.
-  const activeMobiles = useMemo(() => {
-    if (!candidatesLoaded || (!allSlots && !slotsError)) return null;
-    const active = candidates.filter((c) => ((c.selected || c.isSelected)
-      ? (c.status ? c.status : (c.isActive !== false ? 'Active' : 'Inactive'))
-      : getCandidateAccountStatus(c, slots)) === 'Active');
-    return new Set(active.map((c) => normalizeMobile(c.mobile).slice(-10)).filter((m) => m.length === 10));
-  }, [candidatesLoaded, candidates, allSlots, slotsError, slots]);
 
   // Automatically sync candidate account inactivity to Firestore if their last interview was > 2 weeks ago
   // Each doc is written once per session and mirrored into local state; previously every slots
@@ -6057,7 +6044,7 @@ export default function AdminDashboard() {
           )
         ) : activeTab === 'profiles' || activeTab === 'resumes' ? (
           <Suspense fallback={<div className="p-6 text-center text-sm text-slate-500">Loading…</div>}>
-            <ProfileApp activeMobiles={activeMobiles} />
+            <ProfileApp />
           </Suspense>
         ) : activeTab === 'stats' ? (
           <AdminStatisticsChart

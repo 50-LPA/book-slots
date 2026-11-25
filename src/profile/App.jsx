@@ -128,16 +128,15 @@ function ResumePage({ id }) {
 }
 
 // Candidate list and resume list share one copy of the records (useCandidates), so their rows always agree.
-// activeMobiles: 10-digit mobiles of Active candidates (book-slots Candidates list); others can't log in, so they're hidden.
-function ListPages({ page, activeMobiles }) {
+// Admission profiles (inquiries and confirmed admissions) stand on their own: no login account is needed to be listed.
+function ListPages({ page }) {
   const data = useCandidates()
-  const rows = activeMobiles && data.rows?.filter((r) => activeMobiles.has(String(r.phone || '').replace(/\D/g, '').slice(-10)))
-  return <Page>{page === 'resumes' ? <ResumeList {...data} rows={rows} /> : <CandidateList {...data} rows={rows} />}</Page>
+  return <Page>{page === 'resumes' ? <ResumeList {...data} /> : <CandidateList {...data} />}</Page>
 }
 
 // The Profiles / Resumes tabs of the admin dashboard (AdminDashboard picks the tab from the hash; its header,
 // navigation and logout are used here). Pages live in the URL hash, as listed at the top of this file.
-export default function ProfileApp({ activeMobiles }) {
+export default function ProfileApp() {
   const hash = useHash()
   useEffect(() => { synced(); loadForm() }, []) // sync once per session; warm the profile page
   const [, id, view] = hash.match(/^#\/c\/([^/]+)(\/view)?/) ?? []
@@ -147,7 +146,7 @@ export default function ProfileApp({ activeMobiles }) {
   const page = mobile ? <ByMobile key={hash} mobile={mobile} resume={!!toResume} />
     : resumeId ? <ResumePage key={hash} id={resumeId} />
     : id || hash.startsWith('#/new') ? <CandidatePage key={hash} id={id} view={!!view} prefill={newPhone && { phone: newPhone }} />
-    : <ListPages activeMobiles={activeMobiles} page={hash.startsWith('#/resumes') ? 'resumes' : 'candidates'} />
+    : <ListPages page={hash.startsWith('#/resumes') ? 'resumes' : 'candidates'} />
   return (
     <div className="sp-root font-lato text-sm">
       <PageError key={hash}>{page}</PageError>

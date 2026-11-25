@@ -1,7 +1,7 @@
 rules_version = '2';
 // Identity model: Firebase Auth email/password, email = "<mobile>@<project>.firebaseapp.com".
 // admin/{uid} and candidates/{uid} doc ids equal the Auth uid.
-// Passwords are NOT stored in Firestore.
+// Passwords: Auth keeps the hash; candidateSecrets keeps an encrypted copy that only the admin-auth function can read.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -38,9 +38,9 @@ service cloud.firestore {
     }
 
     // Readable candidate passwords, written only by netlify/functions/admin-auth.mjs.
+    // Encrypted password copies: read and written only by the admin-auth Netlify function (Admin SDK).
     match /candidateSecrets/{uid} {
-      allow read: if isAdmin();
-      allow write: if false;
+      allow read, write: if false;
     }
 
     match /admin/{uid} {
@@ -103,24 +103,25 @@ service cloud.firestore {
     }
 
     match /admissionProfiles/{id} {
-      allow read: if isAdmin() || (signedIn() && resource.data.get('phone', '') == myMobile());
+      // Own-phone check first: a candidate's read then costs no extra rule read (isAdmin() is an exists() read).
+      allow read: if (signedIn() && resource.data.get('phone', '') == myMobile()) || isAdmin();
       allow delete: if isAdmin();
       // A candidate may create a minimal profile for their own mobile (first resume save) and stamp its resume status.
       allow create: if validProfile(request.resource.data) && (isAdmin()
         || (signedIn() && request.resource.data.get('phone', '') == myMobile()
             && request.resource.data.keys().hasOnly(['name', 'phone', 'phase', 'createdAt', 'updatedAt'])));
-      allow update: if validProfile(request.resource.data) && (isAdmin()
-        || (signedIn() && resource.data.get('phone', '') == myMobile()
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasResume', 'resumeAt', 'updatedAt'])));
+      allow update: if validProfile(request.resource.data) && ((signedIn() && resource.data.get('phone', '') == myMobile()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasResume', 'resumeAt', 'updatedAt']))
+        || isAdmin());
     }
 
     match /resumes/{id} {
-      allow read: if isAdmin()
-        || (signedIn() && get(/databases/$(database)/documents/admissionProfiles/$(id)).data.get('phone', '') == myMobile());
+      allow read: if (signedIn() && myMobile().matches('[0-9]{10}') && get(/databases/$(database)/documents/admissionProfiles/$(id)).data.get('phone', '') == myMobile())
+        || isAdmin();
       allow delete: if isAdmin();
       // Admin, or the candidate whose profile (same id) carries their login mobile.
-      allow create, update: if validResume(request.resource.data) && (isAdmin()
-        || (signedIn() && get(/databases/$(database)/documents/admissionProfiles/$(id)).data.get('phone', '') == myMobile()));
+      allow create, update: if validResume(request.resource.data)
+        && ((signedIn() && myMobile().matches('[0-9]{10}') && get(/databases/$(database)/documents/admissionProfiles/$(id)).data.get('phone', '') == myMobile()) || isAdmin());
     }
 
     // Leaves + slot settings: public calendar reads them.

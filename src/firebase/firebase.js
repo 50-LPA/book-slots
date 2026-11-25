@@ -49,6 +49,7 @@ const callAdminAuth = (action) => async (payload) => {
 };
 export const adminSetCandidateAuth = callAdminAuth('set');
 export const adminDeleteCandidateAuth = callAdminAuth('delete');
+export const adminGetCandidatePassword = callAdminAuth('get');
 
 // Users log in with mobile + password. Firebase Auth needs an email, so each mobile maps
 // to a synthetic address. Must match emailFor() in netlify/functions/admin-auth.mjs.

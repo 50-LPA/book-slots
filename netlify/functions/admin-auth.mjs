@@ -3,6 +3,8 @@
 // Env (Netlify → Site configuration → Environment variables, scope: Functions):
 //   FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY  (from a service-account key JSON)
 //   REACT_APP_FIREBASE_PROJECT_ID
+//   PASSWORD_KEY  (any long random string; encrypts the admin's readable password copy. Losing it loses the copies, not the logins.)
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -26,9 +28,27 @@ class HttpError extends Error {
 // Must match mobileToAuthEmail() in src/firebase/firebase.js.
 const emailFor = (mobile) => `${mobile}@${projectId}.firebaseapp.com`;
 const isAdmin = async (uid) => (await getFirestore().doc(`admin/${uid}`).get()).exists;
-// Readable copy so admins can look up a candidate's password (Auth only keeps a hash). Admin-read-only in firestore.rules.
+// Encrypted copy so admins can look up a candidate's password (Auth only keeps a hash). Only this function reads it
+// (firestore.rules deny all client access), and only the function holds the key.
 const secretRef = (uid) => getFirestore().doc(`candidateSecrets/${uid}`);
-const savePassword = (uid, password) => password && secretRef(uid).set({ password, updatedAt: Date.now() });
+const key = () => {
+  if (!process.env.PASSWORD_KEY) throw new Error('PASSWORD_KEY is not set.');
+  return createHash('sha256').update(process.env.PASSWORD_KEY).digest();
+};
+// AES-256-GCM, stored as "iv.tag.data" (base64).
+export function encrypt(text) {
+  const iv = randomBytes(12);
+  const c = createCipheriv('aes-256-gcm', key(), iv);
+  const data = Buffer.concat([c.update(text, 'utf8'), c.final()]);
+  return [iv, c.getAuthTag(), data].map((b) => b.toString('base64')).join('.');
+}
+export function decrypt(stored) {
+  const [iv, tag, data] = stored.split('.').map((x) => Buffer.from(x, 'base64'));
+  const d = createDecipheriv('aes-256-gcm', key(), iv);
+  d.setAuthTag(tag);
+  return Buffer.concat([d.update(data), d.final()]).toString('utf8');
+}
+const savePassword = (uid, password) => password && secretRef(uid).set({ cipher: encrypt(password), updatedAt: Date.now() });
 
 function cleanMobile(raw) {
   const mobile = String(raw ?? '').replace(/\D/g, '');
@@ -47,6 +67,7 @@ async function setCandidateAuth(data) {
   const uid = data.uid ? String(data.uid) : '';
   const email = emailFor(cleanMobile(data.mobile));
   const password = data.password ? cleanPassword(data.password) : undefined;
+  if (password) key(); // missing key: fail before the login changes, not after
   const auth = getAuth();
   if (uid && (await isAdmin(uid))) throw new HttpError(403, 'Admin logins are managed in the Firebase Console.');
 
@@ -84,7 +105,16 @@ async function deleteCandidateAuth(data) {
   return { ok: true };
 }
 
-const actions = { set: setCandidateAuth, delete: deleteCandidateAuth };
+// A candidate's current password, '' when none was saved (logins older than the copy: set a new one).
+async function getCandidatePassword(data) {
+  const uid = String(data.uid || '');
+  if (!uid) throw new HttpError(400, 'uid is required.');
+  const snap = await secretRef(uid).get();
+  const d = snap.exists ? snap.data() : {};
+  return { password: d.cipher ? decrypt(d.cipher) : String(d.password || '') }; // password: plain copy not yet encrypted
+}
+
+const actions = { set: setCandidateAuth, delete: deleteCandidateAuth, get: getCandidatePassword };
 
 export default async (req) => {
   try {
