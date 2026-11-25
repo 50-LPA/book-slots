@@ -80,8 +80,10 @@ function isMeetingEndWithinBookingWindow(hour, minute, durationMins, dateStr, ma
   return startMins + dur <= maxEndMins;
 }
 
+// candidateProfile / candidateSlots: the dashboard's live copies (listeners), so booking re-reads neither.
 export default function BookSlot({
   candidateProfile = null,
+  candidateSlots = null,
   onClose,
   onOpenAddHR,
   onBookSuccess,
@@ -537,11 +539,10 @@ export default function BookSlot({
         mobile: candidateMobile,
         id: candidateFirestoreId,
       });
-      // Only this candidate's slots (was: the whole events collection).
-      const candidateUiSlots = await fetchCandidateEventsFromFirestore(
-        { mobile: candidateMobile, id: candidateFirestoreId },
-        db,
-      );
+      // The dashboard's live slots; fetched (one query) only when opened without them.
+      const candidateUiSlots = Array.isArray(candidateSlots)
+        ? candidateSlots
+        : await fetchCandidateEventsFromFirestore({ mobile: candidateMobile, id: candidateFirestoreId }, db);
       const unfeedbackedSlots = candidateUiSlots
         .filter((s) => {
           const matches = slotMatchesCandidateKeys(s, matchKeys);
@@ -551,7 +552,7 @@ export default function BookSlot({
         });
 
       let liveCandidateData = candidateProfile || parsedCandidate;
-      if (candidateFirestoreId) {
+      if (!candidateProfile && candidateFirestoreId) {
         try {
           const candSnap = await getDoc(doc(db, 'candidates', candidateFirestoreId));
           if (candSnap.exists()) {
@@ -561,7 +562,7 @@ export default function BookSlot({
           // ignore
         }
       }
-      if ((!liveCandidateData || !liveCandidateData.lastActivatedAt) && candidateMobile) {
+      if (!candidateProfile && (!liveCandidateData || !liveCandidateData.lastActivatedAt) && candidateMobile) {
         try {
           const qMob = query(collection(db, 'candidates'), where('mobile', '==', candidateMobile));
           const qSnap = await getDocs(qMob);
@@ -580,7 +581,7 @@ export default function BookSlot({
         return;
       }
 
-      if (unfeedbackedSlots.length > 1) {
+      if (unfeedbackedSlots.length >= 3) { // same lock as the dashboard: up to 2 slots without feedback
         // eslint-disable-next-line no-alert
         alert('You already have multiple slots without feedback. Please submit feedback for your previous interview slot first before booking another slot.');
         if (onClose) onClose();

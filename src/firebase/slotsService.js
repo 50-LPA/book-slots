@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { getSyncedDocs, forgetSyncedDoc } from './syncedCollection';
+import { getHrIndex } from './hrIndex';
 import {
   getCandidateMatchKeys,
   normalizeCandidateMobile,
@@ -255,16 +256,16 @@ function fetchCandidatesCache() {
   });
 }
 
+// HR names for slots that lack them: from the HR index (1 read per page load, shared with the dashboards).
 function fetchHrCache() {
-  return getCollectionDocs('hrs')
-    .then((docs) => {
+  return getHrIndex()
+    .then((items) => {
       const map = {};
-      docs.forEach((d) => {
-        const data = d.data() || {};
-        map[d.id] = {
-          name: (data.name || '').trim(),
-          email: (data.email || '').trim(),
-          mobile: (data.mobile || '').trim(),
+      items.forEach((h) => {
+        map[h.id] = {
+          name: (h.name || '').trim(),
+          email: (h.email || '').trim(),
+          mobile: (h.mobile || '').trim(),
         };
       });
       globalHrCache = map;
@@ -438,16 +439,16 @@ export function subscribeToCandidateSlots(matchKeys, callback) {
     );
   };
 
-  if (keys.length <= 10) {
+  // Every event carries candidateMobile (scripts/backfill-event-mobiles.mjs; bookings must set it), so one query
+  // on mobile is enough. The candidateId query was a second read of the same docs; kept only without a mobile.
+  if (mobile) {
+    attach(query(slotsRef, where('candidateMobile', '==', mobile)), 'candidateMobile');
+  } else if (keys.length <= 10) {
     const q =
       keys.length === 1
         ? query(slotsRef, where('candidateId', '==', keys[0]))
         : query(slotsRef, where('candidateId', 'in', keys));
     attach(q, 'candidateId');
-  }
-
-  if (mobile) {
-    attach(query(slotsRef, where('candidateMobile', '==', mobile)), 'candidateMobile');
   }
 
   return () => {

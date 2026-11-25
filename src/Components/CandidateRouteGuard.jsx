@@ -39,8 +39,9 @@ export default function CandidateRouteGuard() {
         }
 
         // Login (or a previous visit) ran these exact checks recently; don't repeat them on every
-        // reload. UI gate only — firestore.rules enforce activeCandidate() on bookings anyway.
-        if (parsed.verifiedAt && Date.now() - parsed.verifiedAt < 10 * 60 * 1000) {
+        // reload. UI gate only: firestore.rules enforce activeCandidate() on bookings, and the dashboard
+        // keeps live listeners on the candidate doc and slots.
+        if (parsed.verifiedAt && Date.now() - parsed.verifiedAt < 60 * 60 * 1000) {
           if (!cancelled) setState('allow');
           return;
         }

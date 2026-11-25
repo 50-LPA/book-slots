@@ -34,19 +34,24 @@ export const db = initializeFirestore(app, {
 // Per-tab session (matches the app's sessionStorage 'sb_user' model).
 export const auth = initializeAuth(app, { persistence: browserSessionPersistence });
 
-// Admin login management runs on Netlify Functions (netlify/functions/admin-auth.mjs).
-// Resolves { data } like the old httpsCallable so callers are unchanged.
-const callAdminAuth = (action) => async (payload) => {
+// Netlify Functions (netlify/functions/*.mjs): admin-auth (logins), hrs (HR writes + HR index).
+// Resolves { data } like the old httpsCallable so callers are unchanged. A failure carries the server's
+// fieldErrors / existingHrFor* (HR duplicates) for the form to show.
+export const callFunction = (name, action) => async (payload) => {
   const token = await auth.currentUser?.getIdToken();
-  const res = await fetch('/.netlify/functions/admin-auth', {
+  const res = await fetch(`/.netlify/functions/${name}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
     body: JSON.stringify({ action, ...payload }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+  if (!res.ok) {
+    const { error, ...extra } = data;
+    throw Object.assign(new Error(error || `Request failed (${res.status}).`), extra);
+  }
   return { data };
 };
+const callAdminAuth = (action) => callFunction('admin-auth', action);
 export const adminSetCandidateAuth = callAdminAuth('set');
 export const adminDeleteCandidateAuth = callAdminAuth('delete');
 export const adminGetCandidatePassword = callAdminAuth('get');

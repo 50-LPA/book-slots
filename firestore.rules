@@ -71,10 +71,15 @@ service cloud.firestore {
     }
 
     // HR contacts: candidates can add, only admins edit/delete. Not public.
+    // HRs are written only by the hrs Netlify function (Admin SDK), which keeps hrIndex/all (every HR in one doc,
+    // what the candidate dashboard reads) in the same transaction and re-checks the fields and duplicates.
     match /hrs/{id} {
       allow read: if signedIn();
-      allow create: if isAdmin() || isCandidate();
-      allow update, delete: if isAdmin();
+      allow write: if false;
+    }
+    match /hrIndex/{id} {
+      allow read: if signedIn();
+      allow write: if false;
     }
 
     // Admission profiles + resumes (src/profile, migrated from slot-profile). Admin edits everything; a candidate reads

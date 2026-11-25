@@ -13,7 +13,8 @@ import {
   SELECTION_FIELD_LABELS,
 } from '../Components/CandidateSelectionFields';
 
-export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLogout }) {
+// profile: the dashboard's live candidate record (listener), so opening this page reads nothing; queried without it.
+export function CandidateProfileEditForm({ userName = '', hrs = [], profile = null, onBack, onLogout }) {
   const session = useMemo(() => {
     try {
       const raw = sessionStorage.getItem('sb_user');
@@ -45,14 +46,15 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
         setError('');
         if (!mobile) return;
 
-        const q = query(collection(db, 'candidates'), where('mobile', '==', mobile));
-        const snap = await getDocs(q);
-        if (snap.empty) {
+        const liveId = profile?.firestoreId || profile?.id;
+        const d = liveId
+          ? { id: liveId, data: () => profile }
+          : (await getDocs(query(collection(db, 'candidates'), where('mobile', '==', mobile)))).docs[0];
+        if (!d) {
           if (!cancelled) setError('Candidate profile not found.');
           return;
         }
 
-        const d = snap.docs[0];
         const data = d.data() || {};
         const techs = Array.isArray(data.technologies)
           ? data.technologies
@@ -83,7 +85,7 @@ export function CandidateProfileEditForm({ userName = '', hrs = [], onBack, onLo
     return () => {
       cancelled = true;
     };
-  }, [mobile, session?.name]);
+  }, [mobile, session?.name]); // eslint-disable-line react-hooks/exhaustive-deps -- `profile` is read once on open
 
   const validate = () => {
     if (!candidateDocId) return 'Candidate profile not found.';

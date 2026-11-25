@@ -192,44 +192,28 @@ export async function fetchCandidateEventsFromFirestore(candidateOrSession, fire
   if (!keys || keys.length === 0) return [];
 
   const slotsRef = collection(dbInstance, 'events');
-  const results = [];
-  const seenIds = new Set();
+  const toUI = (snap) => snap.docs.map((docSnap) => slotDocToUI(docSnap));
 
-  // Query by candidateId: one `in` query for all keys (Firestore allows up to 30 values).
-  for (let i = 0; i < keys.length; i += 30) {
-    try {
-      const chunk = keys.slice(i, i + 30);
-      const q = query(slotsRef, where('candidateId', 'in', chunk));
-      const snap = await getDocs(q);
-      snap.forEach((docSnap) => {
-        if (!seenIds.has(docSnap.id)) {
-          seenIds.add(docSnap.id);
-          results.push(slotDocToUI(docSnap));
-        }
-      });
-    } catch {
-      // ignore
-    }
-  }
-
-  // Query by candidateMobile
+  // One query on candidateMobile: every event carries it (see subscribeToCandidateSlots).
   const mobile = normalizeCandidateMobile(
     candidateOrSession?.mobile || candidateOrSession?.phone || keys[0],
   );
-  if (mobile) {
+  if (/^[6-9]\d{9}$/.test(mobile)) {
     try {
-      const qMobile = query(slotsRef, where('candidateMobile', '==', mobile));
-      const snapMobile = await getDocs(qMobile);
-      snapMobile.forEach((docSnap) => {
-        if (!seenIds.has(docSnap.id)) {
-          seenIds.add(docSnap.id);
-          results.push(slotDocToUI(docSnap));
-        }
-      });
+      return toUI(await getDocs(query(slotsRef, where('candidateMobile', '==', mobile))));
+    } catch {
+      return [];
+    }
+  }
+
+  // No mobile: by candidateId, one `in` query per 30 keys.
+  const results = [];
+  for (let i = 0; i < keys.length; i += 30) {
+    try {
+      results.push(...toUI(await getDocs(query(slotsRef, where('candidateId', 'in', keys.slice(i, i + 30))))));
     } catch {
       // ignore
     }
   }
-
   return results;
 }

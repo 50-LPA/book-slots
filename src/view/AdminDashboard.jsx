@@ -2,7 +2,6 @@ import React, { Suspense, lazy, useMemo, useState, useRef, useEffect } from 'rea
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   collection,
-  addDoc,
   getDoc,
   getDocs,
   query,
@@ -18,6 +17,7 @@ import {
 import { signOut } from 'firebase/auth';
 import { mayLeave, navigated } from '../profile/unsaved.js';
 import StatCounts from '../Components/StatCounts';
+import AddHRModal from '../Components/AddHRModal';
 import PageHeader, { Breadcrumbs, PageTitle, SetTrail } from '../Components/PageHeader';
 import { friendlyMessage } from '../utils/quota';
 import { db, auth, adminSetCandidateAuth, adminDeleteCandidateAuth, adminGetCandidatePassword, normalizeMobile } from '../firebase/firebase';
@@ -46,7 +46,7 @@ import {
   END_TIME_OPTIONS,
   DEFAULT_SLOT_SETTINGS,
 } from '../firebase/settingsService';
-import { getHrDuplicateFieldErrors } from '../firebase/hrService';
+import { saveHr, forgetHrIndex } from '../firebase/hrIndex';
 import {
   normalizeCandidateMobile,
   slotMatchesCandidate,
@@ -186,6 +186,7 @@ function AdminHeader({ activeTab, onChangeTab }) {
     // Profile pages keep a local copy of candidate profiles and resume drafts (src/profile/data.js): don't leave it on the device.
     Object.keys(localStorage).filter((k) => k.startsWith('admission-profile:') || k.startsWith('slot-profile:')).forEach((k) => localStorage.removeItem(k));
     clearSyncedCollections(); // device copies of candidates / HRs / events
+    forgetHrIndex();
     signOut(auth).catch(() => {});
     setMenuOpen(false);
     navigate('/login', { replace: true });
@@ -2648,23 +2649,13 @@ function AdminHRsTable({
   const [jobTypeFilter, setJobTypeFilter] = useState('');
   const [addedByFilter, setAddedByFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [modalMode, setModalMode] = useState('add'); // 'add' | 'edit'
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    mobile: '',
-    company: '',
-    technology: '',
-    jobType: '',
-  });
+  const [editingHr, setEditingHr] = useState(null); // null = adding a new HR
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [showTechDropdown, setShowTechDropdown] = useState(false);
   const [showJobTypeDropdown, setShowJobTypeDropdown] = useState(false);
   const [showAddedByDropdown, setShowAddedByDropdown] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmDeleteName, setConfirmDeleteName] = useState('');
-  const [hrFormErrors, setHrFormErrors] = useState({});
 
   const filtersRef = useRef(null);
 
@@ -2761,23 +2752,6 @@ function AdminHRsTable({
     setCurrentPage(1);
   }, [filteredRows.length]);
 
-  const handleChange = (field) => (e) => {
-    let { value } = e.target;
-
-    if (field === 'mobile') {
-      // Digits only, max 10
-      value = value.replace(/\D/g, '').slice(0, 10);
-    }
-
-    setForm((prev) => ({ ...prev, [field]: value }));
-    setHrFormErrors((prev) => {
-      if (!prev[field]) return prev;
-      const next = { ...prev };
-      delete next[field];
-      return next;
-    });
-  };
-
   const handleDownloadCsv = () => {
     if (!filteredRows.length) {
       window.alert('No HR data found to export');
@@ -2802,79 +2776,6 @@ function AdminHRsTable({
       type: 'text/csv;charset=utf-8',
     });
     saveAs(blob, 'hr-data.csv');
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const errors = {};
-    const name = String(form.name || '').trim();
-    const email = String(form.email || '').trim();
-    const technology = String(form.technology || '').trim();
-    const jobType = String(form.jobType || '').trim();
-    const company = String(form.company || '').trim();
-    const mobile = String(form.mobile || '').trim();
-
-    if (!name) errors.name = 'This is required.';
-    if (!email) {
-      errors.email = 'This is required.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = 'Please enter a valid email.';
-    }
-    if (!technology) errors.technology = 'This is required.';
-    if (!jobType) errors.jobType = 'This is required.';
-    if (!company) errors.company = 'This is required.';
-    if (mobile && !/^[6-9]\d{9}$/.test(mobile)) {
-      errors.mobile = 'Enter valid 10-digit mobile number starting with 6-9.';
-    }
-    setHrFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    const excludeFirestoreId =
-      modalMode === 'edit' && editingId != null
-        ? String(hrs.find((h) => h.id === editingId)?.firestoreId || '').trim() || null
-        : null;
-
-    try {
-      const duplicateErrors = await getHrDuplicateFieldErrors({
-        email,
-        mobile,
-        excludeFirestoreId,
-      });
-      if (Object.keys(duplicateErrors).length > 0) {
-        setHrFormErrors((prev) => ({ ...prev, ...duplicateErrors }));
-        return;
-      }
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to verify HR duplicates:', err);
-      setHrFormErrors((prev) => ({
-        ...prev,
-        email: prev.email || 'Could not verify HR details. Please try again.',
-      }));
-      return;
-    }
-
-    try {
-      if (modalMode === 'edit' && onUpdateHR && editingId != null) {
-        await onUpdateHR(editingId, form);
-      } else if (onAddHR) {
-        await onAddHR(form);
-      }
-      setForm({
-        name: '',
-        email: '',
-        mobile: '',
-        company: '',
-        technology: '',
-        jobType: '',
-      });
-      setEditingId(null);
-      setShowAddModal(false);
-    } catch (err) {
-      if (err?.fieldErrors) {
-        setHrFormErrors((prev) => ({ ...prev, ...err.fieldErrors }));
-      }
-    }
   };
 
   // Row pieces shared by the desktop table and the phone cards.
@@ -2922,16 +2823,7 @@ function AdminHRsTable({
       <button
         type="button"
         onClick={() => {
-          setModalMode('edit');
-          setEditingId(hr.id);
-          setForm({
-            name: hr.name || '',
-            email: hr.email || '',
-            mobile: hr.mobile || '',
-            company: hr.company || '',
-            technology: hr.technology || '',
-            jobType: hr.jobType || '',
-          });
+          setEditingHr(hr);
           setShowAddModal(true);
         }}
         className="btn-action bg-amber-400"
@@ -2969,16 +2861,7 @@ function AdminHRsTable({
           <button
             type="button"
             onClick={() => {
-              setModalMode('add');
-              setEditingId(null);
-              setForm({
-                name: '',
-                email: '',
-                mobile: '',
-                company: '',
-                technology: '',
-                jobType: '',
-              });
+              setEditingHr(null);
               setShowAddModal(true);
             }}
             className="btn-pill bg-emerald-500"
@@ -3498,169 +3381,15 @@ function AdminHRsTable({
         </div>
       )}
 
-      {/* Add New HR modal */}
-      {showAddModal && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
-          onClick={() => setShowAddModal(false)}
-          onKeyDown={(e) => e.key === 'Escape' && setShowAddModal(false)}
-          role="dialog"
-          aria-modal="true"
-        >
-          <form
-            onSubmit={handleSubmit}
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-lg rounded-xl bg-white shadow-lg px-6 py-5"
-          >
-            {/* Modal header */}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-slate-800">
-                {modalMode === 'edit' ? 'Edit HR' : 'Add New HR'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="btn-circle"
-                aria-label="Close"
-              >
-                <i className="fa-solid fa-xmark" aria-hidden="true" />
-              </button>
-            </div>
-
-            {/* Fields grid - arranged like reference screenshot */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Row 1: HR Name | Technology */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user-tie mr-1.5 text-purple-500" aria-hidden="true" />
-                  <span className="text-red-500">*</span> HR Name
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={handleChange('name')}
-                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                  placeholder="Enter HR Name"
-                />
-                {hrFormErrors.name && (
-                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.name}</p>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-code mr-1.5 text-purple-500" aria-hidden="true" />
-                  <span className="text-red-500">*</span> Technology
-                </label>
-                <select
-                  value={form.technology}
-                  onChange={handleChange('technology')}
-                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                >
-                  <option value="">Select Technology</option>
-                  {techOptions.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                {hrFormErrors.technology && (
-                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.technology}</p>
-                )}
-              </div>
-
-              {/* Row 2: Email | Mobile */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-envelope mr-1.5 text-purple-500" aria-hidden="true" />
-                  <span className="text-red-500">*</span> Email
-                </label>
-                <input
-                  type="text"
-                  value={form.email}
-                  onChange={handleChange('email')}
-                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                  placeholder="Enter Email"
-                />
-                {hrFormErrors.email && (
-                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.email}</p>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-mobile-screen mr-1.5 text-purple-500" aria-hidden="true" />
-                  Mobile
-                </label>
-                <input
-                  type="text"
-                  value={form.mobile}
-                  onChange={handleChange('mobile')}
-                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                  placeholder="Enter 10 digit mobile number"
-                />
-                {hrFormErrors.mobile && (
-                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.mobile}</p>
-                )}
-              </div>
-
-              {/* Row 3: Job Type (same as email field) */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-business-time mr-1.5 text-purple-500" aria-hidden="true" />
-                  <span className="text-red-500">*</span> Job Type
-                </label>
-                <select
-                  value={form.jobType}
-                  onChange={handleChange('jobType')}
-                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                >
-                  <option value="">Select Job Type</option>
-                  {jobTypeOptions.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                {hrFormErrors.jobType && (
-                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.jobType}</p>
-                )}
-              </div>
-
-              {/* Row 4: Company Name full width */}
-              <div className="flex flex-col gap-1 md:col-span-2">
-                <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-building mr-1.5 text-purple-500" aria-hidden="true" />
-                  <span className="text-red-500">*</span> Company Name
-                </label>
-                <input
-                  type="text"
-                  value={form.company}
-                  onChange={handleChange('company')}
-                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                  placeholder="Enter Company Name"
-                />
-                {hrFormErrors.company && (
-                  <p className="mt-1 text-[11px] text-red-500">{hrFormErrors.company}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="mt-5 flex justify-between">
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50"
-              >
-                <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
-                Close
-              </button>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 text-white px-4 sm:px-5 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap"
-              >
-                <i className={`fa-solid ${modalMode === 'edit' ? 'fa-pen' : 'fa-plus'} text-xs`} aria-hidden="true" />
-                {modalMode === 'edit' ? 'Update HR' : 'Add New HR'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {/* Add / Edit HR: the same pop-up as the candidate dashboard */}
+      <AddHRModal
+        key={editingHr?.id ?? 'new'}
+        isOpen={showAddModal}
+        hr={editingHr}
+        technologyOptions={techOptions}
+        onClose={() => setShowAddModal(false)}
+        onAdd={(data) => (editingHr ? onUpdateHR?.(editingHr.id, data) : onAddHR?.(data))}
+      />
     </div>
   );
 }
@@ -5631,7 +5360,7 @@ export default function AdminDashboard() {
       
       // If HR has a Firestore ID, delete from Firestore
       if (hrToDelete?.firestoreId) {
-        await deleteDoc(doc(db, 'hrs', hrToDelete.firestoreId));
+        await saveHr('delete', { id: hrToDelete.firestoreId }); // also drops it from the HR index
         forgetSyncedDoc('hrs', hrToDelete.firestoreId);
       }
       reloadHrs();
@@ -5931,114 +5660,17 @@ export default function AdminDashboard() {
                 }
               }}
               onAddHR={async (data) => {
-              const duplicateErrors = await getHrDuplicateFieldErrors({
-                email: data.email,
-                mobile: data.mobile,
-              });
-              if (Object.keys(duplicateErrors).length > 0) {
-                const err = new Error('Duplicate HR');
-                err.fieldErrors = duplicateErrors;
-                throw err;
-              }
-
-              // Resolve admin identity for "Added By"
-              let adminName = 'Admin';
-              let adminId = null;
-              try {
-                const raw = sessionStorage.getItem('sb_user');
-                const parsed = raw ? JSON.parse(raw) : null;
-                if (parsed?.name) adminName = String(parsed.name).trim() || adminName;
-                if (parsed?.mobile) adminId = String(parsed.mobile).trim() || adminId;
-              } catch {
-                // ignore
-              }
-
-              const newHr = {
-                name: data.name || '',
-                email: data.email || '',
-                mobile: data.mobile || '',
-                company: data.company || '',
-                technology: data.technology || '',
-                jobType: data.jobType || '',
-                addedBy: adminName,
-                addedById: adminId,
-              };
-              
-              // Save to Firestore
-              try {
-                await addDoc(collection(db, 'hrs'), {
-                  name: newHr.name,
-                  email: newHr.email,
-                  mobile: newHr.mobile,
-                  company: newHr.company,
-                  technology: newHr.technology,
-                  jobType: newHr.jobType,
-                  addedBy: newHr.addedBy,
-                  addedById: newHr.addedById,
-                  createdAt: serverTimestamp(),
-                  updatedAt: serverTimestamp(),
-                });
+                // The hrs function checks duplicates, sets "Added By" from the admin record and updates the HR index.
+                await saveHr('create', { hr: data });
                 reloadHrs();
-                
-                // Show success toast
                 setShowHrSuccessToast(true);
-                setTimeout(() => {
-                  setShowHrSuccessToast(false);
-                }, 2000);
-
-              } catch (err) {
-                console.error('Failed to save HR to Firestore:', err);
-              }
-            }}
+                setTimeout(() => setShowHrSuccessToast(false), 2000);
+              }}
             onUpdateHR={async (id, data) => {
               const current = hrs.find((h) => h.id === id);
-              const duplicateErrors = await getHrDuplicateFieldErrors({
-                email: data.email,
-                mobile: data.mobile,
-                excludeFirestoreId: current?.firestoreId || null,
-              });
-              if (Object.keys(duplicateErrors).length > 0) {
-                const err = new Error('Duplicate HR');
-                err.fieldErrors = duplicateErrors;
-                throw err;
-              }
-
-              setHrs((prev) =>
-                prev.map((hr) =>
-                  hr.id === id
-                    ? {
-                        ...hr,
-                        name: data.name ?? hr.name,
-                        email: data.email ?? hr.email,
-                        mobile: data.mobile ?? hr.mobile,
-                        company: data.company ?? hr.company,
-                        technology: data.technology ?? hr.technology,
-                        jobType: data.jobType ?? hr.jobType,
-                      }
-                    : hr,
-                ),
-              );
-
-              // Persist changes to Firestore when possible
-              try {
-                const firestoreId = current?.firestoreId;
-                if (firestoreId) {
-                  const payload = {
-                    name: data.name ?? current.name ?? '',
-                    email: data.email ?? current.email ?? '',
-                    mobile: data.mobile ?? current.mobile ?? '',
-                    company: data.company ?? current.company ?? '',
-                    technology: data.technology ?? current.technology ?? '',
-                    jobType: data.jobType ?? current.jobType ?? '',
-                    updatedAt: serverTimestamp(),
-                  };
-                  await updateDoc(doc(db, 'hrs', firestoreId), payload);
-                  reloadHrs();
-                }
-              } catch (err) {
-                // eslint-disable-next-line no-console
-                console.error('Failed to update HR in Firestore:', err);
-              }
+              if (!current?.firestoreId) return;
+              await saveHr('update', { id: current.firestoreId, hr: data }); // errors (duplicates) go back to the pop-up
+              reloadHrs();
             }}
           />
           )

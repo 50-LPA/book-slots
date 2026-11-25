@@ -9,7 +9,6 @@ import {
   onSnapshot,
   doc,
   deleteDoc,
-  addDoc,
   updateDoc,
   serverTimestamp,
 } from 'firebase/firestore';
@@ -24,11 +23,10 @@ import {
   formatDateDDMMYYYY,
   subscribeToCandidateSlots,
   isSlotPast,
-  getCollectionDocs,
 } from '../firebase/slotsService';
 import { clearSyncedCollections } from '../firebase/syncedCollection';
+import { getHrIndex, saveHr, forgetHrIndex } from '../firebase/hrIndex';
 import PageHeader, { Breadcrumbs, PageTitle } from '../Components/PageHeader';
-import { checkHrDuplicates } from '../firebase/hrService';
 import {
   getCandidateMatchKeys,
   normalizeCandidateMobile,
@@ -540,7 +538,12 @@ function Header({
 }
 
 // Candidate calendar area: other slots show "Slot Booked" + blue; own slots show name + referrer color
-function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [], hasPendingFeedback = false }) {
+// Red caption under a locked "Add New Slot" button: which slots need feedback to unlock booking.
+function LockNote({ text, className = '' }) {
+  return text ? <p className={`mt-1 text-[11px] leading-tight text-red-600 ${className}`}>{text}</p> : null;
+}
+
+function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [], hasPendingFeedback = false, lockNote = '' }) {
   const headerDate = new Date();
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [calendarSelectedEvent, setCalendarSelectedEvent] = useState(null);
@@ -601,7 +604,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
                 <span className="hidden sm:inline">{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
               </button>
             </div>
-
+            {hasPendingFeedback && <LockNote text={lockNote} className="w-full max-w-xs text-center" />}
           </div>
         </div>
 
@@ -640,6 +643,7 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
                 </span>
                 <span>Add New HR</span>
               </button>
+              <div className="flex flex-col items-end">
               <button
                 type="button"
                 onClick={onOpenBookSlot}
@@ -653,7 +657,8 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
                 </span>
                 <span className="hidden sm:inline">{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
               </button>
-
+              {hasPendingFeedback && <LockNote text={lockNote} className="max-w-[16rem] text-right" />}
+              </div>
             </div>
           </div>
         </div>
@@ -832,33 +837,13 @@ function CandidateCalendarArea({ onOpenAddHR, onOpenBookSlot, candidateIds = [],
 }
 
 // My Slots Component - shows user's booked slots
-function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback = false }) {
-  // We derive identity from sessionStorage (sb_user) only,
-  // so switching candidates via login immediately changes the query.
-  const [slots, setSlots] = useState([]);
+// slots: the dashboard's live listener on this candidate's slots (no second listener here).
+function MySlots({ slots = [], onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback = false, lockNote = '' }) {
   const [slotSearch, setSlotSearch] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
   const [feedbackSlot, setFeedbackSlot] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [savingFeedback, setSavingFeedback] = useState(false);
 
-  const sbSessionRaw =
-    typeof window !== 'undefined' ? sessionStorage.getItem('sb_user') : null;
-
-  useEffect(() => {
-    let matchKeys = [];
-    try {
-      const parsed = sbSessionRaw ? JSON.parse(sbSessionRaw) : null;
-      matchKeys = getCandidateMatchKeys(parsed);
-    } catch {
-      matchKeys = [];
-    }
-
-    if (matchKeys.length === 0) return undefined;
-
-    const unsub = subscribeToCandidateSlots(matchKeys, setSlots);
-    return () => unsub();
-  }, [sbSessionRaw, refreshKey]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const totalSlots = slots.length;
@@ -1002,15 +987,18 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                         const past = isSlotPast(slot);
                         if (!past) {
                           return (
-                            <button
-                              type="button"
-                              disabled
-                              title="Feedback can only be submitted after the slot time has passed"
-                              className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-400 bg-slate-50 cursor-not-allowed"
-                            >
-                              <i className="fa-solid fa-lock text-[10px]" aria-hidden="true" />
-                              Add Feedback
-                            </button>
+                            <div className="inline-flex flex-col items-start">
+                              <button
+                                type="button"
+                                disabled
+                                title="Feedback can only be submitted after the slot time has passed"
+                                className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-400 bg-slate-50 cursor-not-allowed"
+                              >
+                                <i className="fa-solid fa-lock text-[10px]" aria-hidden="true" />
+                                Add Feedback
+                              </button>
+                              <span className="mt-0.5 text-[10px] leading-tight text-orange-600">Opens after the slot time ends.</span>
+                            </div>
                           );
                         }
                         return (
@@ -1052,12 +1040,8 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
         title="My Slots"
         onBack={onBackToHome}
         backLabel="Back to home"
-        extra={
-          <button type="button" onClick={() => setRefreshKey((k) => k + 1)} className="btn-circle" aria-label="Reload slots" title="Reload slots">
-            <i className="fa-solid fa-rotate-right text-sm" aria-hidden="true" />
-          </button>
-        }
         actions={
+          <div className="flex flex-col items-end">
           <button
             type="button"
             onClick={onBookNewSlot}
@@ -1070,6 +1054,8 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
             </span>
             <span className="hidden sm:inline">{hasPendingFeedback ? 'Add New Slot (Locked)' : 'Add New Slot'}</span>
           </button>
+          {hasPendingFeedback && <LockNote text={lockNote} className="max-w-[16rem] text-right" />}
+          </div>
         }
       />
 
@@ -1386,12 +1372,7 @@ function MySlots({ onBookNewSlot, onBackToHome, hrList = [], hasPendingFeedback 
                   try {
                     setSavingFeedback(true);
                     const ref = doc(db, 'events', feedbackSlot.id);
-                    await updateDoc(ref, { feedback: feedbackText.trim(), updatedAt: serverTimestamp() });
-                    setSlots((prev) =>
-                      prev.map((s) =>
-                        s.id === feedbackSlot.id ? { ...s, feedback: feedbackText.trim() } : s,
-                      ),
-                    );
+                    await updateDoc(ref, { feedback: feedbackText.trim(), updatedAt: serverTimestamp() }); // the live listener shows it
                     setFeedbackSlot(null);
                     setFeedbackText('');
                   } catch (err) {
@@ -1626,9 +1607,18 @@ export default function CandidateDashboard() {
     });
   }, [candidateSlots]);
 
-  // Candidate can book 1 slot without giving feedback for the last slot;
-  // after that (> 1 un-feedbacked slots), lock the "Create Slot" button.
-  const hasPendingFeedback = pendingFeedbackSlots.length > 1;
+  // A candidate may hold up to 2 slots without feedback; at 3, booking locks until feedback is given.
+  const hasPendingFeedback = pendingFeedbackSlots.length >= 3;
+  // Caption under the locked buttons: the slots whose interview ended and still need feedback
+  // (all pending ones when none has ended yet, since feedback opens only after an interview).
+  const lockNote = useMemo(() => {
+    if (!hasPendingFeedback) return '';
+    const ended = pendingFeedbackSlots.filter((s) => isSlotPast(s));
+    const list = (ended.length ? ended : pendingFeedbackSlots)
+      .map((s) => `${s.company || s.companyName || 'Slot'} (${formatDateDDMMYYYY(s.date)})`)
+      .join(', ');
+    return ended.length ? `Give feedback for ${list} to unlock.` : `Unlocks after feedback for ${list}, once each interview ends.`;
+  }, [hasPendingFeedback, pendingFeedbackSlots]);
 
   const handleOpenBookSlot = async () => {
     let currentProfile = candidateProfile;
@@ -1715,7 +1705,7 @@ export default function CandidateDashboard() {
   const [hrsRefreshKey, setHrsRefreshKey] = useState(0);
 
   // Fetch HRs once per refresh, when the dashboard opens (the header shows the My HRs count).
-  // Device copy: ~2 reads per session plus any changed HRs.
+  // HR index: 1 read per page load for every HR (was the whole hrs collection on every login).
   useEffect(() => {
     if (hrsLoadedKeyRef.current === hrsRefreshKey) return undefined;
 
@@ -1729,21 +1719,7 @@ export default function CandidateDashboard() {
           setHrsLoading(true);
         }
         setHrsError(null);
-        // Device copy: Reload reads only HRs changed since the last sync.
-        const hrDocs = await getCollectionDocs('hrs', { fresh: hrsRefreshKey > 0 });
-        const hrsData = hrDocs.map((doc) => ({
-          id: doc.id, // Store Firestore document ID
-          name: doc.data().name || '',
-          email: doc.data().email || '',
-          company: doc.data().company || '',
-          technology: doc.data().technology || '',
-          mobile: doc.data().mobile || '',
-          jobType: doc.data().jobType || '',
-          addedBy: doc.data().addedBy || '',
-          addedById: doc.data().addedById || '',
-          createdAt: doc.data().createdAt || null,
-        }));
-        setHrList(hrsData);
+        setHrList(await getHrIndex({ fresh: hrsRefreshKey > 0 }));
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Failed to fetch HRs:', err);
@@ -1933,83 +1909,12 @@ export default function CandidateDashboard() {
     setBookSlotSelectHrId(hrId);
   };
 
+  // Duplicates: checked by the pop-up (HR index) and again by the hrs function.
   const handleAddHR = async (hr) => {
     try {
-      const { errors: duplicateErrors, existingHrForEmail, existingHrForMobile } =
-        await checkHrDuplicates({
-          email: hr.email,
-          mobile: hr.mobile,
-        });
-      if (Object.keys(duplicateErrors).length > 0) {
-        const err = new Error('Duplicate HR');
-        err.fieldErrors = duplicateErrors;
-        err.existingHrForEmail = existingHrForEmail;
-        err.existingHrForMobile = existingHrForMobile;
-        throw err;
-      }
-
-      // Resolve candidate name at save time so admin "Added By" shows who added the HR
-      let addedByName = userName?.trim();
-      if (!addedByName) {
-        try {
-          const raw = sessionStorage.getItem('sb_user');
-          const parsed = raw ? JSON.parse(raw) : null;
-          addedByName = (parsed?.name || '').trim();
-        } catch {
-          // ignore
-        }
-      }
-      if (!addedByName && currentUser?.displayName) addedByName = currentUser.displayName.trim();
-      if (!addedByName && currentUser?.email) addedByName = currentUser.email.split('@')[0];
-      if (!addedByName) addedByName = 'Candidate';
-
-      // IMPORTANT: Admin dashboard resolves "Added By" using candidate Firestore id or mobile,
-      // not Firebase Auth uid. So store an identifier that the admin can look up.
-      let sbSessionRaw = '';
-      let sbSession = null;
-      try {
-        sbSessionRaw = sessionStorage.getItem('sb_user') || '';
-        sbSession = sbSessionRaw ? JSON.parse(sbSessionRaw) : null;
-      } catch {
-        sbSessionRaw = '';
-        sbSession = null;
-      }
-      const sessionCandidateId = String(sbSession?.id || '').trim();
-      const sessionMobile = String(sbSession?.mobile || '').trim();
-      const addedByIdForAdmin =
-        (Array.isArray(candidateIds) && candidateIds[0] ? String(candidateIds[0]).trim() : '') ||
-        sessionCandidateId ||
-        sessionMobile ||
-        null;
-
-      const docRef = await addDoc(collection(db, 'hrs'), {
-        name: hr.name || '',
-        email: hr.email || '',
-        mobile: hr.mobile || '',
-        company: hr.company || '',
-        technology: hr.technology || '',
-        jobType: hr.jobType || '',
-        addedBy: addedByName,
-        addedById: addedByIdForAdmin || null,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
-      // Update local state with Firestore ID
-      setHrList((prev) => [
-        {
-          id: docRef.id,
-          name: hr.name || '',
-          email: hr.email || '',
-          company: hr.company || '',
-          technology: hr.technology || '',
-          mobile: hr.mobile || '',
-          jobType: hr.jobType || '',
-          createdAt: new Date().toISOString(),
-          interviewCount: 0,
-        },
-        ...prev,
-      ]);
+      // The hrs function saves it with "Added By" from this candidate's record and updates the HR index.
+      const { hr: saved } = await saveHr('create', { hr });
+      setHrList((prev) => [saved, ...prev.filter((h) => h.id !== saved.id)]);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('Failed to save HR to Firestore:', err);
@@ -2110,7 +2015,8 @@ export default function CandidateDashboard() {
 
   const handleLogout = () => {
     sessionStorage.removeItem('sb_user');
-    clearSyncedCollections(); // device copy of the HR list
+    clearSyncedCollections();
+    forgetHrIndex();
     signOut(auth).catch(() => {});
     navigate('/login', { replace: true });
   };
@@ -2164,6 +2070,7 @@ export default function CandidateDashboard() {
         {showBookSlot ? (
           <BookSlot
             candidateProfile={candidateProfile}
+            candidateSlots={candidateSlots}
             onClose={() => setShowBookSlot(false)}
             onOpenAddHR={() => setShowAddHR(true)}
             onBookSuccess={() => {
@@ -2179,6 +2086,7 @@ export default function CandidateDashboard() {
           <CandidateProfileEditForm
             userName={userName}
             hrs={myHrList}
+            profile={candidateProfile?.firestoreId ? candidateProfile : null}
             onBack={() => setActiveNav('home')}
             onLogout={handleLogout}
           />
@@ -2192,10 +2100,12 @@ export default function CandidateDashboard() {
           </Suspense>
         ) : activeNav === 'slots' ? (
           <MySlots
+            slots={candidateSlots}
             onBookNewSlot={handleOpenBookSlot}
             onBackToHome={() => setActiveNav('home')}
             hrList={hrList}
             hasPendingFeedback={hasPendingFeedback}
+            lockNote={lockNote}
           />
         ) : activeNav === 'hrs' ? (
           <CandidateHrsList
@@ -2216,6 +2126,7 @@ export default function CandidateDashboard() {
             }}
             onOpenBookSlot={handleOpenBookSlot}
             hasPendingFeedback={hasPendingFeedback}
+            lockNote={lockNote}
           />
         )}
       </main>
