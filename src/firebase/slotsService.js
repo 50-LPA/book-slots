@@ -485,7 +485,7 @@ export function subscribeToCandidateSlots(matchKeys, callback) {
     );
   };
 
-  // Every event carries candidateMobile (scripts/backfill-event-mobiles.mjs; bookings must set it), so one query
+  // Every event carries candidateMobile (bookings must set it), so one query
   // on mobile is enough. The candidateId query was a second read of the same docs; kept only without a mobile.
   if (mobile) {
     attach(query(slotsRef, where('candidateMobile', '==', mobile)), 'candidateMobile');

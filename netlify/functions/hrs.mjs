@@ -50,15 +50,6 @@ async function readIndex(tx) {
   const all = await tx.get(getFirestore().collection('hrs'));
   return all.docs.map((d) => toItem(d.id, d.data())).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
-export async function rebuildIndex() {
-  const db = getFirestore();
-  return db.runTransaction(async (tx) => {
-    const all = await tx.get(db.collection('hrs'));
-    const items = all.docs.map((d) => toItem(d.id, d.data())).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-    tx.set(indexRef(), indexData(items));
-    return items.length;
-  });
-}
 
 // Only the form fields, trimmed; validated with the same rules as the pop-up.
 function cleanHr(raw = {}) {
