@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
 
 import { initializeAuth, browserSessionPersistence } from 'firebase/auth';
 
@@ -27,8 +27,10 @@ export const app = initializeApp(firebaseConfig);
 // IndexedDB cache keeps docs + resume tokens across page reloads and tabs, so re-opening a
 // screen within ~30 min only bills changed docs instead of re-reading whole collections
 // (memory cache re-read everything on every refresh and blew the 50K/day Spark quota).
+// Single-tab: auth is per tab (session persistence), and a multi-tab cache sends every tab's reads through
+// the primary tab's login, so a login in a second tab was denied. Extra tabs fall back to memory cache.
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({ forceOwnership: false }) }),
 });
 
 // Per-tab session (matches the app's sessionStorage 'sb_user' model).
