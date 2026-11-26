@@ -30,3 +30,6 @@ firestore-debug.log
 
 # Local Claude Code settings
 .claude/
+
+# Firestore backups (personal data, never commit)
+/backups
