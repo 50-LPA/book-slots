@@ -1,6 +1,5 @@
 import { Component, Suspense, lazy, useEffect, useState } from 'react'
 import CandidateList from './CandidateList.jsx'
-import ResumeList from './ResumeList.jsx'
 import { Loading, Page } from './ui.jsx'
 import { Toaster, ask, toast } from './toast.jsx'
 import { titleCase } from './options.js'
@@ -12,7 +11,7 @@ const loadForm = () => import('./ProfileForm.jsx')
 const ProfileForm = lazy(loadForm)
 const ResumeEditor = lazy(() => import('./ResumeEditor.jsx')) // resume builder: own file, loaded on first open
 
-// Pages live in the URL hash: #/ or #/candidates[?filters] (list), #/new, #/c/<id> (edit), #/c/<id>/view, #/resumes, #/r/<id> (resume)
+// Pages live in the URL hash: #/ or #/candidates[?filters] (list), #/new, #/c/<id> (edit), #/c/<id>/view, #/r/<id> (resume)
 const go = (hash) => (window.location.hash = hash)
 // A page change away from unsaved edits asks first (unsaved.js); "Stay" puts the old address back.
 function useHash() {
@@ -115,26 +114,24 @@ function ResumePage({ id }) {
       .then(async (candidate) => (candidate ? setData({ candidate, resume: candidate.hasResume ? await getResume(id) : null }) : setError('This candidate was not found.')))
       .catch((err) => setError(err.message))
   }, [id])
-  if (error) return <p className="p-6 font-lato text-red-600">{error} <a href="#/resumes" className="underline">Back to resumes</a></p>
+  if (error) return <p className="p-6 font-lato text-red-600">{error} <a href="#/candidates" className="underline">Back to profiles</a></p>
   if (!data) return <Loading />
   return (
     <Page>
       <Suspense fallback={<Loading />}>
         <ResumeEditor candidate={data.candidate} resume={data.resume} onSave={(r) => saveResume(id, r)} draftKey={DRAFT + id}
-          onBack={() => (window.history.length > 1 ? window.history.back() : go('#/resumes'))} />
+          onBack={() => (window.history.length > 1 ? window.history.back() : go('#/candidates'))} />
       </Suspense>
     </Page>
   )
 }
 
-// Candidate list and resume list share one copy of the records (useCandidates), so their rows always agree.
 // Admission profiles (inquiries and confirmed admissions) stand on their own: no login account is needed to be listed.
-function ListPages({ page }) {
-  const data = useCandidates()
-  return <Page>{page === 'resumes' ? <ResumeList {...data} /> : <CandidateList {...data} />}</Page>
+function ListPage() {
+  return <Page><CandidateList {...useCandidates()} /></Page>
 }
 
-// The Profiles / Resumes tabs of the admin dashboard (AdminDashboard picks the tab from the hash; its header,
+// The Admission Profiles tab of the admin dashboard (AdminDashboard picks the tab from the hash; its header,
 // navigation and logout are used here). Pages live in the URL hash, as listed at the top of this file.
 export default function ProfileApp() {
   const hash = useHash()
@@ -146,7 +143,7 @@ export default function ProfileApp() {
   const page = mobile ? <ByMobile key={hash} mobile={mobile} resume={!!toResume} />
     : resumeId ? <ResumePage key={hash} id={resumeId} />
     : id || hash.startsWith('#/new') ? <CandidatePage key={hash} id={id} view={!!view} prefill={newPhone && { phone: newPhone }} />
-    : <ListPages page={hash.startsWith('#/resumes') ? 'resumes' : 'candidates'} />
+    : <ListPage />
   return (
     <div className="sp-root font-lato text-sm">
       <PageError key={hash}>{page}</PageError>

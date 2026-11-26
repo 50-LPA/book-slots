@@ -8,6 +8,7 @@ import {
   fetchCandidateEventsFromFirestore,
   isCandidateInterviewOlderThanTwoWeeks,
 } from '../utils/candidateStatus';
+import { randomPlacement } from '../data/placements';
 
 // Fetch the candidate dashboard code while the user types, so login opens it instantly.
 const prefetchCandidateDashboard = () => import('../Components/CandidateRouteGuard');
@@ -17,6 +18,7 @@ export default function Login() {
     const t = setTimeout(prefetchCandidateDashboard, 1000);
     return () => clearTimeout(t);
   }, []);
+  const [placed] = useState(randomPlacement);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
@@ -263,6 +265,11 @@ export default function Login() {
           </button>
         </form>
       </div>
+
+      <p className="mt-6 w-full max-w-md px-4 text-center text-sm text-gray-500">
+        “{[placed.name, placed.tech, placed.exp].filter(Boolean).join(' · ')} → placed at {placed.company},{' '}
+        <b className="text-base text-purple-700">{placed.lpa} LPA</b>”
+      </p>
     </div>
   );
 }

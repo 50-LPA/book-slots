@@ -219,7 +219,7 @@ export default function ResumeEditor({ candidate, resume, onSave, onBack, draftK
           backLabel="Back"
           icon={ICONS.document}
           title={`Resume · ${candidate.name || 'Candidate'}`}
-          parents={[{ label: 'Resumes', href: '#/resumes' }]}
+          parents={[{ label: 'Admission Profiles', href: '#/candidates' }]}
           actions={<>
             <span className="px-1 text-xs text-gray-500" title="Ctrl/Cmd + S saves">{dirty ? '● Unsaved changes' : '✓ Saved'}</span>
             <Button variant="dark" icon={ICONS.download} onClick={pdf} disabled={!ok} title={ok ? '' : `Add at least ${SUMMARY_MIN} summary points`}>Download PDF</Button>

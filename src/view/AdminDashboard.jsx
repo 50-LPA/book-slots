@@ -181,7 +181,6 @@ function AdminHeader({ activeTab, onChangeTab }) {
     { id: 'hrs', label: 'HRs', icon: 'fa-solid fa-user-tie' },
     { id: 'stats', label: 'Statistics', icon: 'fa-solid fa-chart-column' },
     { id: 'profiles', label: 'Admission Profiles', icon: 'fa-solid fa-file-signature' },
-    { id: 'resumes', label: 'Resumes', icon: 'fa-solid fa-file-lines' },
   ];
 
   const handleNavClick = (id) => {
@@ -402,8 +401,8 @@ function AdminTopNav({ activeTab, onChange, pendingApprovals = 0 }) {
         <span>Statistics</span>
       </button>
 
-      {/* Profiles & resumes (src/profile) */}
-      {[['profiles', 'Admission Profiles', 'fa-file-signature'], ['resumes', 'Resumes', 'fa-file-lines']].map(([id, label, icon]) => (
+      {/* Admission profiles + resume builder (src/profile) */}
+      {[['profiles', 'Admission Profiles', 'fa-file-signature']].map(([id, label, icon]) => (
         <button
           key={id}
           onClick={() => onChange(id)}
@@ -884,18 +883,20 @@ function AdminCandidatesTable({
   );
 }
 
-// Fresh random 6-digit password per candidate; admin shares it with them.
-const randomPassword = () =>
-  String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+// Default candidate password: last 5 digits of the mobile + '@' (empty until the mobile is complete).
+const mobilePassword = (mobile) => (mobile.length === 10 ? `${mobile.slice(-5)}@` : '');
+
+// Admission profile tech names that are spelled differently in the candidate list; the rest match case-insensitively.
+const PROFILE_TECH = { reactjs: 'React Devloper', 'tech supp': 'App Support', 'cyber security': 'Security', ba: 'Busness Analyst' };
 
 function AdminAddCandidateForm({ onBack, onSubmit }) {
   const [form, setForm] = useState({
     name: '',
     mobile: '',
     experience: '',
-    password: randomPassword(),
+    password: '',
     technology: [],
-    referredBy: '',
+    referredBy: 'Viraj Kadam Sir',
   });
   const [showPassword, setShowPassword] = useState(true);
   const [showTechDropdown, setShowTechDropdown] = useState(false);
@@ -925,7 +926,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
       }
       value = parts.join('.');
     }
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => ({ ...prev, [field]: value, ...(field === 'mobile' && { password: mobilePassword(value) }) }));
   };
 
   const toggleTechOption = (value) => {
@@ -977,6 +978,49 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
     const random = String(Math.floor(100000 + Math.random() * 900000));
     setForm((prev) => ({ ...prev, password: random }));
     setShowPassword(true);
+  };
+
+  // Name field searches the admission profiles' device copy (no extra reads); picking one fills the form from it.
+  const { rows: profiles } = useProfiles();
+  useEffect(() => { syncProfiles(); }, []);
+  const [nameOpen, setNameOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const nameMatches = useMemo(() => {
+    const q = form.name.trim().toLowerCase();
+    if (!q || !profiles) return [];
+    const digits = q.replace(/\D/g, '');
+    return profiles
+      .filter((p) => String(p.name || '').toLowerCase().includes(q) || (digits && String(p.phone || '').includes(digits)))
+      .slice(0, 8);
+  }, [form.name, profiles]);
+  const fillFromProfile = (p) => {
+    const tech = [], unmatched = [];
+    for (const t of p.tech || []) {
+      const key = String(t).trim().toLowerCase();
+      const opt = PROFILE_TECH[key] || techOptions.find((o) => o.toLowerCase() === key);
+      if (opt) { if (!tech.includes(opt)) tech.push(opt); } else unmatched.push(t);
+    }
+    const years = Number(p.expYears) || 0, months = Number(p.expMonths) || 0;
+    const mobile = sanitizeCandidateMobileInput(String(p.phone || ''));
+    setForm((prev) => ({
+      ...prev,
+      name: p.name || prev.name,
+      mobile: mobile || prev.mobile,
+      password: mobile ? mobilePassword(mobile) : prev.password,
+      experience: years || months ? String(+(years + months / 12).toFixed(2)) : prev.experience,
+      technology: tech.length ? tech : prev.technology,
+    }));
+    setNameOpen(false);
+    setError('');
+    const notes = [!mobile && 'no mobile in the profile, enter it', unmatched.length && `pick technology for: ${unmatched.join(', ')}`].filter(Boolean);
+    setSuccessMessage(`Filled from ${p.name}'s admission profile.${notes.length ? ` Note: ${notes.join('; ')}.` : ''}`);
+  };
+  const onNameKeyDown = (e) => {
+    if (!nameOpen || !nameMatches.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => (i + 1) % nameMatches.length); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => (i - 1 + nameMatches.length) % nameMatches.length); }
+    else if (e.key === 'Enter') { e.preventDefault(); fillFromProfile(nameMatches[activeIdx] || nameMatches[0]); }
+    else if (e.key === 'Escape') setNameOpen(false);
   };
 
   const handleSubmit = async (e) => {
@@ -1106,9 +1150,9 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
         name: '',
         mobile: '',
         experience: '',
-        password: randomPassword(),
+        password: '',
         technology: [],
-        referredBy: '',
+        referredBy: 'Viraj Kadam Sir',
       });
       setShowPassword(true);
       setShowTechDropdown(false);
@@ -1148,17 +1192,43 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
         {/* Name of Candidate */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
+        <div className="relative flex flex-col gap-1">
+          <label htmlFor="add-cand-name" className="text-xs font-semibold text-slate-700"><i className="fa-solid fa-user mr-1.5 text-purple-500" aria-hidden="true" />
             <span className="text-red-500">*</span> Name of Candidate
           </label>
           <input
+            id="add-cand-name"
             type="text"
+            role="combobox"
+            aria-expanded={nameOpen && nameMatches.length > 0}
+            aria-controls="add-cand-name-list"
+            aria-autocomplete="list"
+            autoComplete="off"
             value={form.name}
-            onChange={handleChange('name')}
-            placeholder="Enter candidate name"
+            onChange={(e) => { handleChange('name')(e); setNameOpen(true); setActiveIdx(0); }}
+            onFocus={() => setNameOpen(true)}
+            onBlur={() => setNameOpen(false)}
+            onKeyDown={onNameKeyDown}
+            placeholder="Type to search admission profiles"
             className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
+          {nameOpen && nameMatches.length > 0 && (
+            <ul id="add-cand-name-list" role="listbox" className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+              {nameMatches.map((p, i) => (
+                <li
+                  key={p.id}
+                  role="option"
+                  aria-selected={i === activeIdx}
+                  onMouseDown={(e) => { e.preventDefault(); fillFromProfile(p); }}
+                  onMouseEnter={() => setActiveIdx(i)}
+                  className={`cursor-pointer px-3 py-1.5 text-xs sm:text-sm ${i === activeIdx ? 'bg-purple-50' : ''}`}
+                >
+                  <div className="font-medium text-slate-800">{p.name}</div>
+                  <div className="text-[11px] text-slate-500">{[p.phone, (p.tech || []).join(', ')].filter(Boolean).join(' · ')}</div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Mobile */}
@@ -1188,7 +1258,7 @@ function AdminAddCandidateForm({ onBack, onSubmit }) {
               maxLength={6}
               value={form.password}
               onChange={handleChange('password')}
-              placeholder="6 chars (0-9 or symbols)"
+              placeholder="Auto: last 5 mobile digits + @"
               className="flex-1 rounded-l-md border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200"
             />
             <button
@@ -4468,28 +4538,27 @@ function AdminStatisticsChart({ slots = [], candidates = [], onReload, onBackToH
 }
 
 const ProfileApp = lazy(() => import('../profile/App.jsx'));
-const profileTabFor = (hash) => (/^#\/(resumes|r\/)/.test(hash) ? 'resumes' : 'profiles');
 
 export default function AdminDashboard() {
   // Remember last opened tab across refreshes for admin
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const stored = sessionStorage.getItem('sb_admin_active_tab');
-      return stored || 'home';
+      return stored === 'resumes' ? 'profiles' : stored || 'home'; // old Resumes tab is gone
     } catch {
       return 'home';
     }
   });
   const [hrBackTab, setHrBackTab] = useState('home');
-  // Profiles / Resumes tabs keep their page in the URL hash (#/…, see src/profile/App.jsx); the hash picks the tab,
+  // The Admission Profiles tab keeps its page in the URL hash (#/…, see src/profile/App.jsx); the hash picks the tab,
   // so links like /admin-dashboard#/m/<mobile> and Back/Forward between profile pages land on the right tab.
   const location = useLocation();
   useEffect(() => {
-    if (location.hash.startsWith('#/')) setActiveTab(profileTabFor(location.hash));
+    if (location.hash.startsWith('#/')) setActiveTab('profiles');
   }, [location.hash]);
   const changeTab = async (tab) => {
-    if (tab === 'profiles' || tab === 'resumes') {
-      window.location.hash = tab === 'resumes' ? '#/resumes' : '#/candidates'; // profile pages ask about unsaved edits themselves
+    if (tab === 'profiles') {
+      window.location.hash = '#/candidates'; // profile pages ask about unsaved edits themselves
     } else if (window.location.hash) {
       if (!(await mayLeave())) return; // unsaved profile / resume edits
       navigated();
@@ -5638,7 +5707,7 @@ export default function AdminDashboard() {
             }}
           />
           )
-        ) : activeTab === 'profiles' || activeTab === 'resumes' ? (
+        ) : activeTab === 'profiles' ? (
           <Suspense fallback={<div className="p-6 text-center text-sm text-slate-500">Loading…</div>}>
             <ProfileApp />
           </Suspense>

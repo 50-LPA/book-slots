@@ -1,7 +1,7 @@
 import { gapDates, gaps, layout, monthLabel, span, toIdx, totalMonths } from './career.js'
 import { ICONS, Icon } from './icons.jsx'
 import { Button } from './ui.jsx'
-import { PASS_OUTS } from './options.js'
+import { PASS_OUTS, passOutLabel } from './options.js'
 
 const COLORS = [
   'border-brand-400 bg-brand-50 text-brand-900',
@@ -15,14 +15,17 @@ const short = (i) => monthLabel(i).replace(/ \d\d(\d\d)$/, " '$1") // "Jul 2026"
 // Gaps: red dashed outline over light red stripes, so they read as "nothing here" next to the solid company blocks.
 const GAP = { backgroundImage: 'repeating-linear-gradient(135deg, #fee2e2 0 1.2mm, #fff 1.2mm 2.4mm)' }
 
-const Chip = ({ className = 'border-gray-200 bg-gray-50 text-gray-700', children }) => (
-  <span className={`whitespace-nowrap rounded-full border px-[2mm] py-[0.3mm] text-[7.5pt] ${className}`}>{children}</span>
+const Chip = ({ className = 'border-gray-200 bg-gray-50 text-gray-700', style, children }) => (
+  <span className={`whitespace-nowrap rounded-full border px-[2mm] py-[0.3mm] text-[7.5pt] ${className}`} style={style}>{children}</span>
 )
+// One pin colour per pass-out type: the title badge and the pin on the line match.
+const PIN = { hsc: '#d97706', diploma: '#0284c7', graduation: '#7c3aed', postgraduation: '#059669', phd: '#e11d48' }
+const pinColor = (type) => PIN[type] ?? '#4b5563'
 
 // Drawn on the A4 sheet, in the 41mm free space: summary chips, then company/gap blocks on a line with years under it.
 // Phones: full width (no sideways scroll) plus a list of every block, since blocks get too thin for their text.
-export function CareerTimeline({ passOut, companies }) {
-  const t = layout(passOut, companies)
+export function CareerTimeline({ passOut, passOuts = [], companies }) {
+  const t = layout(passOut, companies, undefined, passOuts)
   if (!t) return (
     <p className="flex h-[40mm] shrink-0 items-center justify-center text-center text-[9pt] text-gray-300 mobile:h-auto mobile:py-4">
       Add pass-out and company details to draw the career timeline here.
@@ -37,7 +40,12 @@ export function CareerTimeline({ passOut, companies }) {
     <div className="flex h-[40mm] shrink-0 flex-col mobile:h-auto">
       <div className="flex flex-wrap items-center gap-[1.5mm]">
         <b className="mr-[1mm] text-[9pt]">CAREER TIMELINE</b>
-        {t.passOut && <Chip className="border-brand-300 bg-brand-50 text-brand-800">🎓 Pass-out <b>{t.passOut.label}</b></Chip>}
+        {t.passOuts.map((p) => (
+          <Chip key={`${p.type}-${p.left}`} className="bg-white" style={{ borderColor: pinColor(p.type), color: pinColor(p.type) }}>
+            <span className="mr-[1mm] inline-block h-[2mm] w-[2mm] rounded-full align-middle" style={{ background: pinColor(p.type) }} />
+            {passOutLabel(p.type) || 'Pass-out'} <b>{p.label}</b>
+          </Chip>
+        ))}
         {exp !== null && <Chip>Experience <b>{span(exp)}</b> · {t.jobs.length} {t.jobs.length === 1 ? 'company' : 'companies'}</Chip>}
         {current && <Chip className="border-emerald-300 bg-emerald-50 text-emerald-800">Now at <b>{current.name || 'Company'}</b></Chip>}
         {gapTotal > 0
@@ -47,9 +55,9 @@ export function CareerTimeline({ passOut, companies }) {
 
       {/* track: top margin leaves room for narrow-gap callouts; edge labels hang into the sheet padding */}
       <div className="relative mt-[7mm] h-[20mm] shrink-0">
-        {t.passOut && (
-          <div className="absolute top-0 h-[14mm] -translate-x-1/2 border-l-[0.4mm] border-dashed border-brand-500" style={{ left: `${t.passOut.left}%` }} />
-        )}
+        {t.passOuts.map((p) => (
+          <div key={`${p.type}-${p.left}`} className="absolute top-0 h-[14mm] -translate-x-1/2 border-l-[0.4mm] border-dashed" style={{ left: `${p.left}%`, borderColor: pinColor(p.type) }} />
+        ))}
         {t.gaps.map((g) => {
           const dates = gapDates(g, short)
           const narrow = g.width < 8 // too thin for text inside: label goes in a callout above the block
@@ -96,9 +104,11 @@ export function CareerTimeline({ passOut, companies }) {
             <span className="text-[7pt] leading-none text-gray-600">{y.year}</span>
           </div>
         ))}
-        {t.passOut && (
-          <div title={`Pass-out · ${t.passOut.label}`} className="absolute top-[13.25mm] z-10 h-[4mm] w-[4mm] -translate-x-1/2 rounded-full border-[0.8mm] border-white bg-brand-600 shadow-[0_0_0_0.5mm_theme(colors.purple.600),0_0_0_1.2mm_theme(colors.purple.200)]" style={{ left: `${t.passOut.left}%` }} />
-        )}
+        {t.passOuts.map((p) => (
+          <div key={`${p.type}-${p.left}`} title={`${passOutLabel(p.type) || 'Pass-out'} · ${p.label}`}
+            className="absolute top-[13.25mm] z-10 h-[4mm] w-[4mm] -translate-x-1/2 rounded-full border-[0.8mm] border-white"
+            style={{ left: `${p.left}%`, background: pinColor(p.type), boxShadow: `0 0 0 0.5mm ${pinColor(p.type)}, 0 0 0 1.2mm ${pinColor(p.type)}33` }} />
+        ))}
       </div>
 
       <ol className="mt-3 hidden divide-y divide-gray-100 text-[13px] mobile:block">

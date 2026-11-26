@@ -375,7 +375,7 @@ export default function ProfileForm({ record, prefill, readOnly, mine, onEdit, o
         </section>
 
         {/* Former free space (41mm): now the career timeline */}
-        <CareerTimeline passOut={f.passOut} companies={f.companies} />
+        <CareerTimeline passOut={f.passOut} passOuts={f.passOuts} companies={f.companies} />
 
         {/* Technology + Experience */}
         <section className="flex mobile:flex-col mobile:gap-7">

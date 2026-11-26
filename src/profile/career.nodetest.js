@@ -74,3 +74,15 @@ test('experience and gaps use the same month rule (screenshot candidate)', () =>
   assert.deepEqual(t.jobs.map((j) => j.months), [62, 6, 3])
   assert.equal(t.gaps[0].months, 1)
 })
+
+test('pins every pass-out on the same scale, earliest first; gaps start at the latest', () => {
+  const now = toIdx('2024-01')
+  const t = layout('2018-06', [{ name: 'A', from: '2019-01', present: true }], now, [
+    { type: 'graduation', date: '2018-06' },
+    { type: 'hsc', date: '2014-03' },
+    { type: 'diploma', date: '2016-' }, // half-filled: no pin
+  ])
+  assert.deepEqual(t.passOuts.map((p) => [p.type, p.label]), [['hsc', 'Mar 2014'], ['graduation', 'Jun 2018']])
+  assert.equal(t.passOuts[0].left, 0) // the scale now starts at HSC
+  assert.equal(t.gaps[0].first, toIdx('2018-07'))
+})

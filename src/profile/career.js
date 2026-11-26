@@ -45,11 +45,16 @@ export const gapDates = (g, fmt = monthLabel) =>
   g.ongoing ? `${fmt(g.first)} – Now` : g.first === g.last ? fmt(g.first) : `${fmt(g.first)} – ${fmt(g.last)}`
 
 // Turns the form's passOut + companies into positioned pieces (left/width in %) for drawing.
-export function layout(passOut, companies = [], now = nowIdx()) {
+// passOuts = every { type, date } pass-out (each gets a pin); gaps still start at passOut (the latest).
+export function layout(passOut, companies = [], now = nowIdx(), passOuts = []) {
   const jobs = datedJobs(companies, now)
   const breaks = gaps(passOut, companies, now)
   const p = toIdx(passOut)
-  const points = [p, ...jobs.flatMap((j) => [j.from, j.end]), ...breaks.map((g) => g.to)].filter((x) => x !== null)
+  const pins = (passOuts.length ? passOuts : [{ type: '', date: passOut }])
+    .map((x) => ({ type: x.type, at: toIdx(x.date) }))
+    .filter((x) => x.at !== null)
+    .sort((a, b) => a.at - b.at)
+  const points = [p, ...pins.map((x) => x.at), ...jobs.flatMap((j) => [j.from, j.end]), ...breaks.map((g) => g.to)].filter((x) => x !== null)
   if (!points.length) return null
   const start = Math.min(...points)
   const end = Math.max(...points, start + 12) // at least a year wide
@@ -59,6 +64,7 @@ export function layout(passOut, companies = [], now = nowIdx()) {
   for (let y = Math.ceil(start / 12); y * 12 <= end; y += step) years.push({ year: y, left: pct(y * 12) })
   return {
     passOut: p === null ? null : { label: monthLabel(p), left: pct(p) },
+    passOuts: pins.map((x) => ({ type: x.type, label: monthLabel(x.at), left: pct(x.at) })),
     jobs: jobs.map((j) => ({ ...j, left: pct(j.from), width: pct(j.end) - pct(j.from), months: j.end - j.from })),
     gaps: breaks.map((g) => ({ ...g, left: pct(g.from), width: pct(g.to) - pct(g.from) })),
     years,
