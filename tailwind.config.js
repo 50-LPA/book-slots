@@ -23,5 +23,10 @@ module.exports = {
     },
   },
   // mobile: = phone screens only (below md), used by the A4-sized profile layout.
-  plugins: [plugin(({ addVariant }) => addVariant('mobile', '@media (max-width: 47.999rem)'))],
+  // @container + @xl: = container query (36rem, same as @tailwindcss/container-queries), used by the company rows.
+  plugins: [plugin(({ addVariant, addUtilities }) => {
+    addVariant('mobile', '@media (max-width: 47.999rem)')
+    addVariant('@xl', '@container (min-width: 36rem)')
+    addUtilities({ '.\\@container': { 'container-type': 'inline-size' } })
+  })],
 }

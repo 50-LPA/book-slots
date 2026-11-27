@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { applySalary } from './salary.js'
 import { toast } from './toast.jsx'
 import { useUnsaved } from './unsaved.js'
-import { ADVANCE_DUE, PHASES, TECH, advance, latestPassOut, titleCase, withPassOuts } from './options.js'
+import { ADVANCE_DUE, PHASES, TECH, advance, startPassOut, titleCase, withPassOuts } from './options.js'
 import { ICONS, Icon } from './icons.jsx'
 import { Button, Card, CardHeader, Segmented } from './ui.jsx'
 import { CareerFields, CareerTimeline } from './Career.jsx'
@@ -48,7 +48,7 @@ const newForm = (today = fmtDate(new Date())) => ({
   advanceAmount: '', // rupees paid towards the advance (digits); status is worked out from it
   phase: 'inquiry', // 'inquiry' | 'confirmed'
   passOuts: [], // { type: PASS_OUTS value, date: 'YYYY-MM' }
-  passOut: '', // latest pass-out 'YYYY-MM' (timeline, gaps, resume); set from passOuts
+  passOut: '', // career-start pass-out 'YYYY-MM' (timeline, gaps, resume); set from passOuts
   companies: [], // { name, from: 'YYYY-MM', to: 'YYYY-MM', present: bool }
   signature: '', // PNG data URL drawn on the signature pad
   signedAt: '', // ISO time the candidate saved the signature
@@ -85,7 +85,7 @@ function DateText({ value, onChange, className }) {
       <Text value={value} onChange={onChange} className={className} />
       <span className="relative flex-none self-center">
         <button type="button" tabIndex={-1} aria-label="Pick a date" title="Pick a date"
-          onClick={() => (picker.current.showPicker ? picker.current.showPicker() : picker.current.click())}
+          onClick={() => { try { picker.current.showPicker() } catch { picker.current.focus(); picker.current.click() } }}
           className="flex h-[6mm] w-[6mm] items-center justify-center rounded text-gray-400 hover:bg-brand-50 hover:text-brand-600">
           <Icon d={ICONS.calendar} className="h-[4mm] w-[4mm]" />
         </button>
@@ -280,7 +280,7 @@ export default function ProfileForm({ record, prefill, readOnly, mine, onEdit, o
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }))
   const setSalary = (k) => (v) => setF((p) => applySalary(p, k, v))
   const setCompanies = (companies) => setF((p) => withExperience({ ...p, companies }))
-  const setPassOuts = (passOuts) => setF((p) => ({ ...p, passOuts, passOut: latestPassOut(passOuts) }))
+  const setPassOuts = (passOuts) => setF((p) => ({ ...p, passOuts, passOut: startPassOut(passOuts) }))
   const toggleTech = (t) => set('tech')(f.tech.includes(t) ? f.tech.filter((x) => x !== t) : [...f.tech, t])
 
   useUnsaved(dirty) // leaving the page (tab, link, Back, closing) with unsaved edits asks first

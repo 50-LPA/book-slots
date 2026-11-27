@@ -84,6 +84,12 @@ export const TECH_PROFILES = {
     summary: 'Expertise in user research, wireframing, prototyping and design systems.',
     duties: ['Designed wireframes, prototypes and high-fidelity UI in Figma.', 'Conducted user research and usability testing.',
       'Built and maintained a reusable design system.', 'Worked closely with developers for pixel-perfect delivery.'] },
+  'Testing (Auto, Manual)': { role: 'QA Engineer', dev: false, skills: g({
+    'Manual Testing': 'Functional, Regression, Smoke, Sanity, UAT', 'Automation': 'Selenium WebDriver, TestNG, Cucumber (BDD)',
+    'API Testing': 'Postman, Rest Assured', Languages: 'Java, SQL', 'Tools': 'Jira, TestRail, Jenkins, Git' }),
+    summary: 'Expertise in manual and automation testing, writing clear test cases and catching defects early in the SDLC.',
+    duties: ['Wrote and executed test cases and test scenarios from requirements.', 'Automated regression suites with Selenium WebDriver and TestNG.',
+      'Tested REST APIs with Postman and Rest Assured.', 'Logged and tracked defects in Jira through to closure.'] },
   'DevOps (AWS, GCP, AZURE)': { role: 'DevOps Engineer', skills: g({
     Cloud: 'AWS, Microsoft Azure, GCP', AWS: 'EC2, S3, IAM, VPC, EKS, RDS, CloudWatch', Containers: 'Docker, Kubernetes, Helm',
     IaC: 'Terraform, Ansible, CloudFormation', 'CI/CD': 'Jenkins, GitHub Actions, Azure DevOps, GitLab CI', Monitoring: 'Prometheus, Grafana, ELK Stack',
@@ -269,6 +275,8 @@ export const PROJECT_ROLE_TEXT = {
     'Set up CI/CD pipelines for the {area} platform using Jenkins and GitHub Actions.', 'Containerized services with Docker and deployed them on Kubernetes (AWS EKS).', 'Provisioned infrastructure with Terraform and monitored it with Prometheus and Grafana.'] },
   BA: { stack: 'Tools: Jira, Confluence, MS Visio, Figma\nDocumentation: BRD, FRD, User Stories\nData: SQL, Advanced Excel, Power BI\nMethodology: Agile, Scrum', bullets: [
     'Gathered and documented requirements for {features}.', 'Wrote BRD, FRD, and user stories in Jira and Confluence.', 'Supported UAT and sprint planning with the development team.'] },
+  'Testing (Auto, Manual)': { stack: 'Manual Testing: Functional, Regression, UAT\nAutomation: Selenium WebDriver, TestNG, Cucumber\nAPI Testing: Postman, Rest Assured\nTools: Jira, TestRail, Jenkins\nVersion Control: GitHub', bullets: [
+    'Tested the {area} platform across functional, regression and UAT cycles.', 'Automated regression suites with Selenium WebDriver and TestNG.', 'Logged and tracked defects in Jira through to closure.'] },
   'Tech Supp': { stack: 'Ticketing Tool: ServiceNow, Jira Service Desk\nOperating Systems: Windows, Linux\nNetworking: TCP/IP, DNS, VPN\nTools: Active Directory, Microsoft 365', bullets: [
     'Provided L1/L2 support to users of the {area} platform.', 'Resolved incidents and service requests within SLA in ServiceNow.', 'Maintained the knowledge base and escalated defects to the development team.'] },
   'Cyber Security': { stack: 'Security Tools: Burp Suite, Nessus, Nmap\nSIEM: Splunk\nStandards: OWASP Top 10, ISO 27001\nScripting: Python, Bash', bullets: [

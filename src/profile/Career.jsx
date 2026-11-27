@@ -19,7 +19,7 @@ const Chip = ({ className = 'border-gray-200 bg-gray-50 text-gray-700', style, c
   <span className={`whitespace-nowrap rounded-full border px-[2mm] py-[0.3mm] text-[7.5pt] ${className}`} style={style}>{children}</span>
 )
 // One pin colour per pass-out type: the title badge and the pin on the line match.
-const PIN = { hsc: '#d97706', diploma: '#0284c7', graduation: '#7c3aed', postgraduation: '#059669', phd: '#e11d48' }
+const PIN = { hsc: '#d97706', diploma: '#0284c7', graduation: '#7c3aed', postgraduation: '#059669', mba: '#0d9488', phd: '#e11d48' }
 const pinColor = (type) => PIN[type] ?? '#4b5563'
 
 // Drawn on the A4 sheet, in the 41mm free space: summary chips, then company/gap blocks on a line with years under it.
@@ -130,8 +130,8 @@ const input = 'h-8 w-full rounded-lg border border-gray-200 bg-white px-2.5 text
 const row = 'grid grid-cols-[20px_minmax(0,1fr)_minmax(0,1fr)_24px] items-center gap-1.5 @xl:grid-cols-[20px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_44px_24px]'
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-const FIRST_YEAR = 1990 // HSC pass-outs of experienced candidates go back this far
-const YEARS = Array.from({ length: new Date().getFullYear() - FIRST_YEAR + 1 }, (_, i) => String(FIRST_YEAR + i)) // 1990 → this year
+const FIRST_YEAR = 2005
+const YEARS = Array.from({ length: new Date().getFullYear() - FIRST_YEAR + 1 }, (_, i) => String(new Date().getFullYear() - i)) // newest first
 
 // Month dropdown then year dropdown, stored as "YYYY-MM" (half-filled stays "YYYY-" / "-MM" and is ignored by the timeline).
 function MonthYear({ value = '', onChange, label, disabled, invalid }) {
@@ -154,9 +154,10 @@ function MonthYear({ value = '', onChange, label, disabled, invalid }) {
 }
 
 // Side panel next to the sheet: any number of pass-outs (type + month/year) and companies.
-// passOut = the latest pass-out (worked out by the form), where the career timeline and gaps start.
+// passOut = the career-start pass-out (worked out by the form), where the career timeline and gaps start.
 export function CareerFields({ passOuts, passOut, companies, onPassOuts, onCompanies }) {
   const updatePassOut = (i, patch) => onPassOuts(passOuts.map((p, j) => (j === i ? { ...p, ...patch } : p)))
+  const marked = passOuts.some((p) => p.start)
   const update = (i, patch) => onCompanies(companies.map((c, j) => (j === i ? { ...c, ...patch } : c)))
   // Only one company can be the current one; clicking the selected radio again clears it.
   const setPresent = (i) => onCompanies(companies.map((c, j) => ({ ...c, present: j === i ? !c.present : false })))
@@ -166,13 +167,18 @@ export function CareerFields({ passOuts, passOut, companies, onPassOuts, onCompa
       <div className="space-y-2">
         <span className="text-xs font-bold text-gray-600"><span className="text-red-500">*</span> Pass-outs</span>
         {(passOuts.length ? passOuts : [{ type: '', date: '' }]).map((p, i, rows) => (
-          <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto_auto] items-center gap-2">
+          <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto_auto_auto] items-center gap-2">
             <select value={p.type} onChange={(e) => (passOuts.length ? updatePassOut(i, { type: e.target.value }) : onPassOuts([{ ...p, type: e.target.value }]))}
               aria-label={`Pass-out ${i + 1} type`} className={`${input} select-sm px-1.5 ${p.type ? '' : 'text-gray-400'}`}>
               <option value="">Type</option>
-              {PASS_OUTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              {PASS_OUTS.map(([v, l, h]) => <option key={v} value={v}>{h ? `${l} (${h})` : l}</option>)}
             </select>
             <MonthYear value={p.date} onChange={(v) => (passOuts.length ? updatePassOut(i, { date: v }) : onPassOuts([{ ...p, date: v }]))} label={`Pass-out ${i + 1}`} />
+            <label className={`flex items-center gap-1 text-[11px] text-gray-600 ${rows.length > 1 ? '' : 'invisible'}`} title="Experience gaps are counted from this pass-out">
+              <input type="radio" name="career-start" checked={marked ? !!p.start : !!p.date && p.date === passOut}
+                onChange={() => onPassOuts(passOuts.map((x, j) => ({ ...x, start: j === i })))} />
+              Start
+            </label>
             <button type="button" aria-label={`Remove pass-out ${i + 1}`} title="Remove" disabled={i === 0}
               onClick={() => onPassOuts(passOuts.filter((_, j) => j !== i))}
               className="flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:invisible">
@@ -187,9 +193,9 @@ export function CareerFields({ passOuts, passOut, companies, onPassOuts, onCompa
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-t border-gray-100 pt-3">
         <span className="text-xs font-bold text-gray-600">Company details ({companies.length})</span>
-        <Button size="sm" icon={ICONS.plus} onClick={() => onCompanies([...companies, { name: '', from: '', to: '', present: false }])}>Add company</Button>
+        <Button variant="outline" size="sm" icon={ICONS.plus} onClick={() => onCompanies([...companies, { name: '', from: '', to: '', present: false }])}>Add company</Button>
       </div>
 
       {companies.length === 0 && <p className="py-2 text-xs text-gray-400">No companies yet. Click “Add company”.</p>}

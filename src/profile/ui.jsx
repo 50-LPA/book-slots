@@ -24,8 +24,9 @@ const BUTTON = {
   dark: 'bg-sky-500 text-white enabled:hover:bg-sky-600',
   danger: 'bg-red-500 text-white enabled:hover:bg-red-600',
   plain: 'border border-slate-200 bg-white text-slate-700 enabled:hover:bg-slate-50',
+  outline: 'border border-emerald-500 bg-white text-emerald-600 shadow-none enabled:hover:bg-emerald-50',
 }
-// Rounded pill button with an optional icon. variant: primary | warning | dark | danger | plain. size: md | sm.
+// Rounded pill button with an optional icon. variant: primary | warning | dark | danger | plain | outline. size: md | sm.
 export function Button({ variant = 'primary', size = 'md', icon, children, className = '', ...rest }) {
   const sz = size === 'sm' ? 'h-7 gap-1 px-3 text-[11px]' : 'h-8 gap-1.5 px-3 text-[11px] sm:px-4 sm:text-sm'
   return (
